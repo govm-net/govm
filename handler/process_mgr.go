@@ -72,13 +72,13 @@ func processEvent(chain uint64) {
 		return
 	}
 	element := first.(*depend.DfElement)
+	log.Printf("start to proxy,key:%x,isBlock:%t,timeout:%d\n", element.Key, element.IsBlock, element.Timeout)
 
-	if element.Timeout > time.Now().Unix()+30 {
+	if element.Timeout+30 < time.Now().Unix() {
 		depend.Delete(chain, first.GetKey())
 	}
 
 	if !element.IsBlock {
-		log.Printf("the depend is transaction:%x\n", element.Key)
 		return
 	}
 
@@ -346,6 +346,7 @@ func doMine(chain uint64) {
 	}
 
 	if oldHP == 0 {
+		log.Printf("fail to doMine,error oldHP")
 		return
 	}
 
