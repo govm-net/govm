@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>GOVM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
+</head>
+
+<body ng-app="">
+    <div class="container">
+        <div id="navbar"></div>
+        <div class="col-md-12 column">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">
+                        Register
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <form class="bs-example bs-example-form" role="form">
+                        <div class="input-group">
+                            <span class="input-group-addon">Chain:</span>
+                            <input type="number" min="1" class="form-control" name="chain" value="1">
+                            <span class="input-group-addon label-success">*</span>
+                        </div>
+                        <br>
+                        <div class="input-group">
+                            <span class="input-group-addon">Index:</span>
+                            <input type="number" min="1000" class="form-control" name="index">
+                            <span class="input-group-addon label-success">*</span>
+                        </div>
+                        <br>
+                        <div class="input-group">
+                            <span class="input-group-addon">Cost:</span>
+                            <input type="number" min="1" class="form-control" name="cost">
+                            <span class="input-group-addon label-success">*</span>
+                        </div>
+                        <br>
+                        <div class="input-group">
+                            <span class="input-group-addon">Energy:</span>
+                            <input type="number" min="1" class="form-control" name="energy">
+                        </div>
+                        <br>
+                        <button type="button" class="btn btn-success pull-right" id="submit">Submit</button>
+                        <br>
+                    </form>
+                </div>
+                <div>
+                    <h3 id="result">
+                    </h3>
+                </div>
+            </div>
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">
+                        Search
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <div class="input-group">
+                        <span class="input-group-addon">Chain:</span>
+                        <input type="number" min="1" class="form-control" id="search_chain" value="1">
+                        <span class="input-group-addon label-success">*</span>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-addon">Index:</span>
+                        <input type="number" min="1" class="form-control" id="search_id">
+                        <span class="input-group-btn">
+                            <button class="btn btn-default" type="button" id="btn_key">Go!</button>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">
+                        Miner Info(register)
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <div class="input-group">
+                        <span class="input-group-addon">Chain:</span>
+                        <span class="form-control" id="s_chain"></span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon">Index:</span>
+                        <span class="form-control" id="s_index"></span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon">Miner1:</span>
+                        <span class="form-control" id="s_miner1"></span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon">Cost1:</span>
+                        <span class="form-control" id="s_cost1"></span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon">Miner2:</span>
+                        <span class="form-control" id="s_miner2"></span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon">Cost2:</span>
+                        <span class="form-control" id="s_cost2"></span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon">Miner3:</span>
+                        <span class="form-control" id="s_miner3"></span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon">Cost3:</span>
+                        <span class="form-control" id="s_cost3"></span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+
+    <!-- jQuery (Bootstrap 的 JavaScript 插件需要引入 jQuery) -->
+    <script src="js/jquery-3.3.1.min.js"></script>
+    <!-- 包括所有已编译的插件 -->
+    <script src="js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
+    <script src="js/load.js"></script>
+
+    <script type="text/javascript">
+        function getMiner(chain, query) {
+            $.get("/api/v1/" + chain + "/transaction/miner" + query, function (data, status) {
+                console.log(data)
+                $("#s_chain").html("<b>" + chain + "</b>");
+                $("#s_index").html("<b>" + data.index + "</b>");
+                $("#s_miner1").html("<b>" + bytes2Str(data.Miner[0]) + "</b>");
+                $("#s_cost1").html("<b>" + data.Cost[0] + "</b>");
+                $("#s_miner2").html("<b>" + bytes2Str(data.Miner[1]) + "</b>");
+                $("#s_cost2").html("<b>" + data.Cost[1] + "</b>");
+                $("#s_miner3").html("<b>" + bytes2Str(data.Miner[2]) + "</b>");
+                $("#s_cost3").html("<b>" + data.Cost[2] + "</b>");
+                $("#result").html("");
+            }).fail(function () {
+                $("#result").html("not found");
+                $("#s_chain").html("")
+                $("#s_index").html("")
+                $("#s_miner1").html("")
+                $("#s_cost1").html("")
+                $("#s_miner2").html("")
+                $("#s_cost2").html("")
+                $("#s_miner3").html("")
+                $("#s_cost3").html("")
+            });
+        }
+
+        $('#btn_key').on('click', function () {
+            var chain = $("#search_chain").val()
+            var val = $("#search_id").val()
+            getMiner(chain, "?index=" + val)
+        });
+
+
+        $('#submit').on('click', function () {
+            var data = $('form').serializeJSON()
+            console.log(data);
+            data.energy = parseInt(data.energy)
+            data.cost = parseInt(data.cost)
+            data.index = parseInt(data.index)
+            var chain = data.chain
+            data = JSON.stringify(data)
+            //alert(data)
+            $.ajax({
+                type: "POST",
+                url: "/api/v1/" + chain + "/transaction/miner",
+                data: data,
+                dataType: "json",
+                contentType: "application/json",
+                success: function (data) {
+                    $("#result").html("<span class=\"label label-success\">key:<a href=\"transaction.html?key="
+                        + data.address + "\">" + data.address + "</a></span>");
+                    $("#chain").html("");
+                    $("#index").html("");
+                    $("#miner").html("");
+                    $("#cost").html("");
+                    console.log(data);
+                },
+                error: function (XMLHttpRequest, textStatus, errorThrown) {
+                    $("#result").html("<span class=\"label label-danger\">error code:" + XMLHttpRequest.status +
+                        ". msg: " + XMLHttpRequest.responseText + "</span>");
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

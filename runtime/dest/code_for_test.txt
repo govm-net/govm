@@ -1,0 +1,51 @@
+
+// IRuntime The interface that the executive needs to register
+type IRuntime interface {
+	//Get the hash of the data
+	GetHash(in []byte) []byte
+	//Encoding data into data streams,without supporting variable length structure members.
+	Encode(in interface{}) []byte
+	//The data stream is filled into a variable of the specified type. Out needs to be a variable address and does not support variable length members, such as string, slice, etc.
+	Decode(in []byte, out interface{}) int
+	//A data stream that turns the structure into a JSON
+	JSONEncode(in interface{}) []byte
+	//Filling the data stream of JSON into the structure
+	JSONDecode(in []byte, out interface{})
+	//Signature verification
+	Recover(address, sign, msg []byte) bool
+	//The write interface of the database
+	DbSet(owner interface{}, key, value []byte, life uint64)
+	//The reading interface of the database
+	DbGet(owner interface{}, key []byte) ([]byte, uint64)
+	//The write interface of the log
+	LogWrite(owner interface{}, key, value []byte, life uint64)
+	//The reading interface of the log
+	LogRead(owner interface{}, chain uint64, key []byte) ([]byte, uint64)
+	//get life of the log
+	LogReadLife(owner interface{}, chain uint64, key []byte) uint64
+	//Get the app name with the private structure of app
+	GetAppName(in interface{}) []byte
+	//New app
+	NewApp(name []byte, code []byte)
+	//Run app,The content returned is allowed to read across the chain
+	RunApp(name, user, data []byte, energy, cost uint64) byte
+	//Event interface for notification to the outside
+	Event(user interface{}, event string, param ...[]byte)
+	//Consume energy
+	ConsumeEnergy(energy uint64)
+}
+type tUser struct{}
+
+var runT IRuntime
+
+func RegisterRuntime(in IRuntime) {
+	runT = in
+}
+
+func GetCheckSum() byte{
+	return 0
+}
+
+func run(user, in []byte, cost uint64) {
+	runT.Event(tUser{},"do run",user,in)
+}

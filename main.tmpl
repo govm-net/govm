@@ -1,0 +1,73 @@
+package main
+
+import (
+	app "{{.PackPath}}"
+	core "{{.CorePath}}"
+	"github.com/lengzhao/govm/counter"
+	"github.com/lengzhao/govm/runtime"
+	"github.com/lengzhao/govm/database"
+	"encoding/gob"
+	"bytes"
+	"log"
+	sysr "runtime"
+	"fmt"
+    "runtime/debug"
+)
+
+// TAppRPC rpc接口的对象定义
+type TAppRPC struct{}
+
+// TRunParam Run接口的入参
+type TRunParam struct {
+	Chain     uint64
+	Flag      []byte
+	User      []byte
+	Data      []byte
+	Cost      uint64
+	Energy    uint64
+	CheckSum  byte
+	ErrorInfo string
+}
+
+func main() {
+	args := TRunParam{}
+	log.SetFlags(log.Lshortfile | log.LstdFlags)
+	
+	log.Println("[app]start.")
+	defer func(){
+		e := recover()
+		if e != nil{
+			log.Println(string(debug.Stack()))
+			args.ErrorInfo = fmt.Sprintf("error message:%s", e)
+			args.Data = nil
+		}
+		var buf bytes.Buffer
+		enc := gob.NewEncoder(&buf)
+		enc.Encode(args)
+		database.Set({{.ChainID}}, []byte("app_run"), []byte("key"), buf.Bytes())
+	}()
+	d := database.Get({{.ChainID}}, []byte("app_run"), []byte("key"))
+	if len(d) == 0 {
+		log.Println("[db]fail to get data.")
+		panic("retry")
+	}
+	rst := bytes.NewBuffer(d)
+	dec := gob.NewDecoder(rst)
+	err := dec.Decode(&args)
+	if err != nil {
+		log.Println("decode error:", err)
+		panic("retry")
+	}
+	runt := new(runtime.TRuntime)
+	runt.SetInfo({{.ChainID}}, args.Flag)
+	counter.SetEnergy(args.Energy)
+	core.RegisterRuntime(runt)
+	app.GoVMRun(args.User, args.Data, args.Cost)
+
+	mem := sysr.MemStats{}
+	sysr.ReadMemStats(&mem)
+	if mem.TotalAlloc > 4*1024*1024*1024 {
+		panic(fmt.Sprintf("used too much memory:%d, over 4G",mem.TotalAlloc))
+	}
+	args.ErrorInfo = "ok"
+}

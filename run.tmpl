@@ -1,0 +1,12 @@
+package {{.AppName}}
+
+import (
+	"log"
+	"fmt"
+)
+
+func GoVMRun(user, in []byte, cost uint64){
+	log.SetPrefix(fmt.Sprintf("%s ",[]byte("{{.AppName}}")[:6]))
+	run(user,in,cost)
+}
+
