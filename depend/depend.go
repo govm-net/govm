@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"log"
 	"sync"
+	"time"
 )
 
 // IElement the element of depend
@@ -185,12 +186,14 @@ type DfElement struct {
 	Key     []byte
 	IsBlock bool
 	hexKey  string
+	Timeout int64
 }
 
 // GetKey get key
 func (e *DfElement) GetKey() string {
 	if e.hexKey == "" {
 		e.hexKey = hex.EncodeToString(e.Key)
+		e.Timeout = time.Now().Unix()
 	}
 
 	return e.hexKey
