@@ -80,7 +80,9 @@ func (m *Manager) First() IElement {
 	if e == nil {
 		return nil
 	}
-	return e.Value.(IElement)
+	out := e.Value.(IElement)
+	m.nodes[out.GetKey()] = e
+	return out
 }
 
 // Delete delete element by key
