@@ -1078,3 +1078,30 @@ func SystemExit(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	StopFlag <- true
 }
+
+// NodePost add new node
+func NodePost(w http.ResponseWriter, r *http.Request) {
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "fail to read body of request,", err)
+		return
+	}
+	info := messages.NewNode{}
+	err = json.Unmarshal(data, &info)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "fail to Unmarshal body of request,", err)
+		return
+	}
+
+	err = event.Send(&info)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "error:%s", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "new node:%s", info.Peer)
+}

@@ -52,6 +52,12 @@ type ChainEvent struct {
 	Param string
 }
 
+// NewNode new node
+type NewNode struct {
+	BaseMsg
+	Peer string
+}
+
 // Internal msg keys
 const (
 	BroadcastMsg = "broadcast"

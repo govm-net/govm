@@ -72,12 +72,17 @@ func processEvent(chain uint64) {
 		return
 	}
 	element := first.(*depend.DfElement)
+
+	if element.Timeout > time.Now().Unix()+30 {
+		depend.Delete(chain, first.GetKey())
+	}
+
 	if !element.IsBlock {
+		log.Printf("the depend is transaction:%x\n", element.Key)
 		return
 	}
 
 	key := element.Key
-
 	index := core.GetLastBlockIndex(chain)
 	procKey := core.GetTheBlockKey(chain, index)
 	if bytes.Compare(key, procKey) == 0 {

@@ -6,6 +6,7 @@ import (
 	"github.com/lengzhao/govm/event"
 	"github.com/lengzhao/govm/messages"
 	"github.com/lengzhao/libp2p"
+	"github.com/lengzhao/libp2p/plugins"
 	"log"
 )
 
@@ -50,6 +51,12 @@ func (p *InternalPlugin) event(m event.Message) error {
 	case *messages.Rollback:
 		log.Println("rollback block")
 		return dbRollBack(msg.Chain, msg.Index, msg.Key)
+	case *messages.NewNode:
+		session, err := p.network.NewSession(msg.Peer)
+		if err != nil {
+			return err
+		}
+		return session.Send(plugins.Ping{})
 	}
 	return nil
 }

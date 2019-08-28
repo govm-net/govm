@@ -32,7 +32,7 @@ type Routes []Route
 // NewRouter 创建http路由
 func NewRouter() *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
-	
+
 	for _, route := range routes {
 		var handler http.Handler
 		handler = route.HandlerFunc
@@ -46,7 +46,7 @@ func NewRouter() *mux.Router {
 	}
 
 	router.Methods("GET").Path("/api/v1/").Name("Index").HandlerFunc(Index)
-	router.Handle("/debug/vars",Logger(expvar.Handler(), "expvar"))
+	router.Handle("/debug/vars", Logger(expvar.Handler(), "expvar"))
 	router.Methods("GET").Name("static").Handler(http.FileServer(http.Dir("./static/")))
 
 	return router
@@ -172,11 +172,18 @@ var routes = Routes{
 		"/api/v1/{chain}/event",
 		EventPost,
 	},
-	
+
 	Route{
 		"SystemExit",
 		strings.ToUpper("Delete"),
 		"/api/v1/system",
 		SystemExit,
+	},
+
+	Route{
+		"AddNode",
+		strings.ToUpper("Post"),
+		"/api/v1/node",
+		NodePost,
 	},
 }
