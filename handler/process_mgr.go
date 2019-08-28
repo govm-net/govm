@@ -87,6 +87,11 @@ func processEvent(chain uint64) {
 	procKey := core.GetTheBlockKey(chain, index)
 	if bytes.Compare(key, procKey) == 0 {
 		depend.Delete(chain, first.GetKey())
+		rel := core.GetBlockReliability(chain, key)
+		if len(rel.Reliability) < 10 {
+			log.Println("error block reliability,rollback it.index:", index)
+			dbRollBack(chain, index, key)
+		}
 		go processEvent(chain)
 		return
 	}
@@ -124,7 +129,7 @@ func processEvent(chain uint64) {
 				&depend.DfElement{Key: block.Previous[:], IsBlock: true})
 			go processEvent(chain)
 			return
-		} else if len(rel.Reliability) == 0 && rel.Reliability[0] < 100 {
+		} else if len(rel.Reliability) == 1 && rel.Reliability[0] < 100 {
 			log.Printf("previous is error,reliability:%x,self index:%d,id of err block:%d,key of block:%x\n",
 				rel.Reliability, block.Index, rel.Index, rel.Key)
 			core.SaveBlockReliability(chain, block.Key[:], rel)
