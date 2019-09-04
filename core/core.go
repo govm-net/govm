@@ -1,4 +1,4 @@
-package acb2fb3994c274446f5dd4d8397d2f73ad68f32f649e2577c23877f3a4d7e1a05
+package a365d2b302434dac708688612b3b86a486d59c01071be7b2738eb8c6c028fd413
 
 type dbBlockData struct{}
 type dbTransactionData struct{}
@@ -92,12 +92,8 @@ type BaseInfo struct {
 	RightChildID  uint64
 }
 
+// time
 const (
-	// HashLen the byte length of Hash
-	HashLen = 32
-	// AddressLen the byte length of Address
-	AddressLen = 24
-	//TimeMillisecond The smallest unit of time
 	TimeMillisecond = 1
 	TimeSecond      = 1000 * TimeMillisecond
 	TimeMinute      = 60 * TimeSecond
@@ -105,8 +101,15 @@ const (
 	TimeDay         = 24 * TimeHour
 	TimeYear        = 31558150 * TimeSecond
 	TimeMonth       = TimeYear / 12
-	//Default interval time for block
-	baseBlockInterval  = 1 * TimeMinute
+)
+
+const (
+	// HashLen the byte length of Hash
+	HashLen = 32
+	// AddressLen the byte length of Address
+	AddressLen = 24
+
+	maxBlockInterval   = 1 * TimeMinute
 	minBlockInterval   = 10 * TimeMillisecond
 	blockSizeLimit     = 1 << 20
 	blockSyncMin       = 8 * TimeMinute
@@ -314,7 +317,7 @@ func (d *DB) SetInt(key []byte, value uint64, life uint64) {
 // Get Read data from database
 func (d *DB) Get(key []byte) ([]byte, uint64) {
 	assert(len(key) > 0)
-	gRuntime.ConsumeEnergy(gBS.BaseOpsEnergy / 10)
+	gRuntime.ConsumeEnergy(gBS.BaseOpsEnergy)
 	out, life := gRuntime.DbGet(d.owner, key)
 	if life <= gBS.Time {
 		return nil, 0
@@ -563,7 +566,6 @@ type Block struct {
 	Index         uint64
 	Nonce         uint64
 	Size          uint32
-	HashPower     uint8
 	//transList   []Hash
 }
 
@@ -615,7 +617,6 @@ func processBlock(chain uint64, key Hash) {
 		processFirstBlock(block, transList)
 		return
 	}
-	assert(block.HashPower > 0)
 	assert(chain == block.Chain)
 	assert(!block.Previous.Empty())
 	info := BlockInfo{}
@@ -635,17 +636,19 @@ func processBlock(chain uint64, key Hash) {
 	avgSize = (avgSize*(depositCycle-1) + uint64(block.Size)) / depositCycle
 	pDbStat.SetInt([]byte{StatAvgBlockSize}, avgSize, maxDbLife)
 
-	preHashPower := uint8(pDbStat.GetInt([]byte{StatHashPower}))
+	hpLimit := pDbStat.GetInt([]byte{StatHashPower})
 	blockInterval := pDbStat.GetInt([]byte{StatBlockInterval})
 	decT := block.Time - preB.Time
 	if block.Index == 2 && block.Chain > 1 {
-		assert(decT == blockSyncMax+blockSyncMin+baseBlockInterval)
+		assert(decT == blockSyncMax+blockSyncMin+maxBlockInterval)
 	} else {
 		assert(decT == blockInterval)
 	}
-	assert(block.HashPower >= preHashPower-1)
-	assert(block.HashPower <= preHashPower+1)
-	assert(getHashPower(key) >= preHashPower)
+	hp := getHashPower(key)
+	assert(hp > 0)
+	assert(hp >= hpLimit/1000)
+	hp = hp + hpLimit - hpLimit/1000 - 5
+	pDbStat.SetInt([]byte{StatHashPower}, hp, maxDbLife)
 
 	if gBS.Chain == 1 {
 		assert(block.Parent.Empty())
@@ -734,7 +737,6 @@ func processBlock(chain uint64, key Hash) {
 		adminTransfer(gPublicAddr, block.Producer, val)
 	}
 
-	pDbStat.SetInt([]byte{StatHashPower}, uint64(block.HashPower), maxDbLife)
 	Event(logBlockInfo{}, "finish_block", key[:])
 }
 
@@ -784,7 +786,7 @@ func processFirstBlock(block Block, transList []byte) {
 	guerdon := pDbStat.GetInt([]byte{StatGuerdon})
 
 	pDbStat.SetInt([]byte{StatBlockSizeLimit}, blockSizeLimit, maxDbLife)
-	pDbStat.SetInt([]byte{StatHashPower}, uint64(block.HashPower), maxDbLife)
+	pDbStat.SetInt([]byte{StatHashPower}, 5000, maxDbLife)
 	pDbStat.SetInt([]byte{StatBlockInterval}, getBlockInterval(gBS.Chain), maxDbLife)
 	pDbStat.Set([]byte{StatFirstBlockKey}, gBS.Key[:], maxDbLife)
 	pDbStat.SetInt([]byte{StatHateRatio}, hateRatioMax, maxDbLife)
@@ -794,7 +796,7 @@ func processFirstBlock(block Block, transList []byte) {
 }
 
 func getBlockInterval(chain uint64) uint64 {
-	var out uint64 = baseBlockInterval - minBlockInterval
+	var out uint64 = maxBlockInterval - minBlockInterval
 	for chain > 1 {
 		out = out * 15 / 16
 		chain = chain / 2
@@ -803,8 +805,8 @@ func getBlockInterval(chain uint64) uint64 {
 	return out
 }
 
-func getHashPower(in Hash) uint8 {
-	var out uint8
+func getHashPower(in Hash) uint64 {
+	var out uint64
 	for i := 0; i < HashLen; i++ {
 		out += 8
 		item := in[i]
@@ -937,6 +939,7 @@ func processTransaction(block BlockInfo, key Hash) uint32 {
 	info.User = trans.User
 	info.Ops = trans.Ops
 	info.Cost = trans.Cost
+	pDbTransInfo.Set(key[:], Encode(0, info), defauldbLife)
 
 	trans.Energy /= 2
 	adminTransfer(trans.User, gPublicAddr, trans.Energy)
@@ -970,7 +973,6 @@ func processTransaction(block BlockInfo, key Hash) uint32 {
 		assert(false)
 	}
 
-	pDbTransInfo.Set(key[:], Encode(0, info), defauldbLife)
 	Event(dbTransInfo{}, "finish_transaction", key[:])
 	return uint32(len(data))
 }
@@ -1025,7 +1027,7 @@ func MoveCost(user interface{}, chain, cost uint64) {
 			assert(gBS.RightChildID > 0)
 		}
 	}
-	gRuntime.ConsumeEnergy(100 * gBS.BaseOpsEnergy)
+	gRuntime.ConsumeEnergy(1000 * gBS.BaseOpsEnergy)
 	addr := GetAppAccount(user)
 	adminTransfer(addr, Address{}, cost)
 	stru := syncMoveInfo{addr, cost}
@@ -1205,10 +1207,7 @@ func pRunApp(t Transaction) {
 	assert(info.Life >= gBS.Time)
 
 	adminTransfer(t.User, info.Account, t.Cost)
-
-	assert(t.Energy > uint64(len(t.data)))
-	energy := t.Energy - uint64(len(t.data))
-	gRuntime.RunApp(name[:], t.User[:], t.data[n:], energy, t.Cost)
+	gRuntime.RunApp(name[:], t.User[:], t.data[n:], t.Energy, t.Cost)
 }
 
 // UpdateInfo Information of update app life
@@ -1418,7 +1417,7 @@ func UpdateConfig(user interface{}, ops uint8, newSize uint32) {
 		max = 1 << 40
 	case StatBlockInterval:
 		min = minBlockInterval
-		max = baseBlockInterval
+		max = maxBlockInterval
 	case StatHateRatio:
 		assert(gBS.Chain == 1)
 		min = 50

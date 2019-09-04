@@ -1,4 +1,4 @@
-package acb2fb3994c274446f5dd4d8397d2f73ad68f32f649e2577c23877f3a4d7e1a05
+package a365d2b302434dac708688612b3b86a486d59c01071be7b2738eb8c6c028fd413
 
 import (
 	"bytes"
@@ -116,6 +116,7 @@ func (t *StTrans) CreateUpdateAppLife(app Hash, life uint64) {
 }
 
 const (
+	// MinerNum number of miner pre block
 	MinerNum = 11
 )
 

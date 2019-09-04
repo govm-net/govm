@@ -8,7 +8,6 @@ import (
 	"github.com/lengzhao/govm/conf"
 	core "github.com/lengzhao/govm/core"
 	"github.com/lengzhao/govm/database"
-	"github.com/lengzhao/govm/depend"
 	"github.com/lengzhao/govm/messages"
 	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/libp2p"
@@ -53,7 +52,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			log.Println("fail to get the key,index:", msg.Index, ",chain:", msg.Chain)
 			return nil
 		}
-		rel := core.GetBlockReliability(msg.Chain, key)
+		rel := core.ReadBlockReliability(msg.Chain, key)
 		resp := new(messages.BlockInfo)
 		resp.Chain = msg.Chain
 		resp.Index = msg.Index
@@ -69,14 +68,10 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		}
 		if core.IsExistBlock(msg.Chain, msg.Key) {
 			log.Println("block exist:", msg.Index, ",chain:", msg.Chain, ",self:", index)
-			if index < msg.Index {
-				depend.Insert(msg.Chain, &depend.DfElement{Key: msg.Key, IsBlock: true}, nil)
-				go processEvent(msg.Chain)
-			}
 			if msg.Index < index {
 				key := core.GetTheBlockKey(msg.Chain, index)
 				if len(key) > 0 {
-					ctx.Reply(&messages.BlockInfo{Chain: msg.Chain, Index: msg.Index, Key: key})
+					ctx.Reply(&messages.BlockInfo{Chain: msg.Chain, Index: index, Key: key})
 				}
 			}
 			return nil
@@ -176,6 +171,9 @@ func blockRun(chain uint64, key []byte) (err error) {
 }
 
 func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) {
+	if getHashPower(key) < 5 {
+		return nil
+	}
 	// 解析block
 	block := core.DecodeBlock(data)
 	if block == nil {
@@ -196,11 +194,15 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 		}
 
 		if chain > 1 {
-			nIndex := core.GetLastBlockIndex(chain)
+			nIndex := core.GetLastBlockIndex(chain / 2)
 			if nIndex < 1 {
 				return nil
 			}
 		}
+	}
+
+	if block.Time > uint64(time.Now().Unix()+5)*1000 {
+		return nil
 	}
 
 	// 如果block比当前的链短了10个块，则丢弃
@@ -221,12 +223,9 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 
 	//前一块还不存在，下载
 	if block.Index > 1 && !core.IsExistBlock(chain, block.Previous[:]) {
-		depend.Insert(chain, &depend.DfElement{Key: block.Key[:], IsBlock: true},
-			&depend.DfElement{Key: block.Previous[:], IsBlock: true})
 		keyStr := hex.EncodeToString(block.Previous[:])
 		msg := &messages.ReqBlock{Chain: chain, Key: block.Previous[:]}
 		download(chain, keyStr, ctx.GetSession(), msg)
-		return nil
 	}
 
 	peer := ctx.GetSession()
@@ -234,18 +233,27 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 		if core.IsExistTransaction(chain, t[:]) {
 			continue
 		}
-		depend.Insert(chain, &depend.DfElement{Key: block.Key[:], IsBlock: true}, &depend.DfElement{Key: t[:]})
 		keyStr := hex.EncodeToString(t[:])
 		msg := &messages.ReqTransaction{Chain: chain, Key: t[:]}
 		download(chain, keyStr, peer, msg)
 	}
-	ctx.Reply(&messages.ReqBlockInfo{Chain: chain, Index: block.Index + 1})
-	if block.Previous.Empty() {
-		depend.Insert(chain, &depend.DfElement{Key: block.Key[:], IsBlock: true}, nil)
-	} else {
-		depend.Insert(chain, &depend.DfElement{Key: block.Key[:], IsBlock: true},
-			&depend.DfElement{Key: block.Previous[:], IsBlock: true})
+
+	rel := block.GetReliability()
+
+	ib := core.ReadIDBlocks(chain, block.Index)
+	hp := rel.HashPower
+	sk := block.Key
+	for i, b := range ib.Blocks {
+		if sk == ib.Blocks[i] {
+			break
+		}
+		if hp > ib.HashPower[i] {
+			log.Printf("processBlock IDBlocks switch,index:%d,i:%d,old:%x,new:%x\n", block.Index, i, b, sk)
+			hp, ib.HashPower[i] = ib.HashPower[i], hp
+			sk, ib.Blocks[i] = b, sk
+		}
 	}
+	core.SaveIDBlocks(chain, block.Index, ib)
 
 	go processEvent(chain)
 
@@ -339,7 +347,6 @@ func processTransaction(ctx libp2p.Event, chain uint64, key, data []byte) error 
 	}
 
 	log.Printf("receive new transaction:%d, %x \n", chain, key)
-	depend.Delete(chain, hex.EncodeToString(key))
 	go processEvent(chain)
 
 	return nil
@@ -359,6 +366,7 @@ func dbRollBack(chain, index uint64, key []byte) error {
 		return errors.New("error block key of the index")
 	}
 	for nIndex >= index {
+		log.Printf("dbRollBack,chain:%d,index:%d,key:%x\n", chain, index, key)
 		lKey = core.GetTheBlockKey(chain, nIndex)
 		err = database.Rollback(chain, lKey)
 		if err != nil {

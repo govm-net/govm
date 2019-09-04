@@ -2,15 +2,14 @@ package handler
 
 import (
 	"bytes"
+	"encoding/hex"
 	"github.com/lengzhao/govm/event"
-	"io/ioutil"
 	"log"
 	"sync"
 	"time"
 
 	"github.com/lengzhao/govm/conf"
 	core "github.com/lengzhao/govm/core"
-	"github.com/lengzhao/govm/depend"
 	"github.com/lengzhao/govm/messages"
 	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/govm/wallet"
@@ -40,6 +39,63 @@ func GraceStop() {
 	procMgr.wg.Wait()
 }
 
+func getBestBlock(chain, index uint64, preKey []byte) core.TReliability {
+	var relia core.TReliability
+	ib := core.ReadIDBlocks(chain, index)
+	now := time.Now().Unix()
+	for i, b := range ib.Blocks {
+		if b.Empty() {
+			break
+		}
+		key := b[:]
+		log.Printf("getBestBlock,chain:%d,index:%d,key:%x,%d\n", chain, index, b, i)
+		data := core.ReadBlockData(chain, key)
+		if data == nil {
+			log.Printf("not exist block data.chain:%d,key:%x\n", chain, key)
+			download(chain, hex.EncodeToString(key), nil, &messages.ReqBlock{Chain: chain, Key: key})
+			continue
+		}
+		block := core.DecodeBlock(data)
+		if block == nil {
+			continue
+		}
+		if len(preKey) > 0 && bytes.Compare(preKey, block.Previous[:]) != 0 {
+			continue
+		}
+		// time.Second
+		if block.Time > uint64(now+5)*1000 {
+			continue
+		}
+		var lost bool
+		for _, t := range block.TransList {
+			if core.IsExistTransaction(chain, t[:]) {
+				continue
+			}
+			keyStr := hex.EncodeToString(t[:])
+			msg := &messages.ReqTransaction{Chain: chain, Key: t[:]}
+			download(chain, keyStr, nil, msg)
+			lost = true
+		}
+		if lost {
+			continue
+		}
+		rel := core.ReadBlockReliability(chain, key)
+		if rel.Time == 0 {
+			rel = block.GetReliability()
+		}
+		if rel.RollbackTimes > 5 {
+			continue
+		}
+		if rel.RunTimes > rel.RunSuccessCount+3 {
+			continue
+		}
+		if rel.Cmp(relia) > 0 {
+			relia = rel
+		}
+	}
+	return relia
+}
+
 func processEvent(chain uint64) {
 	if procMgr.stop {
 		return
@@ -65,214 +121,91 @@ func processEvent(chain uint64) {
 	if procMgr.stop {
 		return
 	}
-
-	first := depend.First(chain)
-	if first == nil {
-		//log.Println("fail to get first depend:", chain)
-		return
-	}
-	element := first.(*depend.DfElement)
-	log.Printf("start to proxy,key:%x,isBlock:%t,timeout:%d\n", element.Key, element.IsBlock, element.Timeout)
-
-	if element.Timeout+30 < time.Now().Unix() {
-		depend.Delete(chain, first.GetKey())
-	}
-
-	if !element.IsBlock {
-		return
-	}
-
-	key := element.Key
 	index := core.GetLastBlockIndex(chain)
-	procKey := core.GetTheBlockKey(chain, index)
-	if bytes.Compare(key, procKey) == 0 {
-		depend.Delete(chain, first.GetKey())
-		rel := core.GetBlockReliability(chain, key)
-		if len(rel.Reliability) < 10 {
-			log.Println("error block reliability,rollback it.index:", index)
-			dbRollBack(chain, index, key)
-		}
-		go processEvent(chain)
-		return
-	}
-
-	oldRel := core.GetBlockReliability(chain, key)
-	if len(oldRel.Reliability) == 1 && oldRel.Reliability[0] > 3 && oldRel.Index <= index {
-		log.Printf("the reliability of block > 3.chain:%d,key:%x,index:%d,last index:%d\n",
-			chain, key, oldRel.Index, index)
-		depend.Delete(chain, first.GetKey())
-		go processEvent(chain)
-		return
-	}
-
-	data := core.ReadBlockData(chain, key)
-	if data == nil {
-		log.Printf("not exist block data.chain:%d,key:%x\n", chain, key)
-		download(chain, first.GetKey(), nil, &messages.ReqBlock{Chain: chain, Key: key})
-		return
-	}
-	block := core.DecodeBlock(data)
-	if block == nil {
-		depend.Pop(chain)
-		return
-	}
-
-	if block.Time > uint64(time.Now().Unix()+5)*1000 {
-		return
-	}
-
-	if block.Index > 1 {
-		rel := core.GetBlockReliability(chain, block.Previous[:])
-		// 前一个还没处理，优先处理前一个
-		if len(rel.Reliability) == 0 {
-			depend.Insert(chain, &depend.DfElement{Key: block.Key[:], IsBlock: true},
-				&depend.DfElement{Key: block.Previous[:], IsBlock: true})
-			go processEvent(chain)
-			return
-		} else if len(rel.Reliability) == 1 && rel.Reliability[0] < 100 {
-			log.Printf("previous is error,reliability:%x,self index:%d,id of err block:%d,key of block:%x\n",
-				rel.Reliability, block.Index, rel.Index, rel.Key)
-			core.SaveBlockReliability(chain, block.Key[:], rel)
-			depend.Delete(chain, first.GetKey())
-			return
-		}
-		preKey := core.GetTheBlockKey(chain, block.Index-1)
-		if len(preKey) == 0 {
-			depend.Insert(chain, &depend.DfElement{Key: block.Key[:], IsBlock: true},
-				&depend.DfElement{Key: block.Previous[:], IsBlock: true})
-			go processEvent(chain)
-			return
-		}
-		// 前一个block不一样，忽略
-		if bytes.Compare(block.Previous[:], preKey) != 0 {
-			rel.Reliability = []byte{1}
-			core.SaveBlockReliability(chain, key, rel)
-			depend.Delete(chain, first.GetKey())
-			return
-		}
-	} else if block.Index == 1 {
+	ib := core.ReadIDBlocks(chain, index+1)
+	if index == 0 {
 		if chain > 1 {
-			if !core.ChainIsCreated(chain) {
+			cInfo := core.GetChainInfo(chain / 2)
+			if cInfo.LeftChildID == 1 || cInfo.RightChildID == 1 {
+				c := conf.GetConf()
+				data := core.ReadTransactionData(chain/2, c.FirstTransName)
+				core.WriteTransaction(chain, data)
+				data = core.ReadBlockData(chain/2, ib.Blocks[0][:])
+				core.WriteTransaction(chain, data)
+			} else {
 				return
 			}
-		}
-		c := conf.GetConf()
-		if !core.IsExistTransaction(chain, c.FirstTransName) {
-			depend.Insert(chain, &depend.DfElement{Key: block.Key[:], IsBlock: true}, &depend.DfElement{Key: c.FirstTransName})
-			return
 		}
 
 		core.CreateBiosTrans(chain)
 	}
-
-	defer func() {
-		depend.Delete(chain, first.GetKey())
-
-		autoRegisterMiner(chain)
-
-		t := core.GetBlockTime(chain)
-		t += uint64(5 * 60 * 1000)
-		if t/1000 < uint64(time.Now().Unix()) {
-			return
-		}
-
-		c := conf.GetConf()
-		lastIndex := core.GetLastBlockIndex(chain)
-		if c.ForceMine || core.IsMiner(chain, lastIndex+1, c.WalletAddr) {
-			go doMine(chain)
-		}
-	}()
-
-	rel := block.GetReliability()
-	core.SaveBlockReliability(chain, key, rel)
-
-	lKey := core.GetTheBlockKey(chain, block.Index)
-	if lKey != nil {
-		lRel := core.GetBlockReliability(chain, lKey)
-		if rel.Cmp(lRel) <= 0 {
-			return
-		}
-		if block.Index+6 < index {
-			log.Printf("block too old,chain:%d,index:%d,key:%x, exist index:%d\n", chain, block.Index, block.Key[:], index)
-			return
-		}
-		//rollback
-		err := dbRollBack(chain, block.Index, block.Previous[:])
-		if err != nil {
-			log.Printf("fail to rollback:%d,%x,%s\n", chain, key, err)
+	var relia core.TReliability
+	t := core.GetBlockTime(chain)
+	now := time.Now().Unix()
+	if t+120000 > uint64(now)*1000 {
+		preKey := core.GetTheBlockKey(chain, index-6)
+		relia = getBestBlock(chain, index-5, preKey)
+		key := core.GetTheBlockKey(chain, index-5)
+		if !relia.Key.Empty() && bytes.Compare(key, relia.Key[:]) != 0 {
+			log.Printf("processEvent,replace index-5. index:%d,key:%x,relia:%x\n", index, key, relia.Key)
+			rel := core.ReadBlockReliability(chain, preKey)
+			rel.RollbackTimes++
+			core.SaveBlockReliability(chain, preKey, rel)
+			dbRollBack(chain, index-5, key)
+			log.Println("dbRollBack1")
+			go processEvent(chain)
 			return
 		}
 	}
+	preKey := core.GetTheBlockKey(chain, index)
+	relia = getBestBlock(chain, index+1, preKey)
 
-	err := blockRun(chain, key)
-	if err != nil {
-		if len(oldRel.Reliability) == 1 {
-			oldRel.Reliability[0]++
-		} else {
-			oldRel.Reliability = []byte{1}
+	if relia.Key.Empty() {
+		t := core.GetBlockTime(chain)
+		t += 600000
+		if t < uint64(now)*1000 {
+			dbRollBack(chain, index, preKey)
+			log.Printf("dbRollBack one block. block time:%d now:%d,index:%d,key:%x\n", t-600000, now, index, preKey)
+			rel := core.ReadBlockReliability(chain, preKey)
+			rel.RollbackTimes++
+			core.SaveBlockReliability(chain, preKey, rel)
+			go processEvent(chain)
 		}
-
-		core.SaveBlockReliability(chain, key, oldRel)
-		log.Printf("error block,chain:%d,index:%d,key:%x,error:%s\n", chain, block.Index, block.Key[:], err)
-		// log.Println("block info:", block)
 		return
+	}
+	relia.RunTimes++
+	log.Printf("start to process block,chain:%d,index:%d,key:%x\n", chain, relia.Index, relia.Key)
+	err := blockRun(chain, relia.Key[:])
+	if err != nil {
+		log.Printf("fail to process block,chain:%d,index:%d,key:%x,error:%s\n", chain, index+1, relia.Key, err)
+		core.SaveBlockReliability(chain, relia.Key[:], relia)
+		return
+	}
+	relia.RunSuccessCount++
+	core.SaveBlockReliability(chain, relia.Key[:], relia)
+
+	info := messages.BlockInfo{}
+	info.Chain = chain
+	info.Index = index + 1
+	info.Key = relia.Key[:]
+	mgr.net.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
+
+	if relia.Time+300000 > uint64(now)*1000 {
+		go doMine(chain)
 	}
 
 	cInfo := core.GetChainInfo(chain)
 	if cInfo.LeftChildID == 1 {
-		childChain := 2 * chain
-		id := core.GetLastBlockIndex(childChain)
-		if id == 0 {
-			data, err := ioutil.ReadFile("first_trans.dat")
-			if err == nil {
-				core.WriteTransaction(childChain, data)
-			}
-			data, err = ioutil.ReadFile("first_block.dat")
-			if err == nil {
-				core.WriteBlock(childChain, data)
-			}
-			depend.Insert(childChain, &depend.DfElement{Key: data[:core.HashLen], IsBlock: true}, nil)
-			go processEvent(childChain)
-		}
+		go processEvent(chain * 2)
+	} else if cInfo.RightChildID == 1 {
+		go processEvent(chain*2 + 1)
 	}
-	if cInfo.RightChildID == 1 {
-		childChain := 2*chain + 1
-		id := core.GetLastBlockIndex(childChain)
-		if id == 0 {
-			data, err := ioutil.ReadFile("first_trans.dat")
-			if err == nil {
-				core.WriteTransaction(childChain, data)
-			}
-			data, err = ioutil.ReadFile("first_block.dat")
-			if err == nil {
-				core.WriteBlock(childChain, data)
-			}
-			depend.Insert(childChain, &depend.DfElement{Key: data[:core.HashLen], IsBlock: true}, nil)
-			go processEvent(childChain)
-		}
-	}
-
-	info := messages.BlockInfo{}
-	info.Chain = chain
-	info.Index = block.Index
-	info.Key = block.Key[:]
-
-	mgr.net.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
-	// log.Println("SendInternalMsg BlockInfo:", info)
-
-	cfg := conf.GetConf()
-	if chain == cfg.ChainOfMine || cfg.ChainOfMine == 0 {
-		for _, key := range block.TransList {
-			delTrans(chain, key[:])
-		}
-	}
-	// log.Printf("success process block,chain:%d,index:%d,key:%x\n", chain, block.Index, block.Key[:])
 
 	go processEvent(chain)
 }
 
-func getHashPower(in []byte) uint8 {
-	var out uint8
+func getHashPower(in []byte) uint64 {
+	var out uint64
 	for _, item := range in {
 		out += 8
 		if item != 0 {
@@ -309,7 +242,7 @@ func doMine(chain uint64) {
 	block.SetTransList(lst)
 	block.Size = size
 	var key core.Hash
-	var oldHP uint8
+	var oldHP uint64
 
 	for {
 		if procMgr.stop {
@@ -338,7 +271,7 @@ func doMine(chain uint64) {
 		data := block.Output()
 
 		hp := getHashPower(block.Key[:])
-		if hp <= block.PreHashpower {
+		if hp <= block.HashpowerLimit {
 			block.Nonce++
 			// log.Printf("drop hash:%x,data:%x\n", key, signData[:6])
 			continue
@@ -355,11 +288,23 @@ func doMine(chain uint64) {
 		return
 	}
 
-	depend.Insert(chain, &depend.DfElement{Key: key[:], IsBlock: true},
-		&depend.DfElement{Key: block.Previous[:], IsBlock: true})
-
 	log.Printf("mine one blok,chain:%d,index:%d,hashpower:%d,hp limit:%d,key:%x\n",
-		chain, block.Index, oldHP, block.HashPower, block.Key[:])
+		chain, block.Index, oldHP, block.HashpowerLimit, key[:])
+
+	ib := core.ReadIDBlocks(chain, block.Index)
+	hp := oldHP
+	for i, b := range ib.Blocks {
+		if key == b {
+			break
+		}
+		if hp > ib.HashPower[i] {
+			log.Printf("IDBlocks switch,index:%d,i:%d,old:%x,new:%x\n", block.Index, i, b, key)
+			hp, ib.HashPower[i] = ib.HashPower[i], hp
+			key, ib.Blocks[i] = b, key
+		}
+	}
+	core.SaveIDBlocks(chain, block.Index, ib)
+
 	go processEvent(chain)
 }
 
