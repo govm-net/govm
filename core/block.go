@@ -30,11 +30,16 @@ type TReliability struct {
 	Index           uint64 `json:"index,omitempty"`
 	HashPower       uint64 `json:"hash_power,omitempty"`
 	Miner           bool   `json:"miner,omitempty"`
+}
+
+// BlockRunStat stat of block
+type BlockRunStat struct {
 	RunTimes        int    `json:"run_times,omitempty"`
 	RunSuccessCount int    `json:"run_success_count,omitempty"`
 	RollbackTimes   int    `json:"rollback_times,omitempty"`
 }
 type dbReliability struct{}
+type dbBlockRunStat struct{}
 type dbIDBlocks struct{}
 
 // NewBlock new block
@@ -251,7 +256,6 @@ func (b *StBlock) GetReliability() TReliability {
 	getDataFormDB(b.Chain, dbMining{}, runtime.Encode(b.Index), &miner)
 
 	preRel := ReadBlockReliability(b.Chain, b.Previous[:])
-
 	for i := 0; i < minerNum; i++ {
 		if miner.Miner[i] == b.Producer {
 			power += uint64(minerNum-i) + 5
@@ -329,6 +333,32 @@ func DeleteBlockReliability(chain uint64, key []byte) {
 	runtime.AdminDbSet(dbReliability{}, chain, key, runtime.Encode(info), 0)
 }
 
+// SaveBlockRunStat save block stat
+func SaveBlockRunStat(chain uint64, key []byte, rb BlockRunStat) {
+	if chain == 0 {
+		return
+	}
+	data, err := json.Marshal(rb)
+	if err != nil {
+		log.Fatal(err)
+	}
+	runtime.AdminDbSet(dbBlockRunStat{}, chain, key, data, 2<<50)
+}
+
+// ReadBlockRunStat get stat of block
+func ReadBlockRunStat(chain uint64, key []byte) (cl BlockRunStat) {
+	if chain == 0 {
+		return
+	}
+	stream, _ := runtime.DbGet(dbBlockRunStat{}, chain, key)
+	if stream != nil {
+		json.Unmarshal(stream, &cl)
+	}
+
+	return
+}
+
+
 // IsExistBlock Determine whether block exists
 func IsExistBlock(chain uint64, key []byte) bool {
 	return runtime.DbExist(dbBlockData{}, chain, key)
@@ -341,8 +371,6 @@ const NumOfIDBlocks = 10
 type IDBlocks struct {
 	Blocks    [NumOfIDBlocks]Hash
 	HashPower [NumOfIDBlocks]uint64
-	Flag      [NumOfIDBlocks]uint64
-	Count     int
 }
 
 // SaveIDBlocks save blocks of the index
