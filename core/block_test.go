@@ -1,4 +1,4 @@
-package acb2fb3994c274446f5dd4d8397d2f73ad68f32f649e2577c23877f3a4d7e1a05
+package a365d2b302434dac708688612b3b86a486d59c01071be7b2738eb8c6c028fd413
 
 import (
 	"github.com/lengzhao/govm/runtime"
@@ -19,7 +19,7 @@ func TestDecodeBlock(t *testing.T) {
 	runtime.Decode(stream, &address)
 	block := NewBlock(1, address)
 	block.Size = 0
-	block.Time = 1000000 + baseBlockInterval
+	block.Time = 1000000 + maxBlockInterval
 	block.SetTransList(transList[:])
 	data := block.GetSignData()
 	sign := wallet.Sign(privateKey, data)

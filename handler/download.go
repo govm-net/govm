@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"github.com/lengzhao/govm/depend"
 	"github.com/lengzhao/govm/messages"
 	"github.com/lengzhao/libp2p"
 	"log"
@@ -61,10 +60,6 @@ func finishDL(key string) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 	delete(mgr.tasks, key)
-	t := mgr.tasks[key]
-	if t != nil {
-		depend.Delete(t.chain, key)
-	}
 	go doDL()
 }
 
@@ -92,7 +87,6 @@ func doDL() {
 	if t.retry > 10 {
 		mgr.array = mgr.array[1:]
 		delete(mgr.tasks, k)
-		depend.Delete(t.chain, k)
 		log.Println("download task retry>10,", k)
 		go doDL()
 		return

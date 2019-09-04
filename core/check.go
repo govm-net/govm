@@ -1,8 +1,9 @@
-package acb2fb3994c274446f5dd4d8397d2f73ad68f32f649e2577c23877f3a4d7e1a05
+package a365d2b302434dac708688612b3b86a486d59c01071be7b2738eb8c6c028fd413
 
 import (
 	"errors"
 	"fmt"
+	"github.com/lengzhao/govm/conf"
 
 	"github.com/lengzhao/govm/runtime"
 )
@@ -26,12 +27,17 @@ func CheckTransaction(chain uint64, key []byte) (uint32, error) {
 			return 0, errors.New("error chain id")
 		}
 		if trans.User != author {
-			return 0, errors.New("error chain id")
+			return 0, errors.New("error trans user")
 		}
 	}
-	if trans.Energy <= uint64(len(stream)) {
+	if trans.Energy < conf.GetConf().EnergyOfTrans {
+		return 0, errors.New("not enough energy1")
+	}
+
+	if trans.Energy < uint64(len(stream)) {
 		return 0, errors.New("not enough energy")
 	}
+
 	var cost uint64
 	getDataFormDB(chain, dbCoin{}, trans.User[:], &cost)
 	if cost == 0 || trans.Cost+trans.Energy > cost {

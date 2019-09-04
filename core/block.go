@@ -1,11 +1,10 @@
-package acb2fb3994c274446f5dd4d8397d2f73ad68f32f649e2577c23877f3a4d7e1a05
+package a365d2b302434dac708688612b3b86a486d59c01071be7b2738eb8c6c028fd413
 
 import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/big"
 	"time"
 
 	"github.com/lengzhao/govm/conf"
@@ -17,24 +16,26 @@ import (
 // StBlock StBlock
 type StBlock struct {
 	Block
-	Key          Hash
-	sign         []byte
-	TransList    []Hash
-	PreHashpower uint8
+	Key            Hash
+	sign           []byte
+	TransList      []Hash
+	HashpowerLimit uint64
 }
 
 // TReliability Reliability of block
 type TReliability struct {
-	Key         Hash   `json:"key,omitempty"`
-	Previous    Hash   `json:"previous,omitempty"`
-	Time        uint64 `json:"time,omitempty"`
-	Index       uint64 `json:"index,omitempty"`
-	Reliability []byte `json:"reliability,omitempty"`
-	rel         big.Int
-	HashPower   uint8 `json:"hash_power,omitempty"`
-	Miner       bool  `json:"miner,omitempty"`
+	Key             Hash   `json:"key,omitempty"`
+	Previous        Hash   `json:"previous,omitempty"`
+	Time            uint64 `json:"time,omitempty"`
+	Index           uint64 `json:"index,omitempty"`
+	HashPower       uint64 `json:"hash_power,omitempty"`
+	Miner           bool   `json:"miner,omitempty"`
+	RunTimes        int    `json:"run_times,omitempty"`
+	RunSuccessCount int    `json:"run_success_count,omitempty"`
+	RollbackTimes   int    `json:"rollback_times,omitempty"`
 }
 type dbReliability struct{}
+type dbIDBlocks struct{}
 
 // NewBlock new block
 /*
@@ -46,36 +47,26 @@ type dbReliability struct{}
 	6. Output
 */
 func NewBlock(chain uint64, producer Address) *StBlock {
-	var preHashPower uint64
+	var hashPowerLimit uint64
 	var blockInterval uint64
 	var pStat BaseInfo
 	out := new(StBlock)
 	getDataFormDB(chain, dbStat{}, []byte{StatBaseInfo}, &pStat)
-	getDataFormDB(chain, dbStat{}, []byte{StatHashPower}, &preHashPower)
+	getDataFormDB(chain, dbStat{}, []byte{StatHashPower}, &hashPowerLimit)
 	getDataFormDB(chain, dbStat{}, []byte{StatBlockInterval}, &blockInterval)
-	out.PreHashpower = uint8(preHashPower)
 
-	if preHashPower == 0 {
-		preHashPower = 5
+	hashPowerLimit /= 1000
+	if hashPowerLimit < 5 {
+		hashPowerLimit = 5
 	}
-	hp := getHashPower(pStat.Key)
-	if uint64(hp) > preHashPower+10 {
-		preHashPower++
-	} else if uint64(hp) < preHashPower+5 {
-		preHashPower--
-	}
-
-	if preHashPower == 0 {
-		preHashPower++
-	}
+	out.HashpowerLimit = hashPowerLimit
 
 	if pStat.ID == 1 && chain > 1 {
-		pStat.Time = pStat.Time + blockSyncMax + blockSyncMin + baseBlockInterval
+		pStat.Time = pStat.Time + blockSyncMax + blockSyncMin + maxBlockInterval
 	} else {
 		pStat.Time += blockInterval
 	}
 
-	out.HashPower = uint8(preHashPower)
 	out.Previous = pStat.Key
 	out.Producer = producer
 	out.Time = pStat.Time
@@ -252,38 +243,29 @@ func (b *StBlock) GetReliability() TReliability {
 	const (
 		WeightOfHashPower = 10000
 	)
-	var power uint
+	var power uint64
 	var selfRel TReliability
 	var miner Miner
 
 	// getDataFormDB(b.Chain, dbReliability{}, b.Previous[:], &preRel)
 	getDataFormDB(b.Chain, dbMining{}, runtime.Encode(b.Index), &miner)
 
-	// hp := getHashPower(b.Key)
-	// if hp < preRel.HashPower {
-	// 	return selfRel
-	// }
-	// power += uint(hp)
-	// power += uint(preRel.HashPower)
+	preRel := ReadBlockReliability(b.Chain, b.Previous[:])
+
 	for i := 0; i < minerNum; i++ {
 		if miner.Miner[i] == b.Producer {
-			power += uint(minerNum-i) + 5
+			power += uint64(minerNum-i) + 5
+			selfRel.Miner = true
 			break
 		}
 	}
-	// selfRel.Reliability = power * WeightOfHashPower
-	// selfRel.Reliability += preRel.Reliability * (depositCycle - 1)
-	// selfRel.Reliability = selfRel.Reliability / depositCycle
-	// selfRel.Reliability = b.Key
-	var rel big.Int
-	rel.SetBytes(b.Key[:])
-	selfRel.rel.Rsh(&rel, power)
-	selfRel.Reliability = selfRel.rel.Bytes()
+	power += getHashPower(b.Key)
+	power += preRel.HashPower * 99 / 100
 
 	selfRel.Key = b.Key
 	selfRel.Index = b.Index
 	selfRel.Previous = b.Previous
-	selfRel.HashPower = b.HashPower
+	selfRel.HashPower = power
 	selfRel.Time = b.Time
 
 	return selfRel
@@ -291,17 +273,33 @@ func (b *StBlock) GetReliability() TReliability {
 
 // Cmp compares x and y and returns:
 //
-//   +1 if x <=  y
-//   -1 if x >  y
+//   +1 if x >  y
+//   -1 if x <  y
+//   0  if x =  y
 func (x TReliability) Cmp(y TReliability) int {
-	if x.rel.Cmp(&y.rel) <= 0 {
+	if x.HashPower > y.HashPower {
 		return 1
 	}
-	return -1
+	if x.HashPower < y.HashPower {
+		return -1
+	}
+	for i, b := range x.Key {
+		if b > y.Key[i] {
+			return -1
+		}
+		if b < y.Key[i] {
+			return 1
+		}
+	}
+
+	return 0
 }
 
 // SaveBlockReliability save block reliability
 func SaveBlockReliability(chain uint64, key []byte, rb TReliability) {
+	if chain == 0 {
+		return
+	}
 	data, err := json.Marshal(rb)
 	if err != nil {
 		log.Fatal(err)
@@ -309,20 +307,24 @@ func SaveBlockReliability(chain uint64, key []byte, rb TReliability) {
 	runtime.AdminDbSet(dbReliability{}, chain, key, data, 2<<50)
 }
 
-// GetBlockReliability get Reliability of block
-func GetBlockReliability(chain uint64, key []byte) (cl TReliability) {
+// ReadBlockReliability get Reliability of block from db
+func ReadBlockReliability(chain uint64, key []byte) (cl TReliability) {
+	if chain == 0 {
+		return
+	}
 	stream, _ := runtime.DbGet(dbReliability{}, chain, key)
 	if stream != nil {
 		json.Unmarshal(stream, &cl)
-		cl.rel.SetBytes(cl.Reliability)
 	}
-	// getDataFormDB(chain, dbReliability{}, key, &cl)
 
 	return
 }
 
 // DeleteBlockReliability delete reliability of block
 func DeleteBlockReliability(chain uint64, key []byte) {
+	if chain == 0 {
+		return
+	}
 	info := TReliability{}
 	runtime.AdminDbSet(dbReliability{}, chain, key, runtime.Encode(info), 0)
 }
@@ -330,6 +332,45 @@ func DeleteBlockReliability(chain uint64, key []byte) {
 // IsExistBlock Determine whether block exists
 func IsExistBlock(chain uint64, key []byte) bool {
 	return runtime.DbExist(dbBlockData{}, chain, key)
+}
+
+// NumOfIDBlocks the number of blocks pre ID
+const NumOfIDBlocks = 10
+
+// IDBlocks the blocks of same index
+type IDBlocks struct {
+	Blocks    [NumOfIDBlocks]Hash
+	HashPower [NumOfIDBlocks]uint64
+	Flag      [NumOfIDBlocks]uint64
+	Count     int
+}
+
+// SaveIDBlocks save blocks of the index
+func SaveIDBlocks(chain, index uint64, ib IDBlocks) {
+	if chain == 0 {
+		return
+	}
+	key := runtime.Encode(index)
+	data, err := json.Marshal(ib)
+	if err != nil {
+		log.Println("fail to Marshal IDBlocks.", err)
+		return
+	}
+	runtime.AdminDbSet(dbIDBlocks{}, chain, key, data, 2<<50)
+}
+
+// ReadIDBlocks get blocks of the index
+func ReadIDBlocks(chain, index uint64) (ib IDBlocks) {
+	if chain == 0 {
+		return
+	}
+	key := runtime.Encode(index)
+	stream, _ := runtime.DbGet(dbIDBlocks{}, chain, key)
+	if stream != nil {
+		json.Unmarshal(stream, &ib)
+	}
+
+	return
 }
 
 // WriteBlock write block data to database
@@ -375,13 +416,13 @@ func GetLastBlockIndex(chain uint64) uint64 {
 
 // GetTheBlockKey get block key,if index==0,return last key
 func GetTheBlockKey(chain, index uint64) []byte {
+	var key Hash
 	if chain == 0 {
 		return nil
 	}
 	if index == 0 {
 		index = GetLastBlockIndex(chain)
 	}
-	var key Hash
 	getDataFormLog(chain, logBlockInfo{}, runtime.Encode(index), &key)
 	if key.Empty() {
 		return nil
