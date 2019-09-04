@@ -39,14 +39,16 @@ func GraceStop() {
 	procMgr.wg.Wait()
 }
 
-func getBestBlock(chain, index uint64, preKey []byte) core.TReliability {
+func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability,int) {
 	var relia core.TReliability
+	var num int
 	ib := core.ReadIDBlocks(chain, index)
 	now := time.Now().Unix()
 	for i, b := range ib.Blocks {
 		if b.Empty() {
 			break
 		}
+		num++
 		key := b[:]
 		log.Printf("getBestBlock,chain:%d,index:%d,key:%x,%d\n", chain, index, b, i)
 		data := core.ReadBlockData(chain, key)
@@ -79,21 +81,20 @@ func getBestBlock(chain, index uint64, preKey []byte) core.TReliability {
 		if lost {
 			continue
 		}
-		rel := core.ReadBlockReliability(chain, key)
-		if rel.Time == 0 {
-			rel = block.GetReliability()
-		}
-		if rel.RollbackTimes > 5 {
+		rel := block.GetReliability()
+		stat := core.ReadBlockRunStat(chain,key)
+		
+		if stat.RollbackTimes > 5 {
 			continue
-		}
-		if rel.RunTimes > rel.RunSuccessCount+3 {
+		} 
+		if stat.RunTimes > stat.RunSuccessCount+3 {
 			continue
 		}
 		if rel.Cmp(relia) > 0 {
 			relia = rel
 		}
 	}
-	return relia
+	return relia,num
 }
 
 func processEvent(chain uint64) {
@@ -144,13 +145,13 @@ func processEvent(chain uint64) {
 	now := time.Now().Unix()
 	if t+120000 > uint64(now)*1000 {
 		preKey := core.GetTheBlockKey(chain, index-6)
-		relia = getBestBlock(chain, index-5, preKey)
+		relia,_ = getBestBlock(chain, index-5, preKey)
 		key := core.GetTheBlockKey(chain, index-5)
 		if !relia.Key.Empty() && bytes.Compare(key, relia.Key[:]) != 0 {
 			log.Printf("processEvent,replace index-5. index:%d,key:%x,relia:%x\n", index, key, relia.Key)
-			rel := core.ReadBlockReliability(chain, preKey)
-			rel.RollbackTimes++
-			core.SaveBlockReliability(chain, preKey, rel)
+			stat := core.ReadBlockRunStat(chain, preKey)
+			stat.RollbackTimes++
+			core.SaveBlockRunStat(chain, preKey, stat)
 			dbRollBack(chain, index-5, key)
 			log.Println("dbRollBack1")
 			go processEvent(chain)
@@ -158,31 +159,35 @@ func processEvent(chain uint64) {
 		}
 	}
 	preKey := core.GetTheBlockKey(chain, index)
-	relia = getBestBlock(chain, index+1, preKey)
-
-	if relia.Key.Empty() {
+	relia,num := getBestBlock(chain, index+1, preKey)
+	if relia.Key.Empty(){
+		if num == 0{
+			return
+		}
 		t := core.GetBlockTime(chain)
 		t += 600000
 		if t < uint64(now)*1000 {
-			dbRollBack(chain, index, preKey)
 			log.Printf("dbRollBack one block. block time:%d now:%d,index:%d,key:%x\n", t-600000, now, index, preKey)
-			rel := core.ReadBlockReliability(chain, preKey)
-			rel.RollbackTimes++
-			core.SaveBlockReliability(chain, preKey, rel)
+			dbRollBack(chain, index, preKey)
+			stat := core.ReadBlockRunStat(chain, preKey)
+			stat.RollbackTimes++
+			core.SaveBlockRunStat(chain, preKey, stat)
 			go processEvent(chain)
 		}
 		return
 	}
-	relia.RunTimes++
+	stat := core.ReadBlockRunStat(chain, relia.Key[:])
+	stat.RunTimes++
 	log.Printf("start to process block,chain:%d,index:%d,key:%x\n", chain, relia.Index, relia.Key)
 	err := blockRun(chain, relia.Key[:])
 	if err != nil {
 		log.Printf("fail to process block,chain:%d,index:%d,key:%x,error:%s\n", chain, index+1, relia.Key, err)
-		core.SaveBlockReliability(chain, relia.Key[:], relia)
+		core.SaveBlockRunStat(chain, relia.Key[:], stat)
 		return
 	}
-	relia.RunSuccessCount++
+	stat.RunSuccessCount++
 	core.SaveBlockReliability(chain, relia.Key[:], relia)
+	core.SaveBlockRunStat(chain, relia.Key[:], stat)
 
 	info := messages.BlockInfo{}
 	info.Chain = chain
@@ -298,7 +303,7 @@ func doMine(chain uint64) {
 			break
 		}
 		if hp > ib.HashPower[i] {
-			log.Printf("IDBlocks switch,index:%d,i:%d,old:%x,new:%x\n", block.Index, i, b, key)
+			// log.Printf("IDBlocks switch,index:%d,i:%d,old:%x,new:%x\n", block.Index, i, b, key)
 			hp, ib.HashPower[i] = ib.HashPower[i], hp
 			key, ib.Blocks[i] = b, key
 		}

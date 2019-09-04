@@ -245,10 +245,11 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 	sk := block.Key
 	for i, b := range ib.Blocks {
 		if sk == ib.Blocks[i] {
+			ib.HashPower[i] = rel.HashPower
 			break
 		}
 		if hp > ib.HashPower[i] {
-			log.Printf("processBlock IDBlocks switch,index:%d,i:%d,old:%x,new:%x\n", block.Index, i, b, sk)
+			// log.Printf("processBlock IDBlocks switch,index:%d,i:%d,old:%x,new:%x\n", block.Index, i, b, sk)
 			hp, ib.HashPower[i] = ib.HashPower[i], hp
 			sk, ib.Blocks[i] = b, sk
 		}
