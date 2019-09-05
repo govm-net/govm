@@ -36,7 +36,7 @@ func main() {
 	defer func(){
 		e := recover()
 		if e != nil{
-			log.Println("fail to run app:{{.PackPath}}")
+			log.Println("fail to run app:{{.PackPath}} ",e)
 			log.Println(string(debug.Stack()))
 			args.ErrorInfo = fmt.Sprintf("error message:%s", e)
 			args.Data = nil

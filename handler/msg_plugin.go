@@ -12,6 +12,7 @@ import (
 	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/libp2p"
 	"log"
+	"runtime/debug"
 	"time"
 )
 
@@ -63,7 +64,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 	case *messages.BlockInfo:
 		log.Printf("<%x> BlockKey %d %d\n", ctx.GetPeerID(), msg.Chain, msg.Index)
 		index := core.GetLastBlockIndex(msg.Chain)
-		if msg.Index+100 < index {
+		if msg.Index+10 < index {
 			return nil
 		}
 		if core.IsExistBlock(msg.Chain, msg.Key) {
@@ -153,6 +154,7 @@ func blockRun(chain uint64, key []byte) (err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("blockRun error,chain %d, key %x, err:%s", chain, key, e)
+			log.Println(string(debug.Stack()))
 		}
 	}()
 
