@@ -294,6 +294,11 @@ func doMine(chain uint64) {
 
 	log.Printf("mine one blok,chain:%d,index:%d,hashpower:%d,hp limit:%d,key:%x\n",
 		chain, block.Index, oldHP, block.HashpowerLimit, key[:])
+	info := messages.BlockInfo{}
+	info.Chain = chain
+	info.Index = block.Index
+	info.Key = key[:]
+	mgr.net.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 
 	ib := core.ReadIDBlocks(chain, block.Index)
 	hp := oldHP
