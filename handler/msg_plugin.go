@@ -113,6 +113,11 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		err = processBlock(ctx, msg.Chain, msg.Key, msg.Data)
 		keyStr := hex.EncodeToString(msg.Key)
 		finishDL(keyStr)
+		if err == nil {
+			m := &messages.BlockInfo{Chain: msg.Chain, Key: msg.Key}
+			p.net.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: m})
+			log.Printf("Broadcast block data,chain:%d,key:%x\n", msg.Chain, msg.Key)
+		}
 
 	case *messages.TransactionData:
 		log.Printf("<%x> TransactionData %d %x\n", ctx.GetPeerID(), msg.Chain, msg.Key)
@@ -139,9 +144,6 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 				ctx.Reply(&messages.ReqBlockInfo{Chain: 1, Index: index})
 			}
 		}
-	}
-	if err != nil {
-		log.Printf("process result:%t,%s\n", ctx.GetMessage(), err)
 	}
 
 	return nil
@@ -239,7 +241,6 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 	}
 
 	rel := block.GetReliability()
-
 	ib := core.ReadIDBlocks(chain, block.Index)
 	hp := rel.HashPower
 	sk := block.Key
@@ -279,6 +280,9 @@ func processTransaction(ctx libp2p.Event, chain uint64, key, data []byte) error 
 	trans := core.DecodeTrans(data)
 	if trans == nil {
 		return errors.New("error transaction")
+	}
+	if bytes.Compare(trans.Key[:], key) != 0 {
+		return errors.New("error transaction key")
 	}
 
 	nIndex := core.GetLastBlockIndex(chain)

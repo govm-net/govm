@@ -875,8 +875,7 @@ func BlockInfoGet(w http.ResponseWriter, r *http.Request) {
 	data := core.ReadBlockData(chain, key)
 	if len(data) == 0 {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("error key"))
-		fmt.Fprintf(w, "chain:%d,key:%x", chain, key)
+		fmt.Fprintf(w, "error key.chain:%d,key:%x,index:%d\n", chain, key, index)
 		return
 	}
 	block := core.DecodeBlock(data)
