@@ -8,12 +8,17 @@ import (
 	"github.com/lengzhao/govm/runtime"
 )
 
-// CheckTransaction check
+// CheckTransaction check trans for mine
 func CheckTransaction(chain uint64, key []byte) (uint32, error) {
 	if chain == 0 {
 		return 0, errors.New("not support,chain == 0")
 	}
-	stream, _ := runtime.DbGet(dbTransactionData{}, chain, key)
+	stream, _ := runtime.DbGet(dbTransInfo{}, chain, key)
+	if stream != nil {
+		return 0, errors.New("transaction is exist")
+	}
+
+	stream, _ = runtime.DbGet(dbTransactionData{}, chain, key)
 	if stream == nil {
 		return 0, errors.New("transaction data is not exist")
 	}

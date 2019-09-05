@@ -261,25 +261,6 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 	return nil
 }
 
-func filterTrans(chain uint64, transList [][]byte) (uint32, []core.Hash) {
-	out := make([]core.Hash, 0)
-	var size uint32
-	for _, key := range transList {
-		len, err := core.CheckTransaction(chain, key)
-		if err != nil {
-			// add to blackList
-			log.Printf("CheckTransaction error,key:%x, error:%s\n", key, err)
-			continue
-		}
-		size += len
-		h := core.Hash{}
-		runtime.Decode(key, &h)
-		out = append(out, h)
-	}
-
-	return size, out
-}
-
 func processTransaction(ctx libp2p.Event, chain uint64, key, data []byte) error {
 	if chain == 0 {
 		return errors.New("not support")
@@ -291,9 +272,9 @@ func processTransaction(ctx libp2p.Event, chain uint64, key, data []byte) error 
 		}
 	}()
 
-	if core.IsExistTransaction(chain, key) {
-		return errors.New("exist")
-	}
+	// if core.IsExistTransaction(chain, key) {
+	// 	return errors.New("exist")
+	// }
 
 	trans := core.DecodeTrans(data)
 	if trans == nil {
@@ -342,13 +323,12 @@ func processTransaction(ctx libp2p.Event, chain uint64, key, data []byte) error 
 	}
 
 	c := conf.GetConf()
-
 	if (chain == c.ChainOfMine || c.ChainOfMine == 0) && trans.Energy > c.EnergyLimitOfMine {
 		addTrans(key, trans.User[:], chain, trans.Time, trans.Energy, uint64(len(data)))
 	}
 
 	log.Printf("receive new transaction:%d, %x \n", chain, key)
-	go processEvent(chain)
+	// go processEvent(chain)
 
 	return nil
 }

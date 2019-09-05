@@ -23,6 +23,10 @@ import (
 
 func main() {
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
+	lf := new(logWriter)
+	defer lf.Close()
+	log.SetOutput(lf)
+	
 
 	c := conf.GetConf()
 	conf.LoadWallet(c.WalletFile, c.Password)
@@ -107,4 +111,48 @@ func loadNodeKey() []byte {
 		wallet.SaveWallet(nodeKeyFile, passwd, addr, privKey, nil)
 	}
 	return privKey
+}
+
+type logWriter struct {
+	os.File
+	size int
+	fn   string
+	f    *os.File
+}
+
+func (l *logWriter) Write(data []byte) (int, error) {
+	now := time.Now()
+	fn := fmt.Sprintf("./log/govm_%d%02d%02d.log", now.Year(), now.Month(), now.Day())
+	if fn != l.fn {
+		l.fn = fn
+		if l.f == nil {
+			os.Mkdir("./log/", 766)
+		}else{
+			l.f.Close()
+			l.f = nil
+		}
+		l.size = 0
+		file, err := os.OpenFile(fn, os.O_CREATE|os.O_APPEND|os.O_SYNC, 0755)
+		if err != nil {
+			return 0, err
+		}
+		l.f = file
+		os.Stdout = file
+		os.Stderr = file
+	}
+	if l.f == nil{
+		return 0,nil
+	}
+	if l.size > (500<<20) {
+		l.f.Seek(0, 0)
+		l.size = 0
+	}
+	l.size += len(data)
+	return l.f.Write(data)
+}
+
+func (l *logWriter) Close() {
+	if l.f != nil {
+		l.f.Close()
+	}
 }
