@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"github.com/lengzhao/govm/event"
 	"log"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -39,7 +40,7 @@ func GraceStop() {
 	procMgr.wg.Wait()
 }
 
-func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability,int) {
+func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability, int) {
 	var relia core.TReliability
 	var num int
 	ib := core.ReadIDBlocks(chain, index)
@@ -82,11 +83,11 @@ func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability,int) {
 			continue
 		}
 		rel := block.GetReliability()
-		stat := core.ReadBlockRunStat(chain,key)
-		
+		stat := core.ReadBlockRunStat(chain, key)
+
 		if stat.RollbackTimes > 5 {
 			continue
-		} 
+		}
 		if stat.RunTimes > stat.RunSuccessCount+3 {
 			continue
 		}
@@ -94,7 +95,7 @@ func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability,int) {
 			relia = rel
 		}
 	}
-	return relia,num
+	return relia, num
 }
 
 func processEvent(chain uint64) {
@@ -105,6 +106,7 @@ func processEvent(chain uint64) {
 		e := recover()
 		if e != nil {
 			log.Println("something error,", e)
+			log.Println(string(debug.Stack()))
 		}
 	}()
 
@@ -145,7 +147,7 @@ func processEvent(chain uint64) {
 	now := time.Now().Unix()
 	if t+120000 > uint64(now)*1000 {
 		preKey := core.GetTheBlockKey(chain, index-7)
-		relia,_ = getBestBlock(chain, index-6, preKey)
+		relia, _ = getBestBlock(chain, index-6, preKey)
 		key := core.GetTheBlockKey(chain, index-6)
 		if !relia.Key.Empty() && bytes.Compare(key, relia.Key[:]) != 0 {
 			log.Printf("processEvent,replace index-6. index:%d,key:%x,relia:%x\n", index, key, relia.Key)
@@ -241,7 +243,7 @@ func doMine(chain uint64) {
 	runtime.Decode(c.WalletAddr, &addr)
 	block := core.NewBlock(chain, addr)
 
-	transList,size := getTransListForMine(chain)
+	transList, size := getTransListForMine(chain)
 
 	block.SetTransList(transList)
 	block.Size = uint32(size)

@@ -3,7 +3,6 @@ package a365d2b302434dac708688612b3b86a486d59c01071be7b2738eb8c6c028fd413
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"log"
 	"time"
 
@@ -263,8 +262,8 @@ func (b *StBlock) GetReliability() TReliability {
 		}
 	}
 	power += getHashPower(b.Key)
-	power += preRel.HashPower 
-	power -= preRel.HashPower/100
+	power += preRel.HashPower
+	power -= preRel.HashPower / 100
 
 	selfRel.Key = b.Key
 	selfRel.Index = b.Index
@@ -493,28 +492,6 @@ func GetMinerInfo(chain, index uint64) Miner {
 	}
 
 	return miner
-}
-
-// RunBlock run block
-func RunBlock(chain uint64, key []byte) (err error) {
-	defer func() {
-		if e := recover(); e != nil {
-			err = fmt.Errorf("RunBlock error,chain %d, key %x, err:%s", chain, key, e)
-		}
-	}()
-	c := conf.GetConf()
-	err = database.OpenFlag(chain, key)
-	if err != nil {
-		log.Println("fail to open Flag,", err)
-		return
-	}
-	defer database.Cancel(chain, key)
-
-	param := runtime.Encode(chain)
-	param = append(param, key...)
-	runtime.RunApp(key, chain, c.CorePackName, nil, param, 2<<50, 0)
-	database.Commit(chain, key)
-	return nil
 }
 
 // CreateBiosTrans CreateBiosTrans
