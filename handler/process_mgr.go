@@ -144,15 +144,15 @@ func processEvent(chain uint64) {
 	t := core.GetBlockTime(chain)
 	now := time.Now().Unix()
 	if t+120000 > uint64(now)*1000 {
-		preKey := core.GetTheBlockKey(chain, index-6)
-		relia,_ = getBestBlock(chain, index-5, preKey)
-		key := core.GetTheBlockKey(chain, index-5)
+		preKey := core.GetTheBlockKey(chain, index-7)
+		relia,_ = getBestBlock(chain, index-6, preKey)
+		key := core.GetTheBlockKey(chain, index-6)
 		if !relia.Key.Empty() && bytes.Compare(key, relia.Key[:]) != 0 {
-			log.Printf("processEvent,replace index-5. index:%d,key:%x,relia:%x\n", index, key, relia.Key)
+			log.Printf("processEvent,replace index-6. index:%d,key:%x,relia:%x\n", index, key, relia.Key)
 			stat := core.ReadBlockRunStat(chain, preKey)
 			stat.RollbackTimes++
 			core.SaveBlockRunStat(chain, preKey, stat)
-			dbRollBack(chain, index-5, key)
+			dbRollBack(chain, index-6, key)
 			log.Println("dbRollBack1")
 			go processEvent(chain)
 			return
@@ -195,7 +195,7 @@ func processEvent(chain uint64) {
 	info.Key = relia.Key[:]
 	mgr.net.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 
-	if relia.Time+300000 > uint64(now)*1000 {
+	if relia.Time+200000 > uint64(now)*1000 {
 		go doMine(chain)
 	}
 
@@ -241,11 +241,10 @@ func doMine(chain uint64) {
 	runtime.Decode(c.WalletAddr, &addr)
 	block := core.NewBlock(chain, addr)
 
-	transList := getTransListForMine(chain)
-	size, lst := filterTrans(chain, transList)
+	transList,size := getTransListForMine(chain)
 
-	block.SetTransList(lst)
-	block.Size = size
+	block.SetTransList(transList)
+	block.Size = uint32(size)
 	var key core.Hash
 	var oldHP uint64
 

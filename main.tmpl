@@ -32,11 +32,11 @@ type TRunParam struct {
 func main() {
 	args := TRunParam{}
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
-	
-	log.Println("[app]start.")
+	log.Println("[app]start app.",{{.PackPath}})
 	defer func(){
 		e := recover()
 		if e != nil{
+			log.Println("fail to run app:",{{.PackPath}})
 			log.Println(string(debug.Stack()))
 			args.ErrorInfo = fmt.Sprintf("error message:%s", e)
 			args.Data = nil

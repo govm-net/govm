@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/boltdb/bolt"
 	core "github.com/lengzhao/govm/core"
+	"github.com/lengzhao/govm/runtime"
 	"log"
 )
 
@@ -70,13 +71,14 @@ func atoi(in []byte) uint64 {
 	return binary.BigEndian.Uint64(in)
 }
 
-func getTransListForMine(chain uint64) [][]byte {
-	out := make([][]byte, 0)
+func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
+	out := make([]core.Hash, 0)
+
 	delList := make([][]byte, 0)
 	var size uint64
 	maxT := core.GetBlockTime(chain)
-	minT := maxT - 20*24*3600*1000
-	// acceptT := core.GetBlockTime(chain) - 20*24*3600*1000
+	minT := maxT - 9*24*3600*1000
+
 	dataDb.View(func(tx *bolt.Tx) error {
 		buck := tx.Bucket(getTbName(chain))
 		if buck == nil {
@@ -92,13 +94,21 @@ func getTransListForMine(chain uint64) [][]byte {
 				log.Printf("transaction too old,not accept. key:%x,time:%d, accept time:%d\n", item.Key, item.Time, minT)
 				continue
 			}
-			if item.Time > maxT{
+			if item.Time > maxT {
 				continue
 			}
 			if size+item.Size > limitSize {
 				return nil
 			}
-			out = append(out, k)
+			_, err := core.CheckTransaction(chain, k)
+			if err != nil {
+				log.Printf("CheckTransaction error,key:%x, error:%s\n", k, err)
+				delList = append(delList, k)
+				continue
+			}
+			h := core.Hash{}
+			runtime.Decode(k, &h)
+			out = append(out, h)
 			size += item.Size
 		}
 		return nil
@@ -110,11 +120,11 @@ func getTransListForMine(chain uint64) [][]byte {
 			buck.Delete(k)
 		}
 		for _, k := range out {
-			buck.Delete(k)
+			buck.Delete(k[:])
 		}
 		return nil
 	})
-	log.Printf("mine. trans list len:%d\n", len(out))
+	log.Printf("mine. trans list num:%d\n", len(out))
 
-	return out
+	return out, size
 }

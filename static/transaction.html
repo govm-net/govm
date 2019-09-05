@@ -132,7 +132,7 @@
             $.get("/api/v1/" + chain + "/transaction/info" + query, function (data, status) {
                 console.log(data)
                 $("#chain").html("<b>" + data.Chain + "</b>");
-                $("#key").html("<b>" + bytes2Str(data.Key) + "</b>");
+                $("#key").html("<b>" + $("#search_key").val() + "</b>");
                 $("#user").html("<b>" + bytes2Str(data.User) + "</b>");
                 var myDate = new Date()
                 myDate.setTime(data.Time)
