@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"net/rpc"
 	"os"
@@ -23,12 +24,13 @@ import (
 
 func main() {
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
-	lf := new(logWriter)
-	defer lf.Close()
-	log.SetOutput(lf)
-	
-
 	c := conf.GetConf()
+	if c.SaveLog {
+		lf := new(logWriter)
+		defer lf.Close()
+		log.SetOutput(lf)
+	}
+
 	conf.LoadWallet(c.WalletFile, c.Password)
 	// start database server
 	{
@@ -39,13 +41,21 @@ func main() {
 		sr.Register(&db)
 		sr.HandleHTTP(rpc.DefaultRPCPath, rpc.DefaultDebugPath)
 
+		ln, err := net.Listen(c.DbAddrType, c.DbServerAddr)
+		if err != nil {
+			return
+		}
+
 		server := &http.Server{
 			Addr:         c.DbServerAddr,
 			ReadTimeout:  10 * time.Second,
 			WriteTimeout: 10 * time.Second,
+			IdleTimeout:  20 * time.Second,
 			Handler:      sr,
 		}
-		go server.ListenAndServe()
+		// go server.ListenAndServe()
+
+		go server.Serve(ln)
 	}
 
 	// startHTTPServer
@@ -127,7 +137,7 @@ func (l *logWriter) Write(data []byte) (int, error) {
 		l.fn = fn
 		if l.f == nil {
 			os.Mkdir("./log/", 766)
-		}else{
+		} else {
 			l.f.Close()
 			l.f = nil
 		}
@@ -140,10 +150,10 @@ func (l *logWriter) Write(data []byte) (int, error) {
 		os.Stdout = file
 		os.Stderr = file
 	}
-	if l.f == nil{
-		return 0,nil
+	if l.f == nil {
+		return 0, nil
 	}
-	if l.size > (500<<20) {
+	if l.size > (500 << 20) {
 		l.f.Seek(0, 0)
 		l.size = 0
 	}

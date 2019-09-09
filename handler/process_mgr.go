@@ -2,7 +2,6 @@ package handler
 
 import (
 	"bytes"
-	"encoding/hex"
 	"github.com/lengzhao/govm/event"
 	"log"
 	"runtime/debug"
@@ -18,20 +17,29 @@ import (
 
 // chain->index->blockKey->reliability
 type tProcessMgr struct {
-	mu     sync.Mutex
-	stop   bool
-	wg     sync.WaitGroup
-	Chains map[uint64]*sync.Mutex
+	mu       sync.Mutex
+	stop     bool
+	wg       sync.WaitGroup
+	Chains   map[uint64]chan int
+	mineLock chan int
 }
 
 var procMgr tProcessMgr
 
 func init() {
-	procMgr.Chains = make(map[uint64]*sync.Mutex)
+	procMgr.Chains = make(map[uint64]chan int)
 	var i uint64
 	for i = 0; i < 100; i++ {
-		procMgr.Chains[i] = new(sync.Mutex)
+		procMgr.Chains[i] = make(chan int, 1)
 	}
+	procMgr.mineLock = make(chan int, 1)
+
+	time.AfterFunc(time.Second*5, timeoutFunc)
+}
+
+func timeoutFunc() {
+	time.AfterFunc(time.Second*20, timeoutFunc)
+	processEvent(1)
 }
 
 // GraceStop grace stop
@@ -41,13 +49,13 @@ func GraceStop() {
 }
 
 func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability, int) {
-	var relia core.TReliability
+	var relia, rel core.TReliability
 	var num int
 	ib := core.ReadIDBlocks(chain, index)
 	now := time.Now().Unix()
 	for i, b := range ib.Blocks {
 		if b.Empty() {
-			break
+			continue
 		}
 		num++
 		key := b[:]
@@ -55,14 +63,19 @@ func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability, int) {
 		data := core.ReadBlockData(chain, key)
 		if data == nil {
 			log.Printf("not exist block data.chain:%d,key:%x\n", chain, key)
-			download(chain, hex.EncodeToString(key), nil, &messages.ReqBlock{Chain: chain, Key: key})
+			setBlockToIDBlocks(chain, index, b, 0)
+			info := &messages.ReqBlock{Chain: chain, Index: index, Key: key}
+			network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: info})
 			continue
 		}
 		block := core.DecodeBlock(data)
 		if block == nil {
+			log.Printf("fail to DecodeBlock.chain:%d,key:%x\n", chain, key)
+			setBlockToIDBlocks(chain, index, b, 0)
 			continue
 		}
 		if len(preKey) > 0 && bytes.Compare(preKey, block.Previous[:]) != 0 {
+			log.Printf("different preKey.hope:%x, Previous:%x\n", preKey, block.Previous)
 			continue
 		}
 		// time.Second
@@ -74,27 +87,84 @@ func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability, int) {
 			if core.IsExistTransaction(chain, t[:]) {
 				continue
 			}
-			keyStr := hex.EncodeToString(t[:])
 			msg := &messages.ReqTransaction{Chain: chain, Key: t[:]}
-			download(chain, keyStr, nil, msg)
+			network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: msg})
 			lost = true
+			log.Printf("lost transaction.chain:%d,block:%x,trans:%x\n", chain, key, t)
+		}
+		if !block.Parent.Empty() {
+			if !core.IsExistBlock(chain/2, block.Parent[:]) {
+				log.Printf("getBestBlock,lost parent,chain:%d,index:%d,key:%x,%d\n", chain, index, b, i)
+				info := &messages.ReqBlock{Chain: chain / 2, Key: block.Parent[:]}
+				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: info})
+				continue
+			}
+			rel := core.ReadBlockReliability(chain/2, block.Parent[:])
+			if rel.Key != block.Parent {
+				continue
+			}
+		}
+		if !block.LeftChild.Empty() {
+			if !core.IsExistBlock(chain*2, block.LeftChild[:]) {
+				info := &messages.ReqBlock{Chain: chain * 2, Key: block.LeftChild[:]}
+				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: info})
+				continue
+			}
+			rel := core.ReadBlockReliability(chain*2, block.LeftChild[:])
+			if rel.Key != block.LeftChild {
+				continue
+			}
+		}
+		if !block.RightChild.Empty() {
+			if !core.IsExistBlock(chain*2+1, block.RightChild[:]) {
+				info := &messages.ReqBlock{Chain: chain*2 + 1, Key: block.RightChild[:]}
+				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: info})
+				continue
+			}
+			rel := core.ReadBlockReliability(chain*2+1, block.RightChild[:])
+			if rel.Key != block.RightChild {
+				continue
+			}
 		}
 		if lost {
 			continue
 		}
-		rel := block.GetReliability()
-		stat := core.ReadBlockRunStat(chain, key)
 
-		if stat.RollbackTimes > 5 {
+		rel = core.ReadBlockReliability(chain, key)
+		if rel.HashPower < 1000 {
+			rel = block.GetReliability()
+			core.SaveBlockReliability(chain, key, rel)
+		}
+		stat := core.ReadBlockRunStat(chain, key)
+		log.Printf("getBestBlock,key:%x,rollback:%d,runTimes:%d,success:%d\n", b, stat.RollbackCount,
+			stat.RunTimes, stat.RunSuccessCount)
+		if stat.RollbackCount > 10 ||
+			stat.RunTimes-stat.RunSuccessCount > 3 ||
+			stat.RunTimes > 8 {
+			log.Printf("delete idBlocks.chain:%d,index:%d,key:%x\n", chain, index, b)
+			setBlockToIDBlocks(chain, index, b, 0)
+			stat = core.BlockRunStat{}
+			core.SaveBlockRunStat(chain, key, stat)
 			continue
 		}
-		if stat.RunTimes > stat.RunSuccessCount+3 {
+		hp := rel.HashPower
+		hp -= uint64(stat.RollbackCount) * 5
+		hp -= 10 * uint64(stat.RunTimes-stat.RunSuccessCount)
+
+		if rel.HashPower > ib.HashPower[i] {
+			setBlockToIDBlocks(chain, index, b, rel.HashPower)
+		}
+
+		if hp > rel.HashPower {
 			continue
 		}
+		rel.HashPower = hp
+
 		if rel.Cmp(relia) > 0 {
 			relia = rel
 		}
 	}
+	log.Printf("getBestBlock rst,num:%d,chain:%d,index:%d,key:%x\n", num, chain, index, relia.Key)
 	return relia, num
 }
 
@@ -102,6 +172,10 @@ func processEvent(chain uint64) {
 	if procMgr.stop {
 		return
 	}
+	if chain == 0 {
+		return
+	}
+
 	defer func() {
 		e := recover()
 		if e != nil {
@@ -113,66 +187,103 @@ func processEvent(chain uint64) {
 	procMgr.wg.Add(1)
 	defer procMgr.wg.Done()
 	procMgr.mu.Lock()
-	c, ok := procMgr.Chains[chain]
+	cl, ok := procMgr.Chains[chain]
 	procMgr.mu.Unlock()
 	if !ok {
 		log.Println("error: fail to get lock of chain:", chain)
 		return
 	}
-	c.Lock()
-	defer c.Unlock()
-	if procMgr.stop {
+	select {
+	case cl <- 1:
+	default:
 		return
 	}
+	defer func() { <-cl }()
+
 	index := core.GetLastBlockIndex(chain)
-	ib := core.ReadIDBlocks(chain, index+1)
 	if index == 0 {
+		c := conf.GetConf()
 		if chain > 1 {
 			cInfo := core.GetChainInfo(chain / 2)
 			if cInfo.LeftChildID == 1 || cInfo.RightChildID == 1 {
-				c := conf.GetConf()
 				data := core.ReadTransactionData(chain/2, c.FirstTransName)
 				core.WriteTransaction(chain, data)
+				ib := core.ReadIDBlocks(chain/2, 1)
 				data = core.ReadBlockData(chain/2, ib.Blocks[0][:])
 				core.WriteTransaction(chain, data)
 			} else {
 				return
 			}
 		}
+		if !core.IsExistTransaction(chain, c.FirstTransName) {
+			info := messages.ReqBlockInfo{}
+			info.Chain = chain
+			info.Index = 1
+			network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
+			return
+		}
 
 		core.CreateBiosTrans(chain)
 	}
+
+	// get the last index(processed)
+	ek := core.Hash{}
+	er := core.ReadBlockReliability(chain, ek[:])
+
 	var relia core.TReliability
-	t := core.GetBlockTime(chain)
 	now := time.Now().Unix()
-	if t+120000 > uint64(now)*1000 {
-		preKey := core.GetTheBlockKey(chain, index-7)
-		relia, _ = getBestBlock(chain, index-6, preKey)
-		key := core.GetTheBlockKey(chain, index-6)
-		if !relia.Key.Empty() && bytes.Compare(key, relia.Key[:]) != 0 {
-			log.Printf("processEvent,replace index-6. index:%d,key:%x,relia:%x\n", index, key, relia.Key)
-			stat := core.ReadBlockRunStat(chain, preKey)
-			stat.RollbackTimes++
-			core.SaveBlockRunStat(chain, preKey, stat)
-			dbRollBack(chain, index-6, key)
+	//check the last 6 block,if exist better block,rollback
+	for i := er.Index - 6; i < er.Index; i++ {
+		if i >= index {
+			break
+		}
+		preKey := core.GetTheBlockKey(chain, i-1)
+		relia, _ = getBestBlock(chain, i, preKey)
+		key := core.GetTheBlockKey(chain, i)
+		if relia.Key.Empty() {
+			continue
+		}
+		if bytes.Compare(key, relia.Key[:]) == 0 {
+			continue
+		}
+		log.Printf("processEvent,replace %d. index:%d,key:%x,relia:%x\n", i, index, key, relia.Key)
+
+		go func() {
+			dbRollBack(chain, i, key)
+			stat := core.ReadBlockRunStat(chain, key)
+			stat.RollbackCount++
+			core.SaveBlockRunStat(chain, key, stat)
 			log.Println("dbRollBack1")
-			go processEvent(chain)
-			return
-		}
+			processEvent(chain)
+		}()
+		return
 	}
+	log.Printf("try to get next block key,chain:%d,index:%d\n", chain, index+1)
 	preKey := core.GetTheBlockKey(chain, index)
-	relia,num := getBestBlock(chain, index+1, preKey)
-	if relia.Key.Empty(){
-		if num == 0{
+	relia, num := getBestBlock(chain, index+1, preKey)
+	if relia.Key.Empty() {
+		log.Printf("no next block key,chain:%d,index:%d,number:%d\n", chain, index+1, num)
+		t := core.GetBlockTime(chain)
+		t += 200000
+		if t >= uint64(now)*1000 {
+			go doMine(chain)
+		}
+		if num == 0 {
 			return
 		}
-		t := core.GetBlockTime(chain)
-		t += 600000
+
 		if t < uint64(now)*1000 {
-			log.Printf("dbRollBack one block. block time:%d now:%d,index:%d,key:%x\n", t-600000, now, index, preKey)
-			dbRollBack(chain, index, preKey)
+			if chain == 1 && index < 10 {
+				return
+			}
 			stat := core.ReadBlockRunStat(chain, preKey)
-			stat.RollbackTimes++
+			_, num := getBestBlock(chain, index, nil)
+			if num <= 1 {
+				return
+			}
+			log.Printf("dbRollBack one block. block time:%d now:%d,index:%d,key:%x\n", t-600000, now, index, preKey)
+			go dbRollBack(chain, index, preKey)
+			stat.RollbackCount++
 			core.SaveBlockRunStat(chain, preKey, stat)
 			go processEvent(chain)
 		}
@@ -191,11 +302,17 @@ func processEvent(chain uint64) {
 	core.SaveBlockReliability(chain, relia.Key[:], relia)
 	core.SaveBlockRunStat(chain, relia.Key[:], stat)
 
+	// save the last index
+	if er.Index < index+1 {
+		er.Index = index + 1
+		core.SaveBlockReliability(chain, ek[:], er)
+	}
+
 	info := messages.BlockInfo{}
 	info.Chain = chain
 	info.Index = index + 1
 	info.Key = relia.Key[:]
-	mgr.net.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
+	network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 
 	if relia.Time+200000 > uint64(now)*1000 {
 		go doMine(chain)
@@ -229,16 +346,26 @@ func getHashPower(in []byte) uint64 {
 func doMine(chain uint64) {
 	procMgr.wg.Add(1)
 	defer procMgr.wg.Done()
-	procMgr.mu.Lock()
-	cl, ok := procMgr.Chains[chain]
-	if !ok {
-		procMgr.Chains[chain] = new(sync.Mutex)
-	}
-	procMgr.mu.Unlock()
-	cl.Lock()
-	defer cl.Unlock()
 
 	c := conf.GetConf()
+	if !c.DoMine {
+		return
+	}
+	if c.ChainOfMine != 0 && c.ChainOfMine != chain {
+		return
+	}
+
+	select {
+	case procMgr.mineLock <- 1:
+		log.Println("start to doMine:", chain)
+	default:
+		return
+	}
+	defer func() {
+		<-procMgr.mineLock
+		log.Println("finish doMine:", chain)
+	}()
+
 	addr := core.Address{}
 	runtime.Decode(c.WalletAddr, &addr)
 	block := core.NewBlock(chain, addr)
@@ -249,13 +376,18 @@ func doMine(chain uint64) {
 	block.Size = uint32(size)
 	var key core.Hash
 	var oldHP uint64
+	to := time.Now().Unix()
 
 	for {
 		if procMgr.stop {
 			return
 		}
-		now := time.Now().Unix() * 1000
-		if block.Time < uint64(now) {
+		now := time.Now().Unix()
+		if to+60 < now {
+			break
+		}
+		if block.Time < uint64(now)*1000 && oldHP > 0 {
+			// log.Printf("block.time(%d) > now(%d)\n", block.Time, now)
 			break
 		}
 		signData := block.GetSignData()
@@ -289,7 +421,7 @@ func doMine(chain uint64) {
 		}
 	}
 
-	if oldHP == 0 {
+	if oldHP == 0 || key.Empty() {
 		log.Printf("fail to doMine,error oldHP")
 		return
 	}
@@ -300,23 +432,9 @@ func doMine(chain uint64) {
 	info.Chain = chain
 	info.Index = block.Index
 	info.Key = key[:]
-	mgr.net.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 
-	ib := core.ReadIDBlocks(chain, block.Index)
-	hp := oldHP
-	for i, b := range ib.Blocks {
-		if key == b {
-			break
-		}
-		if hp > ib.HashPower[i] {
-			// log.Printf("IDBlocks switch,index:%d,i:%d,old:%x,new:%x\n", block.Index, i, b, key)
-			hp, ib.HashPower[i] = ib.HashPower[i], hp
-			key, ib.Blocks[i] = b, key
-		}
-	}
-	core.SaveIDBlocks(chain, block.Index, ib)
 
-	go processEvent(chain)
+	network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 }
 
 func autoRegisterMiner(chain uint64) {
@@ -358,4 +476,28 @@ func autoRegisterMiner(chain uint64) {
 	msg.Data = td
 	event.Send(msg)
 	// log.Println("SendInternalMsg autoRegisterMiner:", msg)
+}
+
+var idMU sync.Mutex
+
+// hp=0,delete;hp>1,add and update; hp=1,add
+func setBlockToIDBlocks(chain, index uint64, key core.Hash, hp uint64) {
+	idMU.Lock()
+	defer idMU.Unlock()
+	ib := core.ReadIDBlocks(chain, index)
+	for i, b := range ib.Blocks {
+		if key == b {
+			if hp > ib.HashPower[i] {
+				ib.HashPower[i] = hp
+			}
+			hp = 0
+			continue
+		}
+		if hp > ib.HashPower[i] {
+			// log.Printf("IDBlocks switch,index:%d,i:%d,old:%x,new:%x\n", block.Index, i, b, key)
+			hp, ib.HashPower[i] = ib.HashPower[i], hp
+			key, ib.Blocks[i] = b, key
+		}
+	}
+	core.SaveIDBlocks(chain, index, ib)
 }

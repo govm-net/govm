@@ -22,6 +22,7 @@ type BlockInfo struct {
 // ReqBlock request block data
 type ReqBlock struct {
 	Chain uint64
+	Index uint64
 	Key   []byte
 }
 

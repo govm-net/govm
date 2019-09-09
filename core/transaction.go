@@ -136,6 +136,7 @@ func DecodeTrans(data []byte) *StTrans {
 		return nil
 	}
 
+	out.Key = runtime.GetHash(data)
 	out.Sign = data[1 : signLen+1]
 	signData := data[signLen+1:]
 

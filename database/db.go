@@ -370,7 +370,7 @@ func (m *TDbMgr) rollback(flag []byte) error {
 	})
 	if err != nil {
 		log.Println("fail to rollback history value:", hn)
-		return err
+		// return err
 	}
 
 	m.flagDb.Update(func(tx *bolt.Tx) error {

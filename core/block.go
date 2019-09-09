@@ -33,9 +33,10 @@ type TReliability struct {
 
 // BlockRunStat stat of block
 type BlockRunStat struct {
-	RunTimes        int `json:"run_times,omitempty"`
-	RunSuccessCount int `json:"run_success_count,omitempty"`
-	RollbackTimes   int `json:"rollback_times,omitempty"`
+	RunTimes        int   `json:"run_times,omitempty"`
+	RunSuccessCount int   `json:"run_success_count,omitempty"`
+	RollbackCount   int   `json:"rollback_count,omitempty"`
+	RollbackTime    int64 `json:"rollback_time,omitempty"`
 }
 type dbReliability struct{}
 type dbBlockRunStat struct{}
@@ -261,9 +262,12 @@ func (b *StBlock) GetReliability() TReliability {
 			break
 		}
 	}
+	if b.Index == 1 {
+		power += 1000
+	}
 	power += getHashPower(b.Key)
 	power += preRel.HashPower
-	power -= preRel.HashPower / 100
+	power -= preRel.HashPower / 1000000
 
 	selfRel.Key = b.Key
 	selfRel.Index = b.Index
@@ -433,7 +437,9 @@ func GetTheBlockKey(chain, index uint64) []byte {
 		return nil
 	}
 	if index == 0 {
-		index = GetLastBlockIndex(chain)
+		var pStat BaseInfo
+		getDataFormDB(chain, dbStat{}, []byte{StatBaseInfo}, &pStat)
+		return pStat.Key[:]
 	}
 	getDataFormLog(chain, logBlockInfo{}, runtime.Encode(index), &key)
 	if key.Empty() {
