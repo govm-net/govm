@@ -34,8 +34,8 @@ var packPath string
 var filter EventFilter
 
 func init() {
-	projectRoot = path.Join(os.Getenv("GOPATH"), "src", module)
-	// projectRoot = path.Join("vendor", module, "apps")
+	// projectRoot = path.Join(os.Getenv("GOPATH"), "src", module)
+	projectRoot = "."
 	packPath = module
 	loadEventFilter()
 }

@@ -46,10 +46,21 @@ func (p *InternalPlugin) event(m event.Message) error {
 			return errors.New("not exist the chain")
 		}
 		log.Println("do mine:", msg.Chain)
+		m := &messages.ReqBlockInfo{Chain: msg.Chain, Index: id}
+		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: m})
 		doMine(msg.Chain)
 		return nil
 	case *messages.Rollback:
 		log.Println("rollback block")
+		ib := core.IDBlocks{}
+		for i := 0; i < 100; i++ {
+			core.SaveIDBlocks(msg.Chain, msg.Index+uint64(i), ib)
+		}
+		ek := core.Hash{}
+		er := core.TReliability{}
+		core.SaveBlockReliability(msg.Chain, ek[:], er)
+		m := &messages.ReqBlockInfo{Chain: msg.Chain, Index: msg.Index}
+		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: m})
 		return dbRollBack(msg.Chain, msg.Index, msg.Key)
 	case *messages.NewNode:
 		session, err := p.network.NewSession(msg.Peer)

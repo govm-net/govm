@@ -27,7 +27,8 @@ type TConfig struct {
 	Password          string `json:"password,omitempty"`
 	WalletFile        string `json:"wallet_file,omitempty"`
 	CostOfRegMiner    uint64 `json:"cost_of_reg_miner,omitempty"`
-	ForceMine         bool   `json:"force_mine,omitempty"`
+	DoMine            bool   `json:"do_mine,omitempty"`
+	SaveLog           bool   `json:"save_log,omitempty"`
 }
 
 var conf TConfig
