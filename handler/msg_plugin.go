@@ -291,10 +291,6 @@ func processTransaction(chain uint64, key, data []byte) error {
 		return errors.New("not support")
 	}
 
-	// if core.IsExistTransaction(chain, key) {
-	// 	return errors.New("exist")
-	// }
-
 	trans := core.DecodeTrans(data)
 	if trans == nil {
 		return errors.New("error transaction")

@@ -91,35 +91,7 @@
                         <span class="form-control" id="s_index"></span>
                     </div>
                     <br>
-                    <div class="input-group">
-                        <span class="input-group-addon">Miner1:</span>
-                        <span class="form-control" id="s_miner1"></span>
-                    </div>
-                    <br>
-                    <div class="input-group">
-                        <span class="input-group-addon">Cost1:</span>
-                        <span class="form-control" id="s_cost1"></span>
-                    </div>
-                    <br>
-                    <div class="input-group">
-                        <span class="input-group-addon">Miner2:</span>
-                        <span class="form-control" id="s_miner2"></span>
-                    </div>
-                    <br>
-                    <div class="input-group">
-                        <span class="input-group-addon">Cost2:</span>
-                        <span class="form-control" id="s_cost2"></span>
-                    </div>
-                    <br>
-                    <div class="input-group">
-                        <span class="input-group-addon">Miner3:</span>
-                        <span class="form-control" id="s_miner3"></span>
-                    </div>
-                    <br>
-                    <div class="input-group">
-                        <span class="input-group-addon">Cost3:</span>
-                        <span class="form-control" id="s_cost3"></span>
-                    </div>
+                    <div id="miners"></div>
                 </div>
             </div>
 
@@ -137,26 +109,29 @@
     <script type="text/javascript">
         function getMiner(chain, query) {
             $.get("/api/v1/" + chain + "/transaction/miner" + query, function (data, status) {
-                console.log(data)
+                // console.log(data)
                 $("#s_chain").html("<b>" + chain + "</b>");
                 $("#s_index").html("<b>" + data.index + "</b>");
-                $("#s_miner1").html("<b>" + bytes2Str(data.Miner[0]) + "</b>");
-                $("#s_cost1").html("<b>" + data.Cost[0] + "</b>");
-                $("#s_miner2").html("<b>" + bytes2Str(data.Miner[1]) + "</b>");
-                $("#s_cost2").html("<b>" + data.Cost[1] + "</b>");
-                $("#s_miner3").html("<b>" + bytes2Str(data.Miner[2]) + "</b>");
-                $("#s_cost3").html("<b>" + data.Cost[2] + "</b>");
+                var newRow = ""
+                for (i in data.Miner) {
+                    newRow += "<div class=\"input-group\">\
+                    <span class=\"input-group-addon\">Miner"+i+":</span>\
+                    <span class=\"form-control\">";
+                    newRow += bytes2Str(data.Miner[i]);
+                    newRow += "</div><br>";
+                    newRow += "<div class=\"input-group\">\
+                    <span class=\"input-group-addon\">Miner"+i+":</span>\
+                    <span class=\"form-control\">";
+                    newRow += data.Cost[i];
+                    newRow += "</div><br>";
+                }
+                $("#miners").html(newRow);
                 $("#result").html("");
             }).fail(function () {
                 $("#result").html("not found");
                 $("#s_chain").html("")
                 $("#s_index").html("")
-                $("#s_miner1").html("")
-                $("#s_cost1").html("")
-                $("#s_miner2").html("")
-                $("#s_cost2").html("")
-                $("#s_miner3").html("")
-                $("#s_cost3").html("")
+                $("#miners").html("");
             });
         }
 

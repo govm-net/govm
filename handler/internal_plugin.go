@@ -27,6 +27,7 @@ const (
 // Startup is called only once when the plugin is loaded
 func (p *InternalPlugin) Startup(n libp2p.Network) {
 	p.network = n
+	p.reconn = make(map[string]string)
 	event.RegisterConsumer(p.event)
 	time.AfterFunc(time.Minute, p.timeout)
 }
