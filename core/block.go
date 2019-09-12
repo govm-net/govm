@@ -23,12 +23,16 @@ type StBlock struct {
 
 // TReliability Reliability of block
 type TReliability struct {
-	Key       Hash   `json:"key,omitempty"`
-	Previous  Hash   `json:"previous,omitempty"`
-	Time      uint64 `json:"time,omitempty"`
-	Index     uint64 `json:"index,omitempty"`
-	HashPower uint64 `json:"hash_power,omitempty"`
-	Miner     bool   `json:"miner,omitempty"`
+	Key        Hash   `json:"key,omitempty"`
+	Previous   Hash   `json:"previous,omitempty"`
+	Parent     Hash   `json:"parent,omitempty"`
+	LeftChild  Hash   `json:"left_child,omitempty"`
+	RightChild Hash   `json:"right_child,omitempty"`
+	Time       uint64 `json:"time,omitempty"`
+	Index      uint64 `json:"index,omitempty"`
+	HashPower  uint64 `json:"hash_power,omitempty"`
+	Miner      bool   `json:"miner,omitempty"`
+	PreExist   bool   `json:"pre_exist,omitempty"`
 }
 
 // BlockRunStat stat of block
@@ -264,6 +268,7 @@ func (b *StBlock) GetReliability() TReliability {
 	}
 	if b.Index == 1 {
 		power += 1000
+		selfRel.PreExist = true
 	}
 	power += getHashPower(b.Key)
 	power += preRel.HashPower
@@ -274,6 +279,12 @@ func (b *StBlock) GetReliability() TReliability {
 	selfRel.Previous = b.Previous
 	selfRel.HashPower = power
 	selfRel.Time = b.Time
+	selfRel.Parent = b.Parent
+	selfRel.LeftChild = b.LeftChild
+	selfRel.RightChild = b.RightChild
+	if preRel.PreExist {
+		selfRel.PreExist = true
+	}
 
 	return selfRel
 }

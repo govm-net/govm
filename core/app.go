@@ -49,7 +49,7 @@ func CreateAppFromSourceCode(fileName string, flag byte) ([]byte, uint64) {
 		depends = append(depends, item)
 		//log.Println("depend:", unquote(s.Path.Value), s.End())
 	}
-	if len(depends) > 254{
+	if len(depends) > 254 {
 		log.Fatalf("too many depends: %d", len(depends))
 	}
 	info.DependNum = uint8(len(depends))
@@ -105,7 +105,7 @@ func CreateAppFromSourceCode(fileName string, flag byte) ([]byte, uint64) {
 
 	out = append(out, code...)
 	appName := runtime.GetHash(out)
-	log.Printf("code info,fileName:%s,info:%v,appName:%x\n",fileName, info, appName)
+	log.Printf("code info,fileName:%s,info:%v,appName:%x\n", fileName, info, appName)
 	return out, l
 }
 

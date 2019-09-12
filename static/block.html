@@ -127,7 +127,7 @@
                 $("#key").html("<b>" + bytes2Str(data.Key) + "</b>");
                 var myDate=new Date()
                 myDate.setTime(data.Time)
-                $("#time").html("<b>" + myDate.toUTCString() + "</b>");
+                $("#time").html("<b>" + myDate.toString() + "</b>");
                 $("#previous").html("<b><a href=\"?key=" + bytes2Str(data.Previous) + "\">" + bytes2Str(data.Previous) + "</b>");
                 $("#parent").html("<b>" + bytes2Str(data.Parent) + "</b>");
                 $("#left_child").html("<b>" + bytes2Str(data.LeftChild) + "</b>");

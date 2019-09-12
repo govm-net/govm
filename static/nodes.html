@@ -14,14 +14,15 @@
         <div class="panel panel-default">
             <div class="panel-heading">
                 <h3 class="panel-title">
-                    Nodes
+                    Add Node
                 </h3>
             </div>
             <div class="panel-body">
                 <form class="bs-example bs-example-form" role="form">
                     <div class="input-group">
                         <span class="input-group-addon">Peer:</span>
-                        <input type="text" class="form-control" value="tcp://01b9ec512210bd57f1e205dff0db265031923518714580e8@118.190.53.37:17778"
+                        <input type="text" class="form-control"
+                            value="tcp://01b9ec512210bd57f1e205dff0db265031923518714580e8@118.190.53.37:17778"
                             name="peer">
                         <span class="input-group-addon label-success">*</span>
                     </div>
@@ -36,6 +37,17 @@
             </div>
         </div>
 
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h3 class="panel-title">
+                    Nodes
+                </h3>
+            </div>
+            <div class="panel-body" id="nodes">
+                <div />
+            </div>
+        </div>
+    </div>
     </div>
 
 
@@ -47,6 +59,26 @@
     <script src="js/load.js"></script>
 
     <script type="application/javascript">
+        $.get("/api/v1/nodes", function (nodes, status) {
+            if (status != "success") {
+                //alert("Data: " + data + "\nStatus: " + status);
+                console.log("Data: " + nodes + "\nStatus: " + status);
+            } else {
+                var newRow = ""
+                for (i in nodes) {
+                    newRow += "<div class=\"input-group\">\
+                    <span class=\"input-group-addon\">Node:</span>\
+                    <span class=\"form-control\">"
+                    newRow += nodes[i]
+                    newRow += "</div><br>";
+                }
+                $("#nodes div").append(newRow);
+            }
+        });
+
+
+        // $("#nodes div").after(newRow);
+        // $("#nodes").html("<span class=\"label label-success\">Success</span>");
         //发送表单ajax请求
         $('#submit').on('click', function () {
             var data = $('form').serializeJSON()

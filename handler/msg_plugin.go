@@ -76,22 +76,23 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			if msg.Index+10 < index {
 				return nil
 			}
+
+			k := core.Hash{}
+			runtime.Decode(msg.Key, &k)
+			setBlockToIDBlocks(msg.Chain, msg.Index, k, 1)
+
 			rel := core.ReadBlockReliability(msg.Chain, msg.Key)
-			if rel.HashPower < 1000 {
+			if !rel.PreExist {
+				pre := core.ReadBlockReliability(msg.Chain, rel.Previous[:])
+				if !pre.PreExist {
+					return nil
+				}
 				data := core.ReadBlockData(msg.Chain, msg.Key)
 				if data == nil {
 					return nil
 				}
-				block := core.DecodeBlock(data)
-				if block == nil {
-					return nil
-				}
-				rel = block.GetReliability()
-				if rel.HashPower < 1000 {
-					return nil
-				}
-				core.SaveBlockReliability(msg.Chain, block.Key[:], rel)
-				setBlockToIDBlocks(msg.Chain, block.Index, block.Key, rel.HashPower)
+
+				processBlock(ctx, msg.Chain, msg.Key, data)
 			}
 			return nil
 		}
@@ -104,7 +105,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 				ctx.Reply(&messages.BlockInfo{Chain: msg.Chain, Index: msg.Index, Key: key})
 			}
 		}
-		if msg.Index+10 < index || index+10 < msg.Index {
+		if msg.Index+10 < index {
 			return nil
 		}
 		ctx.Reply(&messages.ReqBlock{Chain: msg.Chain, Index: msg.Index, Key: msg.Key})
@@ -205,11 +206,6 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 	if getHashPower(key) < 5 {
 		return nil
 	}
-	rel := core.ReadBlockReliability(chain, key)
-	if rel.HashPower > 1000 {
-		core.SaveBlockReliability(chain, key, rel)
-		return nil
-	}
 	// 解析block
 	block := core.DecodeBlock(data)
 	if block == nil {
@@ -277,11 +273,11 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 			return
 		}
 	}
-	rel = block.GetReliability()
+	rel := block.GetReliability()
 	setBlockToIDBlocks(chain, block.Index, block.Key, rel.HashPower)
+	core.SaveBlockReliability(chain, block.Key[:], rel)
 	log.Printf("receive new block,chain:%d,index:%d,key:%x,hashpower:%d\n", chain, block.Index, block.Key, rel.HashPower)
-	if rel.HashPower > 1000 {
-		core.SaveBlockReliability(chain, block.Key[:], rel)
+	if rel.PreExist {
 		m := &messages.BlockInfo{Chain: chain, Key: block.Key[:], Index: block.Index}
 		network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: m})
 		go processEvent(chain)
@@ -388,9 +384,9 @@ func dbRollBack(chain, index uint64, key []byte) error {
 		return errors.New("error block key of the index")
 	}
 	for nIndex >= index {
-		log.Printf("dbRollBack,chain:%d,index:%d,key:%x\n", chain, index, key)
 		lKey = core.GetTheBlockKey(chain, nIndex)
 		err = database.Rollback(chain, lKey)
+		log.Printf("dbRollBack,chain:%d,index:%d,key:%x\n", chain, nIndex, lKey)
 		if err != nil {
 			log.Println("fail to Rollback.", nIndex, err)
 			return err
