@@ -44,8 +44,8 @@ func LoadWallet(file string, password string) (addr, privKey, prefix []byte) {
 		return nil, nil, nil
 	}
 	pubKey := GetPublicKey(privKey)
-	if len(addr) == 0{
-		addr = PublicKeyToAddress(pubKey,EAddrTypeDefault)
+	if len(addr) == 0 {
+		addr = PublicKeyToAddress(pubKey, EAddrTypeDefault)
 	}
 
 	return

@@ -59,82 +59,37 @@ func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability, int) {
 		}
 		num++
 		key := b[:]
-		log.Printf("getBestBlock,chain:%d,index:%d,key:%x,%d\n", chain, index, b, i)
-		data := core.ReadBlockData(chain, key)
-		if data == nil {
-			log.Printf("not exist block data.chain:%d,key:%x\n", chain, key)
-			setBlockToIDBlocks(chain, index, b, 0)
-			info := &messages.ReqBlock{Chain: chain, Index: index, Key: key}
-			network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: info})
-			continue
-		}
-		block := core.DecodeBlock(data)
-		if block == nil {
-			log.Printf("fail to DecodeBlock.chain:%d,key:%x\n", chain, key)
-			setBlockToIDBlocks(chain, index, b, 0)
-			continue
-		}
-		if len(preKey) > 0 && bytes.Compare(preKey, block.Previous[:]) != 0 {
-			log.Printf("different preKey.hope:%x, Previous:%x\n", preKey, block.Previous)
-			continue
-		}
-		// time.Second
-		if block.Time > uint64(now+5)*1000 {
-			continue
-		}
-		var lost bool
-		for _, t := range block.TransList {
-			if core.IsExistTransaction(chain, t[:]) {
-				continue
-			}
-			msg := &messages.ReqTransaction{Chain: chain, Key: t[:]}
-			network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: msg})
-			lost = true
-			log.Printf("lost transaction.chain:%d,block:%x,trans:%x\n", chain, key, t)
-		}
-		if !block.Parent.Empty() {
-			if !core.IsExistBlock(chain/2, block.Parent[:]) {
-				log.Printf("getBestBlock,lost parent,chain:%d,index:%d,key:%x,%d\n", chain, index, b, i)
-				info := &messages.ReqBlock{Chain: chain / 2, Key: block.Parent[:]}
-				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: info})
-				continue
-			}
-			rel := core.ReadBlockReliability(chain/2, block.Parent[:])
-			if rel.Key != block.Parent {
-				continue
-			}
-		}
-		if !block.LeftChild.Empty() {
-			if !core.IsExistBlock(chain*2, block.LeftChild[:]) {
-				info := &messages.ReqBlock{Chain: chain * 2, Key: block.LeftChild[:]}
-				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: info})
-				continue
-			}
-			rel := core.ReadBlockReliability(chain*2, block.LeftChild[:])
-			if rel.Key != block.LeftChild {
-				continue
-			}
-		}
-		if !block.RightChild.Empty() {
-			if !core.IsExistBlock(chain*2+1, block.RightChild[:]) {
-				info := &messages.ReqBlock{Chain: chain*2 + 1, Key: block.RightChild[:]}
-				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: info})
-				continue
-			}
-			rel := core.ReadBlockReliability(chain*2+1, block.RightChild[:])
-			if rel.Key != block.RightChild {
-				continue
-			}
-		}
-		if lost {
-			continue
-		}
-
 		rel = core.ReadBlockReliability(chain, key)
-		if rel.HashPower < 1000 {
+		log.Printf("getBestBlock,chain:%d,index:%d,key:%x,i:%d,hp:%d\n", chain, index, b, i, rel.HashPower)
+		if !rel.PreExist {
+			data := core.ReadBlockData(chain, key)
+			if data == nil {
+				log.Printf("not exist block data.chain:%d,key:%x\n", chain, key)
+				setBlockToIDBlocks(chain, index, b, 0)
+				info := &messages.ReqBlock{Chain: chain, Index: index, Key: key}
+				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: info})
+				continue
+			}
+			block := core.DecodeBlock(data)
+			if block == nil {
+				log.Printf("fail to DecodeBlock.chain:%d,key:%x\n", chain, key)
+				setBlockToIDBlocks(chain, index, b, 0)
+				continue
+			}
+
 			rel = block.GetReliability()
 			core.SaveBlockReliability(chain, key, rel)
 		}
+
+		if len(preKey) > 0 && bytes.Compare(preKey, rel.Previous[:]) != 0 {
+			log.Printf("different preKey.hope:%x, Previous:%x\n", preKey, rel.Previous)
+			continue
+		}
+		// time.Second
+		if rel.Time > uint64(now+5)*1000 {
+			continue
+		}
+
 		stat := core.ReadBlockRunStat(chain, key)
 		log.Printf("getBestBlock,key:%x,rollback:%d,runTimes:%d,success:%d\n", b, stat.RollbackCount,
 			stat.RunTimes, stat.RunSuccessCount)
@@ -143,8 +98,9 @@ func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability, int) {
 			stat.RunTimes > 8 {
 			log.Printf("delete idBlocks.chain:%d,index:%d,key:%x\n", chain, index, b)
 			setBlockToIDBlocks(chain, index, b, 0)
-			stat = core.BlockRunStat{}
-			core.SaveBlockRunStat(chain, key, stat)
+			rel.HashPower--
+			core.SaveBlockReliability(chain, rel.Key[:], rel)
+			core.SaveBlockRunStat(chain, rel.Key[:], core.BlockRunStat{})
 			continue
 		}
 		hp := rel.HashPower
@@ -164,7 +120,7 @@ func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability, int) {
 			relia = rel
 		}
 	}
-	log.Printf("getBestBlock rst,num:%d,chain:%d,index:%d,key:%x\n", num, chain, index, relia.Key)
+	log.Printf("getBestBlock rst,num:%d,chain:%d,index:%d,hp:%d,key:%x\n", num, chain, index, relia.HashPower, relia.Key)
 	return relia, num
 }
 
@@ -233,8 +189,8 @@ func processEvent(chain uint64) {
 	var relia core.TReliability
 	now := time.Now().Unix()
 	//check the last 6 block,if exist better block,rollback
-	for i := er.Index - 6; i < er.Index; i++ {
-		if i >= index {
+	for i := er.Index - 6; i <= er.Index; i++ {
+		if i > index {
 			break
 		}
 		preKey := core.GetTheBlockKey(chain, i-1)
@@ -267,8 +223,11 @@ func processEvent(chain uint64) {
 		t += 200000
 		if t >= uint64(now)*1000 {
 			go doMine(chain)
+			return
 		}
 		if num == 0 {
+			info := messages.ReqBlockInfo{Chain: chain, Index: index}
+			network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
 			return
 		}
 
@@ -282,9 +241,9 @@ func processEvent(chain uint64) {
 				return
 			}
 			log.Printf("dbRollBack one block. block time:%d now:%d,index:%d,key:%x\n", t-600000, now, index, preKey)
-			go dbRollBack(chain, index, preKey)
 			stat.RollbackCount++
 			core.SaveBlockRunStat(chain, preKey, stat)
+			go dbRollBack(chain, index, preKey)
 			go processEvent(chain)
 		}
 		return
@@ -305,6 +264,7 @@ func processEvent(chain uint64) {
 	// save the last index
 	if er.Index < index+1 {
 		er.Index = index + 1
+		er.Time = core.GetBlockTime(chain)
 		core.SaveBlockReliability(chain, ek[:], er)
 	}
 
@@ -433,7 +393,6 @@ func doMine(chain uint64) {
 	info.Index = block.Index
 	info.Key = key[:]
 
-
 	network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 }
 
@@ -489,6 +448,9 @@ func setBlockToIDBlocks(chain, index uint64, key core.Hash, hp uint64) {
 		if key == b {
 			if hp > ib.HashPower[i] {
 				ib.HashPower[i] = hp
+			} else if hp == 0 {
+				ib.HashPower[i] = 0
+				ib.Blocks[i] = core.Hash{}
 			}
 			hp = 0
 			continue

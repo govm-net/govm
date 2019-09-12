@@ -8,18 +8,87 @@ import (
 	"github.com/lengzhao/libp2p"
 	"github.com/lengzhao/libp2p/plugins"
 	"log"
+	"sync"
+	"time"
 )
 
 // InternalPlugin process p2p message
 type InternalPlugin struct {
 	libp2p.Plugin
 	network libp2p.Network
+	mu      sync.Mutex
+	reconn  map[string]string
 }
+
+const (
+	reconnNum = 15
+)
 
 // Startup is called only once when the plugin is loaded
 func (p *InternalPlugin) Startup(n libp2p.Network) {
 	p.network = n
 	event.RegisterConsumer(p.event)
+	time.AfterFunc(time.Minute, p.timeout)
+}
+
+// Nodes p2p nodes
+var Nodes [10]string
+
+func (p *InternalPlugin) timeout() {
+	time.AfterFunc(time.Minute, p.timeout)
+	nodes := make(map[string]string)
+	p.mu.Lock()
+	for k, v := range p.reconn {
+		nodes[k] = v
+	}
+	p.mu.Unlock()
+	for _, node := range nodes {
+		s, err := p.network.NewSession(node)
+		if err != nil {
+			continue
+		}
+		s.Send(plugins.Ping{})
+	}
+}
+
+// PeerConnect peer connect
+func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
+	peer := s.GetPeerAddr()
+	if !peer.IsServer() {
+		return
+	}
+	for i, n := range Nodes {
+		if n == "" {
+			Nodes[i] = peer.String()
+			break
+		}
+	}
+	id := peer.User()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for k := range p.reconn {
+		if k == id || len(p.reconn) > reconnNum-2 {
+			delete(p.reconn, k)
+		}
+	}
+}
+
+// PeerDisconnect peer connect
+func (p *InternalPlugin) PeerDisconnect(s libp2p.Session) {
+	peer := s.GetPeerAddr()
+	for i, n := range Nodes {
+		if n == peer.String() {
+			Nodes[i] = ""
+		}
+	}
+	if peer.IsServer() {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		if len(p.reconn) > reconnNum {
+			return
+		}
+		p.reconn[peer.User()] = peer.String()
+	}
 }
 
 // Event internal event
@@ -56,9 +125,6 @@ func (p *InternalPlugin) event(m event.Message) error {
 		for i := 0; i < 100; i++ {
 			core.SaveIDBlocks(msg.Chain, msg.Index+uint64(i), ib)
 		}
-		ek := core.Hash{}
-		er := core.TReliability{}
-		core.SaveBlockReliability(msg.Chain, ek[:], er)
 		m := &messages.ReqBlockInfo{Chain: msg.Chain, Index: msg.Index}
 		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: m})
 		return dbRollBack(msg.Chain, msg.Index, msg.Key)

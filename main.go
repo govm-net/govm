@@ -134,15 +134,18 @@ func (l *logWriter) Write(data []byte) (int, error) {
 	now := time.Now()
 	fn := fmt.Sprintf("./log/govm_%d%02d%02d.log", now.Year(), now.Month(), now.Day())
 	if fn != l.fn {
+		old := now.Add(-time.Hour * 24 * 5)
+		ofn := fmt.Sprintf("./log/govm_%d%02d%02d.log", old.Year(), old.Month(), old.Day())
+		os.Remove(ofn)
 		l.fn = fn
 		if l.f == nil {
-			os.Mkdir("./log/", 766)
+			os.Mkdir("./log/", 0755)
 		} else {
 			l.f.Close()
 			l.f = nil
 		}
 		l.size = 0
-		file, err := os.OpenFile(fn, os.O_CREATE|os.O_APPEND|os.O_SYNC, 0755)
+		file, err := os.OpenFile(fn, os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0755)
 		if err != nil {
 			return 0, err
 		}

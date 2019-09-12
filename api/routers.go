@@ -186,4 +186,10 @@ var routes = Routes{
 		"/api/v1/node",
 		NodePost,
 	},
+	Route{
+		"NodesGet",
+		strings.ToUpper("Get"),
+		"/api/v1/nodes",
+		NodesGet,
+	},
 }
