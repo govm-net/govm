@@ -77,6 +77,20 @@ func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability, int) {
 				continue
 			}
 
+			var lost bool
+			for _, t := range block.TransList {
+				if core.IsExistTransaction(chain, t[:]) {
+					continue
+				}
+				info := &messages.ReqTransaction{Chain: chain, Key: t[:]}
+				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: info})
+				lost = true
+			}
+
+			if lost {
+				continue
+			}
+
 			rel = block.GetReliability()
 			core.SaveBlockReliability(chain, key, rel)
 		}
