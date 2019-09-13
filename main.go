@@ -91,7 +91,12 @@ func main() {
 	n.RegistPlugin(new(handler.MsgPlugin))
 	n.RegistPlugin(new(handler.InternalPlugin))
 
-	go n.Listen(c.ServerHost)
+	go func() {
+		err := n.Listen(c.ServerHost)
+		if err != nil {
+			log.Fatal("fail to listen:", c.ServerHost, err)
+		}
+	}()
 
 	sig := make(chan os.Signal)
 	signal.Notify(sig, os.Interrupt, os.Kill)

@@ -58,7 +58,11 @@ func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 
 	for i, n := range Nodes {
 		if n == "" {
-			Nodes[i] = peer.String()
+			if peer.IsServer() {
+				Nodes[i] = peer.String()
+			} else {
+				Nodes[i] = peer.String() + "(client)"
+			}
 			break
 		}
 	}
