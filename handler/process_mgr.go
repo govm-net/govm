@@ -77,6 +77,8 @@ func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability, int) {
 				continue
 			}
 
+			rel = block.GetReliability()
+
 			var lost bool
 			for _, t := range block.TransList {
 				if core.IsExistTransaction(chain, t[:]) {
@@ -85,14 +87,15 @@ func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability, int) {
 				info := &messages.ReqTransaction{Chain: chain, Key: t[:]}
 				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: info})
 				lost = true
+				rel.HashPower--
+				rel.PreExist = false
 			}
+
+			core.SaveBlockReliability(chain, key, rel)
 
 			if lost {
 				continue
 			}
-
-			rel = block.GetReliability()
-			core.SaveBlockReliability(chain, key, rel)
 		}
 
 		if len(preKey) > 0 && bytes.Compare(preKey, rel.Previous[:]) != 0 {
@@ -113,6 +116,7 @@ func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability, int) {
 			log.Printf("delete idBlocks.chain:%d,index:%d,key:%x\n", chain, index, b)
 			setBlockToIDBlocks(chain, index, b, 0)
 			rel.HashPower--
+			rel.PreExist = false
 			core.SaveBlockReliability(chain, rel.Key[:], rel)
 			core.SaveBlockRunStat(chain, rel.Key[:], core.BlockRunStat{})
 			continue
