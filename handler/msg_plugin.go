@@ -253,9 +253,12 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 	// 将数据写入db
 	core.WriteBlock(chain, data)
 
+	var lost bool
+
 	//前一块还不存在，下载
 	if block.Index > 1 && !core.IsExistBlock(chain, block.Previous[:]) {
 		ctx.Reply(&messages.ReqBlock{Chain: chain, Index: block.Index - 1, Key: block.Previous[:]})
+		lost = true
 	} else {
 		setBlockToIDBlocks(chain, block.Index-1, block.Previous, 1)
 	}
@@ -265,6 +268,7 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 			continue
 		}
 		ctx.Reply(&messages.ReqTransaction{Chain: chain, Key: t[:]})
+		lost = true
 	}
 
 	ib := core.ReadIDBlocks(chain, block.Index)
@@ -275,6 +279,9 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 	}
 	rel := block.GetReliability()
 	setBlockToIDBlocks(chain, block.Index, block.Key, rel.HashPower)
+	if lost {
+		rel.PreExist = false
+	}
 	core.SaveBlockReliability(chain, block.Key[:], rel)
 	log.Printf("receive new block,chain:%d,index:%d,key:%x,hashpower:%d\n", chain, block.Index, block.Key, rel.HashPower)
 	if rel.PreExist {

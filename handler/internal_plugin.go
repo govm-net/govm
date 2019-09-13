@@ -55,9 +55,7 @@ func (p *InternalPlugin) timeout() {
 // PeerConnect peer connect
 func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 	peer := s.GetPeerAddr()
-	if !peer.IsServer() {
-		return
-	}
+
 	for i, n := range Nodes {
 		if n == "" {
 			Nodes[i] = peer.String()
