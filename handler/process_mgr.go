@@ -34,7 +34,7 @@ func init() {
 	}
 	procMgr.mineLock = make(chan int, 1)
 
-	time.AfterFunc(time.Second*5, timeoutFunc)
+	time.AfterFunc(time.Second*60, timeoutFunc)
 }
 
 func timeoutFunc() {
@@ -149,6 +149,9 @@ func processEvent(chain uint64) {
 	if chain == 0 {
 		return
 	}
+	if network == nil {
+		return
+	}
 
 	defer func() {
 		e := recover()
@@ -256,6 +259,10 @@ func processEvent(chain uint64) {
 			stat := core.ReadBlockRunStat(chain, preKey)
 			_, num := getBestBlock(chain, index, nil)
 			if num <= 1 {
+				info := messages.ReqBlockInfo{Chain: chain, Index: index + 1}
+				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
+				info = messages.ReqBlockInfo{Chain: chain, Index: index}
+				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
 				return
 			}
 			log.Printf("dbRollBack one block. block time:%d now:%d,index:%d,key:%x\n", t-600000, now, index, preKey)
