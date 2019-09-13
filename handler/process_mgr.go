@@ -249,6 +249,11 @@ func processEvent(chain uint64) {
 		if num == 0 {
 			info := messages.ReqBlockInfo{Chain: chain, Index: index}
 			network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
+
+			if t+2000000 < uint64(now)*1000 {
+				info := messages.ReqBlockInfo{Chain: chain, Index: index + 30}
+				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
+			}
 			return
 		}
 
