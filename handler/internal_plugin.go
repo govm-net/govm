@@ -29,14 +29,15 @@ func (p *InternalPlugin) Startup(n libp2p.Network) {
 	p.network = n
 	p.reconn = make(map[string]string)
 	event.RegisterConsumer(p.event)
-	time.AfterFunc(time.Minute, p.timeout)
+	time.AfterFunc(time.Minute*2, p.timeout)
 }
 
 // Nodes p2p nodes
 var Nodes [10]string
 
 func (p *InternalPlugin) timeout() {
-	time.AfterFunc(time.Minute, p.timeout)
+	time.AfterFunc(time.Minute*2, p.timeout)
+	p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: plugins.Ping{}})
 	nodes := make(map[string]string)
 	p.mu.Lock()
 	for k, v := range p.reconn {
@@ -48,7 +49,7 @@ func (p *InternalPlugin) timeout() {
 		if err != nil {
 			continue
 		}
-		s.Send(plugins.Ping{})
+		s.Send(plugins.Ping{IsServer:s.GetSelfAddr().IsServer()})
 	}
 }
 
@@ -136,7 +137,7 @@ func (p *InternalPlugin) event(m event.Message) error {
 		if err != nil {
 			return err
 		}
-		return session.Send(plugins.Ping{})
+		return session.Send(plugins.Ping{IsServer:session.GetSelfAddr().IsServer()})
 	}
 	return nil
 }
