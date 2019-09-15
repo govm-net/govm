@@ -264,10 +264,10 @@ func processEvent(chain uint64) {
 			stat := core.ReadBlockRunStat(chain, preKey)
 			_, num := getBestBlock(chain, index, nil)
 			if num <= 1 {
-				info := messages.ReqBlockInfo{Chain: chain, Index: index + 1}
-				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
-				info = messages.ReqBlockInfo{Chain: chain, Index: index}
-				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
+				info1 := messages.ReqBlockInfo{Chain: chain, Index: index + 1}
+				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info1})
+				info2 := messages.ReqBlockInfo{Chain: chain, Index: index}
+				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info2})
 				return
 			}
 			log.Printf("dbRollBack one block. block time:%d now:%d,index:%d,key:%x\n", t-600000, now, index, preKey)
@@ -303,6 +303,8 @@ func processEvent(chain uint64) {
 	info.Index = index + 1
 	info.Key = relia.Key[:]
 	network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
+	info1 := messages.ReqBlockInfo{Chain: chain, Index: index + 2}
+	network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info1})
 
 	if relia.Time+200000 > uint64(now)*1000 {
 		go doMine(chain)
