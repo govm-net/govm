@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"os"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -26,7 +27,8 @@ var dataDb *bolt.DB
 
 func init() {
 	var err error
-	dataDb, err = bolt.Open("unused_trans.db", 0600, nil)
+	os.Mkdir("./db_dir",0600)
+	dataDb, err = bolt.Open("./db_dir/unused_trans.db", 0600, nil)
 	if err != nil {
 		log.Println("fail to open db file:", "unused_trans.db", err)
 		return
