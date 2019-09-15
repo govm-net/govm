@@ -49,7 +49,7 @@ func (p *InternalPlugin) timeout() {
 		if err != nil {
 			continue
 		}
-		s.Send(plugins.Ping{IsServer:s.GetSelfAddr().IsServer()})
+		s.Send(plugins.Ping{IsServer: s.GetSelfAddr().IsServer()})
 	}
 }
 
@@ -80,8 +80,12 @@ func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 // PeerDisconnect peer connect
 func (p *InternalPlugin) PeerDisconnect(s libp2p.Session) {
 	peer := s.GetPeerAddr()
+	addr := peer.String()
+	if !peer.IsServer() {
+		addr += "(client)"
+	}
 	for i, n := range Nodes {
-		if n == peer.String() {
+		if n == addr {
 			Nodes[i] = ""
 		}
 	}
@@ -137,7 +141,7 @@ func (p *InternalPlugin) event(m event.Message) error {
 		if err != nil {
 			return err
 		}
-		return session.Send(plugins.Ping{IsServer:session.GetSelfAddr().IsServer()})
+		return session.Send(plugins.Ping{IsServer: session.GetSelfAddr().IsServer()})
 	}
 	return nil
 }
