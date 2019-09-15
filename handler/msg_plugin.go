@@ -105,7 +105,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 				ctx.Reply(&messages.BlockInfo{Chain: msg.Chain, Index: msg.Index, Key: key})
 			}
 		}
-		if msg.Index+10 < index {
+		if msg.Index+10 < index || index + 50 < msg.Index{
 			return nil
 		}
 		ctx.Reply(&messages.ReqBlock{Chain: msg.Chain, Index: msg.Index, Key: msg.Key})
@@ -128,14 +128,15 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			if bytes.Compare(key, msg.Key) != 0 {
 				index := core.GetLastBlockIndex(msg.Chain)
 				if index > msg.Index+15 {
+					ctx.Reply(&messages.BlockInfo{Chain: msg.Chain, Index: msg.Index, Key: key})
 					return nil
 				}
 			}
 		}
 
 		data := core.ReadBlockData(msg.Chain, msg.Key)
-		if data == nil {
-			log.Printf("not found.ReqBlock %d %x\n", msg.Chain, msg.Key)
+		if len(data) == 0 {
+			log.Printf("not found.ReqBlock chain:%d index:%d key:%x\n", msg.Chain, msg.Index, msg.Key)
 			return nil
 		}
 		ctx.Reply(&messages.BlockData{Chain: msg.Chain, Key: msg.Key, Data: data})
