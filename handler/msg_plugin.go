@@ -105,7 +105,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 				ctx.Reply(&messages.BlockInfo{Chain: msg.Chain, Index: msg.Index, Key: key})
 			}
 		}
-		if msg.Index+10 < index || index + 50 < msg.Index{
+		if msg.Index+10 < index || index+50 < msg.Index {
 			return nil
 		}
 		ctx.Reply(&messages.ReqBlock{Chain: msg.Chain, Index: msg.Index, Key: msg.Key})
@@ -234,8 +234,8 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 		}
 	}
 
-	now := uint64(time.Now().Unix())*1000
-	if block.Time > now + 5000 {
+	now := uint64(time.Now().Unix()) * 1000
+	if block.Time > now+5000 {
 		return nil
 	}
 
@@ -292,7 +292,7 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 		go processEvent(chain)
 	}
 
-	if block.Time + 2000*1000 < now{
+	if block.Time+2000*1000 < now {
 		ctx.Reply(&messages.ReqBlockInfo{Chain: chain, Index: block.Index + 30})
 	}
 

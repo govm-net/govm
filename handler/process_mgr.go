@@ -317,6 +317,13 @@ func processEvent(chain uint64) {
 		go processEvent(chain*2 + 1)
 	}
 
+	k := core.GetTheBlockKey(chain, relia.Index-10)
+	if len(k) > 0 {
+		var key core.Hash
+		runtime.Decode(k, &key)
+		lockBlockToIDBlocks(chain, relia.Index-10, key)
+	}
+
 	go processEvent(chain)
 }
 
@@ -491,6 +498,20 @@ func setBlockToIDBlocks(chain, index uint64, key core.Hash, hp uint64) {
 			// log.Printf("IDBlocks switch,index:%d,i:%d,old:%x,new:%x\n", block.Index, i, b, key)
 			hp, ib.HashPower[i] = ib.HashPower[i], hp
 			key, ib.Blocks[i] = b, key
+		}
+	}
+	core.SaveIDBlocks(chain, index, ib)
+}
+
+// lockBlockToIDBlocks delete other block info
+func lockBlockToIDBlocks(chain, index uint64, key core.Hash) {
+	idMU.Lock()
+	defer idMU.Unlock()
+	ib := core.ReadIDBlocks(chain, index)
+	for i, b := range ib.Blocks {
+		if key != b {
+			ib.Blocks[i] = core.Hash{}
+			ib.HashPower[i] = 0
 		}
 	}
 	core.SaveIDBlocks(chain, index, ib)
