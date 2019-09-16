@@ -24,16 +24,17 @@ const (
 	reconnNum = 15
 )
 
+// Nodes p2p nodes
+var Nodes map[string]bool
+
 // Startup is called only once when the plugin is loaded
 func (p *InternalPlugin) Startup(n libp2p.Network) {
 	p.network = n
 	p.reconn = make(map[string]string)
+	Nodes = make(map[string]bool)
 	event.RegisterConsumer(p.event)
 	time.AfterFunc(time.Minute*2, p.timeout)
 }
-
-// Nodes p2p nodes
-var Nodes [10]string
 
 func (p *InternalPlugin) timeout() {
 	time.AfterFunc(time.Minute*2, p.timeout)
@@ -56,20 +57,12 @@ func (p *InternalPlugin) timeout() {
 // PeerConnect peer connect
 func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 	peer := s.GetPeerAddr()
-
-	for i, n := range Nodes {
-		if n == "" {
-			if peer.IsServer() {
-				Nodes[i] = peer.String()
-			} else {
-				Nodes[i] = peer.String() + "(client)"
-			}
-			break
-		}
-	}
 	id := peer.User()
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if len(Nodes) < 20 {
+		Nodes[peer.String()] = peer.IsServer()
+	}
 	for k := range p.reconn {
 		if k == id || len(p.reconn) > reconnNum-2 {
 			delete(p.reconn, k)
@@ -81,17 +74,10 @@ func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 func (p *InternalPlugin) PeerDisconnect(s libp2p.Session) {
 	peer := s.GetPeerAddr()
 	addr := peer.String()
-	if !peer.IsServer() {
-		addr += "(client)"
-	}
-	for i, n := range Nodes {
-		if n == addr {
-			Nodes[i] = ""
-		}
-	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	delete(Nodes, addr)
 	if peer.IsServer() {
-		p.mu.Lock()
-		defer p.mu.Unlock()
 		if len(p.reconn) > reconnNum {
 			return
 		}

@@ -65,11 +65,11 @@
                 console.log("Data: " + nodes + "\nStatus: " + status);
             } else {
                 var newRow = ""
-                for (i in nodes) {
+                for (key in nodes) {
                     newRow += "<div class=\"input-group\">\
                     <span class=\"input-group-addon\">Node:</span>\
                     <span class=\"form-control\">"
-                    newRow += nodes[i]
+                    newRow += key + "(server:" + nodes[key] + ")"
                     newRow += "</div><br>";
                 }
                 $("#nodes div").append(newRow);
