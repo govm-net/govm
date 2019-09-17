@@ -33,7 +33,7 @@ func init() {
 	for i = 0; i < 100; i++ {
 		procMgr.Chains[i] = make(chan int, 1)
 	}
-	procMgr.mineLock = make(chan int, 1)
+	procMgr.mineLock = make(chan int, 2)
 
 	time.AfterFunc(time.Second*5, timeoutFunc)
 }
@@ -173,10 +173,14 @@ func processEvent(chain uint64) {
 	}
 	select {
 	case cl <- 1:
+		log.Println("start processEvent")
 	default:
 		return
 	}
-	defer func() { <-cl }()
+	defer func() {
+		<-cl
+		log.Println("finish processEvent")
+	}()
 
 	index := core.GetLastBlockIndex(chain)
 	if index == 0 {
@@ -268,8 +272,8 @@ func processEvent(chain uint64) {
 			if chain == 1 && index < 10 {
 				return
 			}
-			_, num := getBestBlock(chain, index, nil)
-			if num <= 1 {
+			r, num := getBestBlock(chain, index, nil)
+			if num == 1 && bytes.Compare(r.Key[:], preKey) == 0 {
 				info1 := messages.ReqBlockInfo{Chain: chain, Index: index + 1}
 				network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info1})
 				info2 := messages.ReqBlockInfo{Chain: chain, Index: index}
@@ -279,10 +283,9 @@ func processEvent(chain uint64) {
 			log.Printf("dbRollBack one block. block time:%d now:%d,index:%d,key:%x\n", t-600000, now, index, preKey)
 			ib := core.IDBlocks{}
 			core.SaveIDBlocks(chain, index+40, ib)
-			if er.Time+300 < uint64(now) {
-				for i := 0; i < 10; i++ {
-					core.SaveIDBlocks(chain, index+uint64(i), ib)
-				}
+			if er.Time + 300 < uint64(now){
+				core.SaveIDBlocks(chain, index+1, ib)
+				core.SaveIDBlocks(chain, index+2, ib)
 			}
 			go dbRollBack(chain, index, preKey)
 			go processEvent(chain)
