@@ -193,11 +193,13 @@ func blockRun(chain uint64, key []byte) (err error) {
 
 	c := conf.GetConf()
 	err = database.OpenFlag(chain, key)
-	defer database.Cancel(chain, key)
 	if err != nil {
 		log.Println("fail to open Flag,", err)
+		f := database.GetLastFlag(chain)
+		database.Cancel(chain, f)
 		return
 	}
+	defer database.Cancel(chain, key)
 
 	param := runtime.Encode(chain)
 	param = append(param, key...)

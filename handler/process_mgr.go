@@ -443,7 +443,7 @@ func doMine(chain uint64) {
 	info.Key = key[:]
 
 	network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
-	go doMine(chain)
+	// go doMine(chain)
 }
 
 func autoRegisterMiner(chain uint64) {
