@@ -33,9 +33,9 @@ func init() {
 	for i = 0; i < 100; i++ {
 		procMgr.Chains[i] = make(chan int, 1)
 	}
-	procMgr.mineLock = make(chan int, 2)
+	procMgr.mineLock = make(chan int, 1)
 
-	time.AfterFunc(time.Second*60, timeoutFunc)
+	time.AfterFunc(time.Second*5, timeoutFunc)
 }
 
 func timeoutFunc() {
@@ -254,12 +254,12 @@ func processEvent(chain uint64) {
 			return
 		}
 		if num == 0 {
-			info := messages.ReqBlockInfo{Chain: chain, Index: index}
-			network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
+			info := messages.ReqBlockInfo{Chain: chain, Index: index + 1}
+			network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 
 			if t+2000000 < uint64(now)*1000 {
 				info := messages.ReqBlockInfo{Chain: chain, Index: index + 30}
-				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
+				network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 			}
 			return
 		}
@@ -271,9 +271,9 @@ func processEvent(chain uint64) {
 			_, num := getBestBlock(chain, index, nil)
 			if num <= 1 {
 				info1 := messages.ReqBlockInfo{Chain: chain, Index: index + 1}
-				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info1})
+				network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info1})
 				info2 := messages.ReqBlockInfo{Chain: chain, Index: index}
-				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info2})
+				network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info2})
 				return
 			}
 			log.Printf("dbRollBack one block. block time:%d now:%d,index:%d,key:%x\n", t-600000, now, index, preKey)
