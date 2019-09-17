@@ -63,6 +63,10 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		return nil
 	case *messages.BlockInfo:
 		log.Printf("<%x> BlockKey %d %d,key:%x\n", ctx.GetPeerID(), msg.Chain, msg.Index, msg.Key)
+		hp := getHashPower(msg.Key)
+		if hp < 5 {
+			return nil
+		}
 		index := core.GetLastBlockIndex(msg.Chain)
 
 		if core.IsExistBlock(msg.Chain, msg.Key) {
@@ -189,11 +193,11 @@ func blockRun(chain uint64, key []byte) (err error) {
 
 	c := conf.GetConf()
 	err = database.OpenFlag(chain, key)
+	defer database.Cancel(chain, key)
 	if err != nil {
 		log.Println("fail to open Flag,", err)
 		return
 	}
-	defer database.Cancel(chain, key)
 
 	param := runtime.Encode(chain)
 	param = append(param, key...)
@@ -400,6 +404,9 @@ func dbRollBack(chain, index uint64, key []byte) error {
 			log.Println("fail to Rollback.", nIndex, err)
 			return err
 		}
+		stat := core.ReadBlockRunStat(chain, lKey)
+		stat.RollbackCount++
+		core.SaveBlockRunStat(chain, lKey, stat)
 		// core.DeleteBlockReliability(chain, lKey)
 		nIndex--
 	}
