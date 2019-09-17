@@ -58,6 +58,9 @@ func (p *InternalPlugin) timeout() {
 func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 	peer := s.GetPeerAddr()
 	id := peer.User()
+	if id == ""{
+		return
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if len(Nodes) < 20 {
