@@ -35,7 +35,7 @@ func init() {
 }
 
 func timeoutFunc() {
-	time.AfterFunc(time.Second*5, timeoutFunc)
+	time.AfterFunc(time.Second*20, timeoutFunc)
 	processEvent(1)
 }
 
@@ -121,8 +121,12 @@ func getBestBlock(chain, index uint64) core.TReliability {
 		log.Printf("   rollback:%d,runTimes:%d,success:%d,height:%d,rhp:%d\n", stat.RollbackCount,
 			stat.RunTimes, stat.RunSuccessCount, ch.Height, ch.HashPower)
 		hp += ch.Height * 10
-		hp += ch.HashPower / 10
+		hp += ch.HashPower/10
 		rel.HashPower = hp
+
+		ch.Height++
+		ch.HashPower += getHashPower(key[:])
+		core.SaveChainHeight(chain, rel.Previous[:], ch)
 
 		if rel.Cmp(relia) > 0 {
 			relia = rel
@@ -208,9 +212,9 @@ func processEvent(chain uint64) {
 	var relia core.TReliability
 	now := time.Now().Unix()
 	//check the last 6 block,if exist better block,rollback
-	for i := er.Index - 6; i <= er.Index; i++ {
+	for i := er.Index; i > er.Index- 6; i-- {
 		if i > index {
-			break
+			continue
 		}
 		relia = getBestBlock(chain, i)
 		key := core.GetTheBlockKey(chain, i)
