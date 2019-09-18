@@ -39,13 +39,6 @@ type RespWalletInfo struct {
 	WalletAddr string `json:"wallet_addr,omitempty"`
 }
 
-// StopFlag stop flag
-var StopFlag chan bool
-
-func init() {
-	StopFlag = make(chan bool, 1)
-}
-
 // WalletPost new wallet
 func WalletPost(w http.ResponseWriter, r *http.Request) {
 	data, err := ioutil.ReadAll(r.Body)
@@ -1071,12 +1064,6 @@ func EventPost(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	enc := json.NewEncoder(w)
 	enc.Encode(info)
-}
-
-// SystemExit system exit
-func SystemExit(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	StopFlag <- true
 }
 
 // NodePost add new node

@@ -174,13 +174,6 @@ var routes = Routes{
 	},
 
 	Route{
-		"SystemExit",
-		strings.ToUpper("Delete"),
-		"/api/v1/system",
-		SystemExit,
-	},
-
-	Route{
 		"AddNode",
 		strings.ToUpper("Post"),
 		"/api/v1/node",

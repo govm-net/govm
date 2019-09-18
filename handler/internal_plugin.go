@@ -124,6 +124,16 @@ func (p *InternalPlugin) event(m event.Message) error {
 		}
 		m := &messages.ReqBlockInfo{Chain: msg.Chain, Index: msg.Index}
 		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: m})
+
+		procMgr.mu.Lock()
+		cl, ok := procMgr.Chains[msg.Chain]
+		procMgr.mu.Unlock()
+		if !ok {
+			return errors.New("not exist chain lock")
+		}
+
+		cl <- 1
+		defer func() { <-cl }()
 		return dbRollBack(msg.Chain, msg.Index, msg.Key)
 	case *messages.NewNode:
 		session, err := p.network.NewSession(msg.Peer)
