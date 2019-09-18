@@ -120,8 +120,11 @@ func getBestBlock(chain, index uint64) core.TReliability {
 
 		log.Printf("   rollback:%d,runTimes:%d,success:%d,height:%d,rhp:%d\n", stat.RollbackCount,
 			stat.RunTimes, stat.RunSuccessCount, ch.Height, ch.HashPower)
-		hp += ch.Height * 10
-		hp += ch.HashPower/10
+		if ch.Height > 1 {
+			hp += (ch.Height - 2) * 10
+			hp += ch.HashPower / 100
+		}
+
 		rel.HashPower = hp
 
 		ch.Height++
@@ -212,7 +215,7 @@ func processEvent(chain uint64) {
 	var relia core.TReliability
 	now := time.Now().Unix()
 	//check the last 6 block,if exist better block,rollback
-	for i := er.Index; i > er.Index- 6; i-- {
+	for i := er.Index; i > er.Index-6; i-- {
 		if i > index {
 			continue
 		}
