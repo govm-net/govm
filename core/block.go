@@ -45,6 +45,7 @@ type BlockRunStat struct {
 type dbReliability struct{}
 type dbBlockRunStat struct{}
 type dbIDBlocks struct{}
+type dbChainHeight struct{}
 
 // NewBlock new block
 /*
@@ -398,6 +399,33 @@ func ReadIDBlocks(chain, index uint64) (ib IDBlocks) {
 	}
 
 	return
+}
+
+// ChainHeight height=last-self,HashPower=sum(self...last)
+type ChainHeight struct {
+	Height    uint64
+	HashPower uint64
+}
+
+// SaveChainHeight save height of block,return true when saved
+func SaveChainHeight(chain uint64, key []byte, h ChainHeight) bool {
+	if chain == 0 {
+		return false
+	}
+	var now ChainHeight
+	getDataFormDB(chain, dbChainHeight{}, key, &now)
+	if now.Height > h.Height || now.HashPower > h.HashPower {
+		return false
+	}
+	runtime.AdminDbSet(dbChainHeight{}, chain, key, runtime.Encode(h), 2<<50)
+	return true
+}
+
+// GetChainHeight get height of block
+func GetChainHeight(chain uint64, key []byte) ChainHeight {
+	var out ChainHeight
+	getDataFormDB(chain, dbChainHeight{}, key, &out)
+	return out
 }
 
 // WriteBlock write block data to database

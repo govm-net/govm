@@ -19,8 +19,7 @@ import (
 // chain->index->blockKey->reliability
 type tProcessMgr struct {
 	mu       sync.Mutex
-	stop     bool
-	wg       sync.WaitGroup
+	wait     map[uint64]chan int
 	Chains   map[uint64]chan int
 	mineLock chan int
 }
@@ -28,28 +27,19 @@ type tProcessMgr struct {
 var procMgr tProcessMgr
 
 func init() {
+	procMgr.wait = make(map[uint64]chan int)
 	procMgr.Chains = make(map[uint64]chan int)
-	var i uint64
-	for i = 0; i < 100; i++ {
-		procMgr.Chains[i] = make(chan int, 1)
-	}
 	procMgr.mineLock = make(chan int, 2)
 
 	time.AfterFunc(time.Second*5, timeoutFunc)
 }
 
 func timeoutFunc() {
-	time.AfterFunc(time.Second*20, timeoutFunc)
+	time.AfterFunc(time.Second*5, timeoutFunc)
 	processEvent(1)
 }
 
-// GraceStop grace stop
-func GraceStop() {
-	procMgr.stop = true
-	procMgr.wg.Wait()
-}
-
-func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability, int) {
+func getBestBlock(chain, index uint64) core.TReliability {
 	var relia, rel core.TReliability
 	var num int
 	ib := core.ReadIDBlocks(chain, index)
@@ -99,22 +89,18 @@ func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability, int) {
 			}
 		}
 
-		if len(preKey) > 0 && bytes.Compare(preKey, rel.Previous[:]) != 0 {
-			log.Printf("different preKey.hope:%x, Previous:%x\n", preKey, rel.Previous)
-			continue
-		}
 		// time.Second
 		if rel.Time > uint64(now+5)*1000 {
 			continue
 		}
 
 		stat := core.ReadBlockRunStat(chain, key)
-		log.Printf("getBestBlock,key:%x,rollback:%d,runTimes:%d,success:%d\n", b, stat.RollbackCount,
-			stat.RunTimes, stat.RunSuccessCount)
 		if stat.RollbackCount > 10 ||
 			stat.RunTimes-stat.RunSuccessCount > 3 ||
 			stat.RunTimes > 8 {
-			log.Printf("delete idBlocks.chain:%d,index:%d,key:%x\n", chain, index, b)
+			log.Printf("delete idBlocks.chain:%d,index:%d,key:%x,rollback:%d,runTimes:%d,success:%d\n",
+				chain, index, b, stat.RollbackCount,
+				stat.RunTimes, stat.RunSuccessCount)
 			setBlockToIDBlocks(chain, index, b, 0)
 			rel.HashPower--
 			rel.PreExist = false
@@ -130,9 +116,12 @@ func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability, int) {
 			setBlockToIDBlocks(chain, index, b, rel.HashPower)
 		}
 
-		if hp > rel.HashPower {
-			continue
-		}
+		ch := core.GetChainHeight(chain, key)
+
+		log.Printf("   rollback:%d,runTimes:%d,success:%d,height:%d,rhp:%d\n", stat.RollbackCount,
+			stat.RunTimes, stat.RunSuccessCount, ch.Height, ch.HashPower)
+		hp += ch.Height * 10
+		hp += ch.HashPower / 10
 		rel.HashPower = hp
 
 		if rel.Cmp(relia) > 0 {
@@ -140,13 +129,10 @@ func getBestBlock(chain, index uint64, preKey []byte) (core.TReliability, int) {
 		}
 	}
 	log.Printf("getBestBlock rst,num:%d,chain:%d,index:%d,hp:%d,key:%x\n", num, chain, index, relia.HashPower, relia.Key)
-	return relia, num
+	return relia
 }
 
 func processEvent(chain uint64) {
-	if procMgr.stop {
-		return
-	}
 	if chain == 0 {
 		return
 	}
@@ -162,24 +148,31 @@ func processEvent(chain uint64) {
 		}
 	}()
 
-	procMgr.wg.Add(1)
-	defer procMgr.wg.Done()
 	procMgr.mu.Lock()
-	cl, ok := procMgr.Chains[chain]
-	procMgr.mu.Unlock()
+	wait, ok := procMgr.wait[chain]
 	if !ok {
-		log.Println("error: fail to get lock of chain:", chain)
-		return
+		procMgr.wait[chain] = make(chan int, 2)
+		wait = procMgr.wait[chain]
 	}
+	cl, ok := procMgr.Chains[chain]
+	if !ok {
+		procMgr.Chains[chain] = make(chan int, 1)
+		cl = procMgr.Chains[chain]
+	}
+	procMgr.mu.Unlock()
+
 	select {
-	case cl <- 1:
-		log.Println("start processEvent")
+	case wait <- 1:
 	default:
 		return
 	}
+	defer func() { <-wait }()
+
+	cl <- 1
+	log.Println("start processEvent")
 	defer func() {
-		<-cl
 		log.Println("finish processEvent")
+		<-cl
 	}()
 
 	index := core.GetLastBlockIndex(chain)
@@ -219,76 +212,74 @@ func processEvent(chain uint64) {
 		if i > index {
 			break
 		}
-		preKey := core.GetTheBlockKey(chain, i-1)
-		relia, _ = getBestBlock(chain, i, preKey)
+		relia = getBestBlock(chain, i)
 		key := core.GetTheBlockKey(chain, i)
-		if relia.Key.Empty() {
+		if relia.Key.Empty() || bytes.Compare(key, relia.Key[:]) == 0 {
 			continue
 		}
-		if bytes.Compare(key, relia.Key[:]) == 0 {
+		preKey := core.GetTheBlockKey(chain, i-1)
+		if bytes.Compare(preKey, relia.Previous[:]) == 0 {
 			continue
 		}
 		log.Printf("processEvent,dbRollBack %d. index:%d,key:%x,relia:%x\n", i, index, key, relia.Key)
 
-		go func() {
-			defer func() {
-				err := recover()
-				if err != nil {
-					log.Println("something wrong:", err)
-					log.Println(string(debug.Stack()))
-				}
-			}()
-			dbRollBack(chain, i, key)
-			ib := core.IDBlocks{}
-			core.SaveIDBlocks(chain, i+40, ib)
-			log.Println("dbRollBack1")
-			processEvent(chain)
-		}()
+		dbRollBack(chain, index, key)
+		go processEvent(chain)
 		return
 	}
 	log.Printf("try to get next block key,chain:%d,index:%d\n", chain, index+1)
-	preKey := core.GetTheBlockKey(chain, index)
-	relia, num := getBestBlock(chain, index+1, preKey)
+
+	relia = getBestBlock(chain, index+1)
 	if relia.Key.Empty() {
-		log.Printf("no next block key,chain:%d,index:%d,number:%d\n", chain, index+1, num)
+		log.Printf("no next block key,chain:%d,index:%d\n", chain, index+1)
 		t := core.GetBlockTime(chain)
 		t += 200000
 		if t >= uint64(now)*1000 {
 			go doMine(chain)
 			return
 		}
-		if num == 0 {
-			info := messages.ReqBlockInfo{Chain: chain, Index: index + 1}
-			network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
+		info := messages.ReqBlockInfo{Chain: chain, Index: index + 1}
+		network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 
-			if t+2000000 < uint64(now)*1000 {
-				info := messages.ReqBlockInfo{Chain: chain, Index: index + 30}
-				network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
-			}
+		if t+2000000 < uint64(now)*1000 {
+			info := messages.ReqBlockInfo{Chain: chain, Index: index + 30}
+			network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
+		}
+		return
+	}
+	preKey := core.GetTheBlockKey(chain, index)
+	if bytes.Compare(relia.Previous[:], preKey) != 0 {
+		log.Printf("dbRollBack one block. index:%d,key:%x,next block:%x\n", index, preKey, relia.Key)
+
+		dbRollBack(chain, index, preKey)
+		go processEvent(chain)
+
+		t := core.GetBlockTime(chain)
+		if t+200000 > uint64(now)*1000 {
 			return
 		}
 
-		if t < uint64(now)*1000 {
-			if chain == 1 && index < 10 {
-				return
+		info1 := messages.ReqBlockInfo{Chain: chain, Index: index + 10}
+		network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info1})
+
+		for i := index + 10; i >= index-2; i-- {
+			ib := core.ReadIDBlocks(chain, i)
+			for _, k := range ib.Blocks {
+				if k.Empty() {
+					continue
+				}
+				rel := core.ReadBlockReliability(chain, k[:])
+				if rel.Previous.Empty() {
+					continue
+				}
+				ch := core.GetChainHeight(chain, k[:])
+				ch.Height++
+				ch.HashPower += getHashPower(k[:])
+				core.SaveChainHeight(chain, rel.Previous[:], ch)
+				setBlockToIDBlocks(chain, i, k, 1)
+				log.Printf("update block height,index:%d,height:%d,hp:%d,%x,pre:%x\n",
+					i, ch.Height, ch.HashPower, k, rel.Previous)
 			}
-			r, num := getBestBlock(chain, index, nil)
-			if num == 1 && bytes.Compare(r.Key[:], preKey) == 0 {
-				info1 := messages.ReqBlockInfo{Chain: chain, Index: index + 1}
-				network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info1})
-				info2 := messages.ReqBlockInfo{Chain: chain, Index: index}
-				network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info2})
-				return
-			}
-			log.Printf("dbRollBack one block. block time:%d now:%d,index:%d,key:%x\n", t-600000, now, index, preKey)
-			ib := core.IDBlocks{}
-			core.SaveIDBlocks(chain, index+40, ib)
-			if er.Time + 300 < uint64(now){
-				core.SaveIDBlocks(chain, index+1, ib)
-				core.SaveIDBlocks(chain, index+2, ib)
-			}
-			go dbRollBack(chain, index, preKey)
-			go processEvent(chain)
 		}
 		return
 	}
@@ -355,9 +346,6 @@ func getHashPower(in []byte) uint64 {
 }
 
 func doMine(chain uint64) {
-	procMgr.wg.Add(1)
-	defer procMgr.wg.Done()
-
 	c := conf.GetConf()
 	if !c.DoMine {
 		return
@@ -391,9 +379,6 @@ func doMine(chain uint64) {
 	to := time.Now().Unix()
 
 	for {
-		if procMgr.stop {
-			return
-		}
 		now := time.Now().Unix()
 		if to+60 < now {
 			break

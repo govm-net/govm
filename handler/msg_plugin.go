@@ -67,16 +67,18 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		if hp < 5 {
 			return nil
 		}
+
 		index := core.GetLastBlockIndex(msg.Chain)
+		if index >= msg.Index {
+			key := core.GetTheBlockKey(msg.Chain, msg.Index)
+			if getHashPower(key) > getHashPower(msg.Key) {
+				log.Printf("BlockKey,myBlock,chain:%d,index:%d,key:%x\n", msg.Chain, msg.Index, key)
+				ctx.Reply(&messages.BlockInfo{Chain: msg.Chain, Index: msg.Index, Key: key})
+			}
+		}
 
 		if core.IsExistBlock(msg.Chain, msg.Key) {
 			log.Println("block exist:", msg.Index, ",chain:", msg.Chain, ",self:", index)
-			if msg.Index < index {
-				key := core.GetTheBlockKey(msg.Chain, index)
-				if len(key) > 0 {
-					ctx.Reply(&messages.BlockInfo{Chain: msg.Chain, Index: index, Key: key})
-				}
-			}
 			if msg.Index+10 < index {
 				return nil
 			}
@@ -102,12 +104,6 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		}
 		if msg.Index > index+1 {
 			ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + 1})
-		} else {
-			key := core.GetTheBlockKey(msg.Chain, msg.Index)
-			if len(key) > 0 && bytes.Compare(key, msg.Key) != 0 {
-				log.Printf("BlockKey,myBlock,chain:%d,index:%d,key:%x\n", msg.Chain, msg.Index, key)
-				ctx.Reply(&messages.BlockInfo{Chain: msg.Chain, Index: msg.Index, Key: key})
-			}
 		}
 		if msg.Index+10 < index || index+50 < msg.Index {
 			return nil
@@ -290,6 +286,10 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 		rel.PreExist = false
 	}
 	core.SaveBlockReliability(chain, block.Key[:], rel)
+	ch := core.GetChainHeight(chain, block.Key[:])
+	ch.Height++
+	ch.HashPower += getHashPower(block.Key[:])
+	core.SaveChainHeight(chain, block.Previous[:], ch)
 	log.Printf("receive new block,chain:%d,index:%d,key:%x,hashpower:%d\n", chain, block.Index, block.Key, rel.HashPower)
 
 	go processEvent(chain)
@@ -379,16 +379,6 @@ func dbRollBack(chain, index uint64, key []byte) error {
 	if nIndex > index+100 {
 		return fmt.Errorf("the index < (lastIndex -100),will rollback:%d,last index:%d", index, nIndex)
 	}
-
-	procMgr.mu.Lock()
-	cl, ok := procMgr.Chains[chain]
-	if !ok {
-		procMgr.Chains[chain] = make(chan int, 1)
-	}
-	procMgr.mu.Unlock()
-
-	cl <- 1
-	defer func() { <-cl }()
 
 	lKey := core.GetTheBlockKey(chain, index)
 	if bytes.Compare(lKey, key) != 0 {

@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/rpc"
 	"os"
-	"os/signal"
 	"time"
 
 	"github.com/lengzhao/govm/api"
@@ -47,11 +46,11 @@ func main() {
 		}
 
 		server := &http.Server{
-			Addr:         c.DbServerAddr,
-			ReadTimeout:  10 * time.Second,
-			WriteTimeout: 10 * time.Second,
-			IdleTimeout:  20 * time.Second,
-			Handler:      sr,
+			Addr: c.DbServerAddr,
+			// ReadTimeout:  10 * time.Second,
+			// WriteTimeout: 10 * time.Second,
+			// IdleTimeout:  20 * time.Second,
+			Handler: sr,
 		}
 		// go server.ListenAndServe()
 
@@ -91,26 +90,12 @@ func main() {
 	n.RegistPlugin(new(handler.MsgPlugin))
 	n.RegistPlugin(new(handler.InternalPlugin))
 
-	go func() {
-		err := n.Listen(c.ServerHost)
-		if err != nil {
-			log.Fatal("fail to listen:", c.ServerHost, err)
-		}
-	}()
-
-	sig := make(chan os.Signal)
-	signal.Notify(sig, os.Interrupt, os.Kill)
-
-	for {
-		select {
-		case <-sig:
-			break
-		case <-api.StopFlag:
-			break
-		}
+	err := n.Listen(c.ServerHost)
+	if err != nil {
+		log.Fatal("fail to listen:", c.ServerHost, err)
 	}
+
 	n.Close()
-	handler.GraceStop()
 }
 
 func loadNodeKey() []byte {
