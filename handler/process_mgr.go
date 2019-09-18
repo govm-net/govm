@@ -120,8 +120,8 @@ func getBestBlock(chain, index uint64) core.TReliability {
 
 		log.Printf("   rollback:%d,runTimes:%d,success:%d,height:%d,rhp:%d\n", stat.RollbackCount,
 			stat.RunTimes, stat.RunSuccessCount, ch.Height, ch.HashPower)
-		if ch.Height > 1 {
-			hp += (ch.Height - 2) * 10
+		if ch.Height > 3 {
+			hp += (ch.Height - 3)
 			hp += ch.HashPower / 100
 		}
 
