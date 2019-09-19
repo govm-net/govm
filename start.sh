@@ -2,6 +2,7 @@
 while true
 do
     echo start govm
-    ./govm
+    date
+    nohup ./govm
     echo something wrong, govm exit
 done

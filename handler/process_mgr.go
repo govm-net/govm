@@ -95,21 +95,16 @@ func getBestBlock(chain, index uint64) core.TReliability {
 		}
 
 		stat := core.ReadBlockRunStat(chain, key)
-		if stat.RollbackCount > 10 ||
-			stat.RunTimes-stat.RunSuccessCount > 3 ||
+		if stat.RunTimes-stat.RunSuccessCount > 3 ||
 			stat.RunTimes > 8 {
 			log.Printf("delete idBlocks.chain:%d,index:%d,key:%x,rollback:%d,runTimes:%d,success:%d\n",
 				chain, index, b, stat.RollbackCount,
 				stat.RunTimes, stat.RunSuccessCount)
 			setBlockToIDBlocks(chain, index, b, 0)
-			rel.HashPower--
-			rel.PreExist = false
-			core.SaveBlockReliability(chain, rel.Key[:], rel)
 			core.SaveBlockRunStat(chain, rel.Key[:], core.BlockRunStat{})
 			continue
 		}
 		hp := rel.HashPower
-		hp -= uint64(stat.RollbackCount) * 5
 		hp -= 10 * uint64(stat.RunTimes-stat.RunSuccessCount)
 
 		if rel.HashPower > ib.HashPower[i] {
@@ -127,16 +122,36 @@ func getBestBlock(chain, index uint64) core.TReliability {
 
 		rel.HashPower = hp
 
-		ch.Height++
-		ch.HashPower += getHashPower(key[:])
-		core.SaveChainHeight(chain, rel.Previous[:], ch)
-
 		if rel.Cmp(relia) > 0 {
 			relia = rel
 		}
 	}
 	log.Printf("getBestBlock rst,num:%d,chain:%d,index:%d,hp:%d,key:%x\n", num, chain, index, relia.HashPower, relia.Key)
 	return relia
+}
+
+//
+func updateChainHeight(chain, from, num uint64) {
+	for i := uint64(0); i < num; i++ {
+		if from-i == 0 {
+			return
+		}
+		ib := core.ReadIDBlocks(chain, from-i)
+		for _, b := range ib.Blocks {
+			if b.Empty() {
+				continue
+			}
+			rel := core.ReadBlockReliability(chain, b[:])
+			if rel.Previous.Empty() {
+				continue
+			}
+			ch := core.GetChainHeight(chain, b[:])
+			ch.Height++
+			ch.HashPower += getHashPower(b[:])
+
+			core.SaveChainHeight(chain, rel.Previous[:], ch)
+		}
+	}
 }
 
 func processEvent(chain uint64) {
@@ -184,6 +199,7 @@ func processEvent(chain uint64) {
 
 	index := core.GetLastBlockIndex(chain)
 	if index == 0 {
+		// first block
 		c := conf.GetConf()
 		if chain > 1 {
 			cInfo := core.GetChainInfo(chain / 2)
@@ -211,6 +227,8 @@ func processEvent(chain uint64) {
 	// get the last index(processed)
 	ek := core.Hash{}
 	er := core.ReadBlockReliability(chain, ek[:])
+
+	updateChainHeight(chain, index+13, 20)
 
 	var relia core.TReliability
 	now := time.Now().Unix()
@@ -266,7 +284,15 @@ func processEvent(chain uint64) {
 			return
 		}
 
-		info1 := messages.ReqBlockInfo{Chain: chain, Index: index + 10}
+		// too long,clear IDBlocks
+		if t+2000000 < uint64(now)*1000 {
+			ib := core.IDBlocks{}
+			idMU.Lock()
+			defer idMU.Unlock()
+			core.SaveIDBlocks(chain, index, ib)
+			core.SaveIDBlocks(chain, index+1, ib)
+		}
+		info1 := messages.ReqBlockInfo{Chain: chain, Index: index + 8}
 		network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info1})
 
 		for i := index + 10; i >= index-2; i-- {
