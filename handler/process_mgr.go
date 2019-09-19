@@ -233,17 +233,13 @@ func processEvent(chain uint64) {
 	var relia core.TReliability
 	now := time.Now().Unix()
 	//check the last 6 block,if exist better block,rollback
-	for i := er.Index; i > er.Index-6; i-- {
+	for i := er.Index - 6; i < er.Index; i++ {
 		if i > index {
 			continue
 		}
 		relia = getBestBlock(chain, i)
 		key := core.GetTheBlockKey(chain, i)
 		if relia.Key.Empty() || bytes.Compare(key, relia.Key[:]) == 0 {
-			continue
-		}
-		preKey := core.GetTheBlockKey(chain, i-1)
-		if bytes.Compare(preKey, relia.Previous[:]) == 0 {
 			continue
 		}
 		log.Printf("processEvent,dbRollBack %d. index:%d,key:%x,relia:%x\n", i, index, key, relia.Key)
@@ -292,28 +288,8 @@ func processEvent(chain uint64) {
 			core.SaveIDBlocks(chain, index, ib)
 			core.SaveIDBlocks(chain, index+1, ib)
 		}
-		info1 := messages.ReqBlockInfo{Chain: chain, Index: index + 8}
+		info1 := messages.ReqBlockInfo{Chain: chain, Index: index + 10}
 		network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info1})
-
-		for i := index + 10; i >= index-2; i-- {
-			ib := core.ReadIDBlocks(chain, i)
-			for _, k := range ib.Blocks {
-				if k.Empty() {
-					continue
-				}
-				rel := core.ReadBlockReliability(chain, k[:])
-				if rel.Previous.Empty() {
-					continue
-				}
-				ch := core.GetChainHeight(chain, k[:])
-				ch.Height++
-				ch.HashPower += getHashPower(k[:])
-				core.SaveChainHeight(chain, rel.Previous[:], ch)
-				setBlockToIDBlocks(chain, i, k, 1)
-				log.Printf("update block height,index:%d,height:%d,hp:%d,%x,pre:%x\n",
-					i, ch.Height, ch.HashPower, k, rel.Previous)
-			}
-		}
 		return
 	}
 	stat := core.ReadBlockRunStat(chain, relia.Key[:])
