@@ -141,7 +141,6 @@ func (l *logWriter) Write(data []byte) (int, error) {
 		}
 		l.f = file
 		os.Stdout = file
-		os.Stderr = file
 	}
 	if l.f == nil {
 		return 0, nil

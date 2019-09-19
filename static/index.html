@@ -40,31 +40,6 @@
                     </div>
                 </div>
             </div>
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <h3 class="panel-title">New Wallet</h3>
-                    <p>it will replace the old wallet of configure</p>
-                </div>
-                <div class="panel-body">
-                    <form class="bs-example bs-example-form" role="form">
-                        <div class="input-group">
-                            <span class="input-group-addon">wallet file:</span>
-                            <input class="form-control" name="wallet_file" value="wallet.key"></span>
-                        </div>
-                        <br>
-                        <div class="input-group">
-                            <span class="input-group-addon">password:</span>
-                            <input class="form-control" type="password" name="password"></span>
-                        </div>
-                        <br>
-                        <button type="button" class="btn btn-success pull-right" id="submit">New</button>
-                    </form>
-                </div>
-                <div>
-                    <h3 id="result">
-                    </h3>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -98,27 +73,6 @@
             }
             return t.split("").reverse().join("");
         }
-        $('#submit').on('click', function () {
-            var data = $('form').serializeJSON();
-            data = JSON.stringify(data)
-            $.ajax({
-                type: "POST",
-                url: "/api/v1/wallet",
-                data: data,
-                dataType: "json",
-                contentType: "application/json",
-                success: function (data) {
-                    $("#result").html("<span class=\"label label-success\">wallet address:" + data.wallet_addr + "</span>");
-                    $("#wallet_file").html("");
-                    $("#password").html("");
-                    window.location.reload()
-                },
-                error: function (XMLHttpRequest, textStatus, errorThrown) {
-                    $("#result").html("<span class=\"label label-danger\">error code:" + XMLHttpRequest.status +
-                        ". msg: " + XMLHttpRequest.responseText + "</span>");
-                }
-            });
-        });
     </script>
 
 </body>

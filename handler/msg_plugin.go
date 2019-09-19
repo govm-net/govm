@@ -64,24 +64,26 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 	case *messages.BlockInfo:
 		log.Printf("<%x> BlockKey %d %d,key:%x\n", ctx.GetPeerID(), msg.Chain, msg.Index, msg.Key)
 		hp := getHashPower(msg.Key)
-		if hp < 5 {
+		if hp < 5 || hp > 250 {
 			return nil
 		}
 
 		index := core.GetLastBlockIndex(msg.Chain)
-		if index >= msg.Index {
-			key := core.GetTheBlockKey(msg.Chain, msg.Index)
-			if getHashPower(key) > getHashPower(msg.Key) {
-				log.Printf("BlockKey,myBlock,chain:%d,index:%d,key:%x\n", msg.Chain, msg.Index, key)
-				ctx.Reply(&messages.BlockInfo{Chain: msg.Chain, Index: msg.Index, Key: key})
+		if index > msg.Index {
+			key2 := core.GetTheBlockKey(msg.Chain, msg.Index+1)
+			if len(key2) > 0 {
+				ctx.Reply(&messages.BlockInfo{Chain: msg.Chain, Index: msg.Index + 1, Key: key2})
 			}
+		}
+		if msg.Index > index+1 {
+			ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + 1})
+		}
+		if msg.Index+10 < index || index+50 < msg.Index {
+			return nil
 		}
 
 		if core.IsExistBlock(msg.Chain, msg.Key) {
 			log.Println("block exist:", msg.Index, ",chain:", msg.Chain, ",self:", index)
-			if msg.Index+10 < index {
-				return nil
-			}
 
 			k := core.Hash{}
 			runtime.Decode(msg.Key, &k)
@@ -95,6 +97,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 				}
 				data := core.ReadBlockData(msg.Chain, msg.Key)
 				if data == nil {
+					ctx.Reply(&messages.ReqBlock{Chain: msg.Chain, Index: msg.Index, Key: msg.Key})
 					return nil
 				}
 
@@ -102,13 +105,11 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			}
 			return nil
 		}
-		if msg.Index > index+1 {
-			ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + 1})
-		}
-		if msg.Index+10 < index || index+50 < msg.Index {
-			return nil
-		}
 		ctx.Reply(&messages.ReqBlock{Chain: msg.Chain, Index: msg.Index, Key: msg.Key})
+		if msg.Index == index {
+			key := core.GetTheBlockKey(msg.Chain, index)
+			ctx.Reply(&messages.BlockInfo{Chain: msg.Chain, Index: index, Key: key})
+		}
 	case *messages.TransactionInfo:
 		log.Printf("<%x> TransactionInfo %d %x\n", ctx.GetPeerID(), msg.Chain, msg.Key)
 		if len(msg.Key) != core.HashLen {
@@ -295,7 +296,7 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 	go processEvent(chain)
 
 	if block.Time+2000*1000 < now {
-		ctx.Reply(&messages.ReqBlockInfo{Chain: chain, Index: block.Index + 30})
+		ctx.Reply(&messages.ReqBlockInfo{Chain: chain, Index: block.Index + 10})
 	}
 
 	return nil
