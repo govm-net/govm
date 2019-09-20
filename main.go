@@ -42,6 +42,7 @@ func main() {
 
 		ln, err := net.Listen(c.DbAddrType, c.DbServerAddr)
 		if err != nil {
+			log.Println("fail to start db Listen:", c.DbServerAddr, err)
 			return
 		}
 
@@ -61,11 +62,17 @@ func main() {
 	{
 		addr := fmt.Sprintf("localhost:%d", c.HTTPPort)
 		router := api.NewRouter()
-		go http.ListenAndServe(addr, router)
+		go func() {
+			err := http.ListenAndServe(addr, router)
+			if err != nil {
+				log.Println("fail to http Listen:", addr, err)
+				os.Exit(2)
+			}
+		}()
 	}
 	n := network.New()
 	if n == nil {
-		log.Println("error address")
+		log.Println("fail to new network")
 		os.Exit(2)
 	}
 
@@ -75,13 +82,15 @@ func main() {
 			var peers []string
 			err = json.Unmarshal(data, &peers)
 			if err == nil {
-				n.RegistPlugin(plugins.NewBootstrap(peers))
+				b := new(plugins.Bootstrap)
+				b.Addrs = peers
+				n.RegistPlugin(b)
 			}
 		}
 	}
 
 	n.RegistPlugin(new(plugins.DiscoveryPlugin))
-	n.RegistPlugin(plugins.NewBroadcast(0))
+	n.RegistPlugin(new(plugins.Broadcast))
 	key := loadNodeKey()
 	cp := crypto.NewMgr()
 	cp.Register(new(wallet.EcdsaKey))
@@ -141,6 +150,7 @@ func (l *logWriter) Write(data []byte) (int, error) {
 		}
 		l.f = file
 		os.Stdout = file
+		os.Stderr = file
 	}
 	if l.f == nil {
 		return 0, nil

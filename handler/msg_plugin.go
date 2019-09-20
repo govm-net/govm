@@ -128,7 +128,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			key := core.GetTheBlockKey(msg.Chain, msg.Index)
 			if bytes.Compare(key, msg.Key) != 0 {
 				index := core.GetLastBlockIndex(msg.Chain)
-				if index > msg.Index+15 {
+				if index > msg.Index+5 {
 					ctx.Reply(&messages.BlockInfo{Chain: msg.Chain, Index: msg.Index, Key: key})
 					return nil
 				}
@@ -265,6 +265,19 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 		lost = true
 	} else {
 		setBlockToIDBlocks(chain, block.Index-1, block.Previous, 1)
+	}
+
+	if !block.Parent.Empty() && !core.IsExistBlock(chain/2, block.Parent[:]) {
+		ctx.Reply(&messages.ReqBlock{Chain: chain / 2, Index: 0, Key: block.Parent[:]})
+		lost = true
+	}
+	if !block.LeftChild.Empty() && !core.IsExistBlock(chain*2, block.LeftChild[:]) {
+		ctx.Reply(&messages.ReqBlock{Chain: chain * 2, Index: 0, Key: block.LeftChild[:]})
+		lost = true
+	}
+	if !block.RightChild.Empty() && !core.IsExistBlock(chain*2+1, block.RightChild[:]) {
+		ctx.Reply(&messages.ReqBlock{Chain: chain*2 + 1, Index: 0, Key: block.RightChild[:]})
+		lost = true
 	}
 
 	for _, t := range block.TransList {
