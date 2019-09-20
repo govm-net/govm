@@ -244,7 +244,7 @@ func processEvent(chain uint64) {
 		}
 		log.Printf("processEvent,dbRollBack %d. index:%d,key:%x,relia:%x\n", i, index, key, relia.Key)
 
-		dbRollBack(chain, index, key)
+		dbRollBack(chain, i, key)
 		go processEvent(chain)
 		return
 	}
