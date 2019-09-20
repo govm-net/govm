@@ -283,8 +283,6 @@ func processEvent(chain uint64) {
 		// too long,clear IDBlocks
 		if t+2000000 < uint64(now)*1000 {
 			ib := core.IDBlocks{}
-			idMU.Lock()
-			defer idMU.Unlock()
 			core.SaveIDBlocks(chain, index, ib)
 			core.SaveIDBlocks(chain, index+1, ib)
 		}
@@ -332,8 +330,6 @@ func processEvent(chain uint64) {
 	}
 
 	ib := core.IDBlocks{}
-	idMU.Lock()
-	defer idMU.Unlock()
 	core.SaveIDBlocks(chain, index-10, ib)
 
 	go processEvent(chain)
@@ -484,12 +480,8 @@ func autoRegisterMiner(chain uint64) {
 	// log.Println("SendInternalMsg autoRegisterMiner:", msg)
 }
 
-var idMU sync.Mutex
-
 // hp=0,delete;hp>1,add and update; hp=1,add
 func setBlockToIDBlocks(chain, index uint64, key core.Hash, hp uint64) {
-	idMU.Lock()
-	defer idMU.Unlock()
 	ib := core.ReadIDBlocks(chain, index)
 	for i, b := range ib.Blocks {
 		if key == b {
