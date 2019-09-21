@@ -51,7 +51,6 @@ func getBestBlock(chain, index uint64) core.TReliability {
 		num++
 		key := b[:]
 		rel = core.ReadBlockReliability(chain, key)
-		log.Printf("getBestBlock,chain:%d,index:%d,key:%x,i:%d,hp:%d\n", chain, index, b, i, rel.HashPower)
 		if !rel.PreExist {
 			data := core.ReadBlockData(chain, key)
 			if data == nil {
@@ -107,6 +106,7 @@ func getBestBlock(chain, index uint64) core.TReliability {
 		hp := rel.HashPower
 		hp -= 10 * uint64(stat.RunTimes-stat.RunSuccessCount)
 		hp -= stat.SelectedCount / 10
+		hp -= uint64(stat.RunTimes) / 20
 
 		if rel.HashPower > ib.HashPower[i] {
 			setBlockToIDBlocks(chain, index, b, rel.HashPower)
@@ -114,8 +114,10 @@ func getBestBlock(chain, index uint64) core.TReliability {
 
 		ch := core.GetChainHeight(chain, key)
 
-		log.Printf("   rollback:%d,runTimes:%d,success:%d,height:%d,rhp:%d\n", stat.RollbackCount,
-			stat.RunTimes, stat.RunSuccessCount, ch.Height, ch.HashPower)
+		log.Printf("getBestBlock,chain:%d,index:%d,key:%x,i:%d,hp:%d,"+
+			"rollback:%d,runTimes:%d,success:%d,selected:%d,height:%d,rhp:%d\n",
+			chain, index, b, i, rel.HashPower, stat.RollbackCount,
+			stat.RunTimes, stat.RunSuccessCount, stat.SelectedCount, ch.Height, ch.HashPower)
 		if ch.Height > 3 {
 			hp += (ch.Height - 3)
 			hp += ch.HashPower / 100
@@ -151,6 +153,7 @@ func updateChainHeight(chain, from, num uint64) {
 			ch.HashPower += getHashPower(b[:])
 
 			core.SaveChainHeight(chain, rel.Previous[:], ch)
+			setBlockToIDBlocks(chain, from-i-1, rel.Previous, 1)
 		}
 	}
 }
@@ -281,6 +284,9 @@ func processEvent(chain uint64) {
 		stat := core.ReadBlockRunStat(chain, relia.Key[:])
 		stat.SelectedCount++
 		core.SaveBlockRunStat(chain, relia.Key[:], stat)
+		if relia.Time+4000000 > uint64(now)*1000 {
+			go doMine(chain)
+		}
 		go processEvent(chain)
 
 		t := core.GetBlockTime(chain)
@@ -289,7 +295,7 @@ func processEvent(chain uint64) {
 		}
 
 		// too long,clear IDBlocks
-		if t+2000000 < uint64(now)*1000 {
+		if t+2000000 < uint64(now)*1000 || stat.SelectedCount%10 == 0 {
 			ib := core.IDBlocks{}
 			core.SaveIDBlocks(chain, index, ib)
 			core.SaveIDBlocks(chain, index+1, ib)
