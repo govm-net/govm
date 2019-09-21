@@ -156,6 +156,8 @@ func (m *TDbMgr) OpenFlag(flag []byte) error {
 		log.Println("fail to set flag:", err)
 		return err
 	}
+	ohn := m.getHistoryFileName(m.id - 5000)
+	os.Remove(ohn)
 	hn := m.getHistoryFileName(m.id)
 	os.Remove(hn)
 	m.historyDb, err = bolt.Open(hn, 0600, nil)
