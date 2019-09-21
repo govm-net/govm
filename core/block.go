@@ -3,13 +3,13 @@ package a365d2b302434dac708688612b3b86a486d59c01071be7b2738eb8c6c028fd413
 import (
 	"encoding/hex"
 	"encoding/json"
-	"log"
-	"time"
-
 	"github.com/lengzhao/govm/conf"
 	"github.com/lengzhao/govm/database"
 	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/govm/wallet"
+	"log"
+	"os"
+	"time"
 )
 
 // StBlock StBlock
@@ -43,11 +43,24 @@ type BlockRunStat struct {
 	RollbackTime    int64  `json:"rollback_time,omitempty"`
 	SelectedCount   uint64 `json:"selected_count,omitempty"`
 }
-type dbReliability struct{}
-type dbBlockRunStat struct{}
-type dbIDBlocks struct{}
-type dbChainHeight struct{}
-type dbMineHistory struct{}
+
+const (
+	ldbReliability  = "reliability"
+	ldbBlockRunStat = "block_run_stat"
+	ldbIDBlocks     = "id_blocks"
+	ldbChainHeight  = "chain_height"
+	ldbMineHistory  = "mine_history"
+)
+
+var ldb *database.LDB
+
+func init() {
+	ldb = database.NewLDB("local.db")
+	if ldb == nil {
+		log.Println("fail to open ldb,local.db")
+		os.Exit(2)
+	}
+}
 
 // NewBlock new block
 /*
@@ -259,7 +272,7 @@ func (b *StBlock) GetReliability() TReliability {
 	var selfRel, preRel TReliability
 	var miner Miner
 
-	getDataFormDB(b.Chain, dbReliability{}, b.Previous[:], &preRel)
+	preRel = ReadBlockReliability(b.Chain, b.Previous[:])
 	getDataFormDB(b.Chain, dbMining{}, runtime.Encode(b.Index), &miner)
 
 	for i := 0; i < minerNum; i++ {
@@ -321,12 +334,15 @@ func SaveBlockReliability(chain uint64, key []byte, rb TReliability) {
 	if chain == 0 {
 		return
 	}
-	runtime.AdminDbSet(dbReliability{}, chain, key, runtime.Encode(rb), 2<<50)
+	ldb.LSet(chain, []byte(ldbReliability), key, runtime.Encode(rb))
 }
 
 // ReadBlockReliability get Reliability of block from db
 func ReadBlockReliability(chain uint64, key []byte) (cl TReliability) {
-	getDataFormDB(chain, dbReliability{}, key, &cl)
+	stream := ldb.LGet(chain, []byte(ldbReliability), key)
+	if stream != nil {
+		runtime.Decode(stream, &cl)
+	}
 	return
 }
 
@@ -335,8 +351,7 @@ func DeleteBlockReliability(chain uint64, key []byte) {
 	if chain == 0 {
 		return
 	}
-	info := TReliability{}
-	runtime.AdminDbSet(dbReliability{}, chain, key, runtime.Encode(info), 0)
+	ldb.LSet(chain, []byte(ldbReliability), key, nil)
 }
 
 // SaveBlockRunStat save block stat
@@ -348,7 +363,7 @@ func SaveBlockRunStat(chain uint64, key []byte, rb BlockRunStat) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	runtime.AdminDbSet(dbBlockRunStat{}, chain, key, data, 2<<50)
+	ldb.LSet(chain, []byte(ldbBlockRunStat), key, data)
 }
 
 // ReadBlockRunStat get stat of block
@@ -356,7 +371,7 @@ func ReadBlockRunStat(chain uint64, key []byte) (cl BlockRunStat) {
 	if chain == 0 {
 		return
 	}
-	stream, _ := runtime.DbGet(dbBlockRunStat{}, chain, key)
+	stream := ldb.LGet(chain, []byte(ldbBlockRunStat), key)
 	if stream != nil {
 		json.Unmarshal(stream, &cl)
 	}
@@ -386,7 +401,7 @@ func SaveIDBlocks(chain, index uint64, ib IDBlocks) {
 		log.Println("fail to Marshal IDBlocks.", err)
 		return
 	}
-	runtime.AdminDbSet(dbIDBlocks{}, chain, key, data, 2<<50)
+	ldb.LSet(chain, []byte(ldbIDBlocks), key, data)
 }
 
 // ReadIDBlocks get blocks of the index
@@ -395,7 +410,7 @@ func ReadIDBlocks(chain, index uint64) (ib IDBlocks) {
 		return
 	}
 	key := runtime.Encode(index)
-	stream, _ := runtime.DbGet(dbIDBlocks{}, chain, key)
+	stream := ldb.LGet(chain, []byte(ldbIDBlocks), key)
 	if stream != nil {
 		json.Unmarshal(stream, &ib)
 	}
@@ -414,32 +429,37 @@ func SaveChainHeight(chain uint64, key []byte, h ChainHeight) bool {
 	if chain == 0 {
 		return false
 	}
-	var now ChainHeight
-	getDataFormDB(chain, dbChainHeight{}, key, &now)
+	now := GetChainHeight(chain, key)
 	if now.Height > h.Height || now.HashPower > h.HashPower {
 		return false
 	}
-	runtime.AdminDbSet(dbChainHeight{}, chain, key, runtime.Encode(h), 2<<50)
+	ldb.LSet(chain, []byte(ldbChainHeight), key, runtime.Encode(h))
 	return true
 }
 
 // GetChainHeight get height of block
 func GetChainHeight(chain uint64, key []byte) ChainHeight {
 	var out ChainHeight
-	getDataFormDB(chain, dbChainHeight{}, key, &out)
+	stream := ldb.LGet(chain, []byte(ldbChainHeight), key)
+	if stream != nil {
+		runtime.Decode(stream, &out)
+	}
 	return out
 }
 
 // GetMineCount get mine count
 func GetMineCount(chain uint64, key []byte) uint64 {
 	var out uint64
-	getDataFormDB(chain, dbMineHistory{}, key, &out)
+	stream := ldb.LGet(chain, []byte(ldbMineHistory), key)
+	if stream != nil {
+		runtime.Decode(stream, &out)
+	}
 	return out
 }
 
 // SetMineCount set mine count
 func SetMineCount(chain uint64, key []byte, count uint64) {
-	runtime.AdminDbSet(dbMineHistory{}, chain, key, runtime.Encode(count), 2<<50)
+	ldb.LSet(chain, []byte(ldbMineHistory), key, runtime.Encode(count))
 }
 
 // WriteBlock write block data to database
@@ -451,6 +471,11 @@ func WriteBlock(chain uint64, data []byte) error {
 	}
 
 	return runtime.AdminDbSet(dbBlockData{}, chain, key, data, 2<<50)
+}
+
+// DeleteBlock delete block
+func DeleteBlock(chain uint64, key []byte) error {
+	return runtime.AdminDbSet(dbBlockData{}, chain, key, nil, 0)
 }
 
 func getDataFormLog(chain uint64, db interface{}, key []byte, out interface{}) {
