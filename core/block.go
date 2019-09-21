@@ -37,15 +37,17 @@ type TReliability struct {
 
 // BlockRunStat stat of block
 type BlockRunStat struct {
-	RunTimes        int   `json:"run_times,omitempty"`
-	RunSuccessCount int   `json:"run_success_count,omitempty"`
-	RollbackCount   int   `json:"rollback_count,omitempty"`
-	RollbackTime    int64 `json:"rollback_time,omitempty"`
+	RunTimes        int    `json:"run_times,omitempty"`
+	RunSuccessCount int    `json:"run_success_count,omitempty"`
+	RollbackCount   int    `json:"rollback_count,omitempty"`
+	RollbackTime    int64  `json:"rollback_time,omitempty"`
+	SelectedCount   uint64 `json:"selected_count,omitempty"`
 }
 type dbReliability struct{}
 type dbBlockRunStat struct{}
 type dbIDBlocks struct{}
 type dbChainHeight struct{}
+type dbMineHistory struct{}
 
 // NewBlock new block
 /*
@@ -426,6 +428,18 @@ func GetChainHeight(chain uint64, key []byte) ChainHeight {
 	var out ChainHeight
 	getDataFormDB(chain, dbChainHeight{}, key, &out)
 	return out
+}
+
+// GetMineCount get mine count
+func GetMineCount(chain uint64, key []byte) uint64 {
+	var out uint64
+	getDataFormDB(chain, dbMineHistory{}, key, &out)
+	return out
+}
+
+// SetMineCount set mine count
+func SetMineCount(chain uint64, key []byte, count uint64) {
+	runtime.AdminDbSet(dbMineHistory{}, chain, key, runtime.Encode(count), 2<<50)
 }
 
 // WriteBlock write block data to database

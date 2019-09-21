@@ -73,6 +73,11 @@
                     </div>
                     <br>
                     <div class="input-group">
+                        <span class="input-group-addon">BlockID:</span>
+                        <span class="form-control" id="bid"></span>
+                    </div>
+                    <br>
+                    <div class="input-group">
                         <span class="input-group-addon">Ops:</span>
                         <span class="form-control" id="ops"></span>
                     </div>
@@ -120,6 +125,7 @@
             $("#time").html("")
             $("#cost").html("")
             $("#energy").html("")
+            $("#bid").html("")
             $("#ops").html("")
             $("#name1").html("")
             $("#value1").html("")
@@ -139,6 +145,7 @@
                 $("#time").html("<b>" + myDate.toUTCString() + "</b>");
                 $("#cost").html("<b>" + data.Cost + "</b>");
                 $("#energy").html("<b>" + data.Energy + "</b>");
+                $("#bid").html("<b>" + data.Others.BlockID + "</b>");
                 switch (data.Ops) {
                     case 0:
                         $("#ops").html("<b>transfer</b>");
