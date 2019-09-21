@@ -202,7 +202,7 @@ func GetUserCoin(chain uint64, addr []byte) uint64 {
 }
 
 // DecodeOpsDataOfTrans decode ops data
-func DecodeOpsDataOfTrans(ops uint8, data []byte) interface{} {
+func DecodeOpsDataOfTrans(ops uint8, data []byte) map[string]interface{} {
 	out := make(map[string]interface{})
 	switch ops {
 	case OpsTransfer:
@@ -259,7 +259,9 @@ func DecodeOpsDataOfTrans(ops uint8, data []byte) interface{} {
 	case OpsUpdateAppLife:
 		info := UpdateInfo{}
 		runtime.Decode(data, &info)
-		return info
+		out["Name"] = info.Name
+		out["Life"] = info.Life
+		return out
 	case OpsRegisterMiner:
 		info := RegMiner{}
 		runtime.Decode(data, &info)
@@ -275,6 +277,12 @@ func GetAppInfoOfChain(chain uint64, name []byte) *AppInfo {
 	out := AppInfo{}
 	getDataFormDB(chain, dbApp{}, name, &out)
 	return &out
+}
+
+func GetTransInfo(chain uint64, key []byte) TransInfo {
+	var out TransInfo
+	getDataFormDB(chain, dbTransInfo{}, key, &out)
+	return out
 }
 
 func getDataFormDB(chain uint64, db interface{}, key []byte, out interface{}) {

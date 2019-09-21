@@ -797,7 +797,10 @@ func TransactionInfoGet(w http.ResponseWriter, r *http.Request) {
 
 	info := TransInfo{}
 	info.TransactionHead = trans.TransactionHead
-	info.Others = core.DecodeOpsDataOfTrans(info.Ops, trans.Data)
+	si := core.DecodeOpsDataOfTrans(info.Ops, trans.Data)
+	ti := core.GetTransInfo(chain, key)
+	si["BlockID"] = ti.BlockID
+	info.Others = si
 
 	d, _ := json.Marshal(info.Others)
 	log.Println("trans info:", info.Others, string(d))

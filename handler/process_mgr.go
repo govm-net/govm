@@ -106,6 +106,7 @@ func getBestBlock(chain, index uint64) core.TReliability {
 		}
 		hp := rel.HashPower
 		hp -= 10 * uint64(stat.RunTimes-stat.RunSuccessCount)
+		hp -= stat.SelectedCount / 10
 
 		if rel.HashPower > ib.HashPower[i] {
 			setBlockToIDBlocks(chain, index, b, rel.HashPower)
@@ -245,6 +246,10 @@ func processEvent(chain uint64) {
 		log.Printf("processEvent,dbRollBack %d. index:%d,key:%x,relia:%x\n", i, index, key, relia.Key)
 
 		dbRollBack(chain, i, key)
+		stat := core.ReadBlockRunStat(chain, relia.Key[:])
+		stat.SelectedCount++
+		core.SaveBlockRunStat(chain, relia.Key[:], stat)
+
 		go processEvent(chain)
 		return
 	}
@@ -273,6 +278,9 @@ func processEvent(chain uint64) {
 		log.Printf("dbRollBack one block. index:%d,key:%x,next block:%x\n", index, preKey, relia.Key)
 
 		dbRollBack(chain, index, preKey)
+		stat := core.ReadBlockRunStat(chain, relia.Key[:])
+		stat.SelectedCount++
+		core.SaveBlockRunStat(chain, relia.Key[:], stat)
 		go processEvent(chain)
 
 		t := core.GetBlockTime(chain)
@@ -318,7 +326,7 @@ func processEvent(chain uint64) {
 	info1 := messages.ReqBlockInfo{Chain: chain, Index: index + 2}
 	network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info1})
 
-	if relia.Time+200000 > uint64(now)*1000 {
+	if relia.Time+4000000 > uint64(now)*1000 {
 		go doMine(chain)
 	}
 
@@ -373,6 +381,12 @@ func doMine(chain uint64) {
 	addr := core.Address{}
 	runtime.Decode(c.WalletAddr, &addr)
 	block := core.NewBlock(chain, addr)
+
+	count := core.GetMineCount(chain, block.Previous[:])
+	if count > 5 {
+		return
+	}
+	core.SetMineCount(chain, block.Previous[:], count+1)
 
 	transList, size := getTransListForMine(chain)
 
