@@ -90,11 +90,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			setBlockToIDBlocks(msg.Chain, msg.Index, k, 1)
 
 			rel := core.ReadBlockReliability(msg.Chain, msg.Key)
-			if !rel.PreExist {
-				pre := core.ReadBlockReliability(msg.Chain, rel.Previous[:])
-				if !pre.PreExist {
-					return nil
-				}
+			if !rel.Ready {
 				data := core.ReadBlockData(msg.Chain, msg.Key)
 				if data == nil {
 					ctx.Reply(&messages.ReqBlock{Chain: msg.Chain, Index: msg.Index, Key: msg.Key})
@@ -289,15 +285,17 @@ func processBlock(ctx libp2p.Event, chain uint64, key, data []byte) (err error) 
 	}
 
 	ib := core.ReadIDBlocks(chain, block.Index)
-	for _, b := range ib.Blocks {
-		if block.Key == b {
+	for _, it := range ib.Items {
+		if block.Key == it.Key {
 			return
 		}
 	}
 	rel := block.GetReliability()
 	setBlockToIDBlocks(chain, block.Index, block.Key, rel.HashPower)
 	if lost {
-		rel.PreExist = false
+		rel.Ready = false
+	} else {
+		rel.Ready = true
 	}
 	core.SaveBlockReliability(chain, block.Key[:], rel)
 	ch := core.GetChainHeight(chain, block.Key[:])

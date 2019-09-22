@@ -44,18 +44,21 @@ func getBestBlock(chain, index uint64) core.TReliability {
 	var num int
 	ib := core.ReadIDBlocks(chain, index)
 	now := time.Now().Unix()
-	for i, b := range ib.Blocks {
-		if b.Empty() {
-			continue
+	if len(ib.Items) == 1 {
+		it := ib.Items[0]
+		rel = core.ReadBlockReliability(chain, it.Key[:])
+		if rel.Ready {
+			return rel
 		}
-		num++
-		key := b[:]
+	}
+	for i, it := range ib.Items {
+		key := it.Key[:]
 		rel = core.ReadBlockReliability(chain, key)
-		if !rel.PreExist {
+		if !rel.Ready {
 			data := core.ReadBlockData(chain, key)
 			if data == nil {
 				log.Printf("not exist block data.chain:%d,key:%x\n", chain, key)
-				setBlockToIDBlocks(chain, index, b, 0)
+				setBlockToIDBlocks(chain, index, it.Key, 0)
 				info := &messages.ReqBlock{Chain: chain, Index: index, Key: key}
 				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: info})
 				continue
@@ -63,27 +66,25 @@ func getBestBlock(chain, index uint64) core.TReliability {
 			block := core.DecodeBlock(data)
 			if block == nil {
 				log.Printf("fail to DecodeBlock.chain:%d,key:%x\n", chain, key)
-				setBlockToIDBlocks(chain, index, b, 0)
+				setBlockToIDBlocks(chain, index, it.Key, 0)
 				continue
 			}
 
 			rel = block.GetReliability()
-
-			var lost bool
+			rel.Ready = true
 			for _, t := range block.TransList {
 				if core.IsExistTransaction(chain, t[:]) {
 					continue
 				}
 				info := &messages.ReqTransaction{Chain: chain, Key: t[:]}
 				network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: info})
-				lost = true
 				rel.HashPower--
-				rel.PreExist = false
+				rel.Ready = false
 			}
 
 			core.SaveBlockReliability(chain, key, rel)
 
-			if lost {
+			if !rel.Ready {
 				continue
 			}
 		}
@@ -97,9 +98,9 @@ func getBestBlock(chain, index uint64) core.TReliability {
 		if stat.RunTimes-stat.RunSuccessCount > 3 ||
 			stat.RunTimes > 8 {
 			log.Printf("delete idBlocks.chain:%d,index:%d,key:%x,rollback:%d,runTimes:%d,success:%d\n",
-				chain, index, b, stat.RollbackCount,
+				chain, index, key, stat.RollbackCount,
 				stat.RunTimes, stat.RunSuccessCount)
-			setBlockToIDBlocks(chain, index, b, 0)
+			setBlockToIDBlocks(chain, index, it.Key, 0)
 			core.SaveBlockRunStat(chain, rel.Key[:], core.BlockRunStat{})
 			continue
 		}
@@ -108,15 +109,15 @@ func getBestBlock(chain, index uint64) core.TReliability {
 		hp -= stat.SelectedCount / 10
 		hp -= uint64(stat.RunTimes) / 20
 
-		if rel.HashPower > ib.HashPower[i] {
-			setBlockToIDBlocks(chain, index, b, rel.HashPower)
+		if rel.HashPower > it.HashPower {
+			setBlockToIDBlocks(chain, index, it.Key, rel.HashPower)
 		}
 
 		ch := core.GetChainHeight(chain, key)
 
 		log.Printf("getBestBlock,chain:%d,index:%d,key:%x,i:%d,hp:%d,"+
 			"rollback:%d,runTimes:%d,success:%d,selected:%d,height:%d,rhp:%d\n",
-			chain, index, b, i, rel.HashPower, stat.RollbackCount,
+			chain, index, key, i, rel.HashPower, stat.RollbackCount,
 			stat.RunTimes, stat.RunSuccessCount, stat.SelectedCount, ch.Height, ch.HashPower)
 		if ch.Height > 3 {
 			hp += (ch.Height - 3)
@@ -140,20 +141,34 @@ func updateChainHeight(chain, from, num uint64) {
 			return
 		}
 		ib := core.ReadIDBlocks(chain, from-i)
-		for _, b := range ib.Blocks {
-			if b.Empty() {
-				continue
-			}
-			rel := core.ReadBlockReliability(chain, b[:])
+		var newIB core.IDBlocks
+		for _, it := range ib.Items {
+			rel := core.ReadBlockReliability(chain, it.Key[:])
 			if rel.Previous.Empty() {
+				if rel.Index == 1 {
+					newIB.Items = append(newIB.Items, it)
+				}
 				continue
 			}
-			ch := core.GetChainHeight(chain, b[:])
+			ch := core.GetChainHeight(chain, it.Key[:])
+			if ch.Height > ib.MaxHeight {
+				ib.MaxHeight = ch.Height
+			}
+			if ch.Height+5 < ib.MaxHeight {
+				continue
+			}
 			ch.Height++
-			ch.HashPower += getHashPower(b[:])
+			ch.HashPower += getHashPower(it.Key[:])
 
 			core.SaveChainHeight(chain, rel.Previous[:], ch)
 			setBlockToIDBlocks(chain, from-i-1, rel.Previous, 1)
+			newIB.Items = append(newIB.Items, it)
+			if ch.Height > newIB.MaxHeight {
+				newIB.MaxHeight = ch.Height
+			}
+		}
+		if len(newIB.Items) != len(ib.Items) {
+			core.SaveIDBlocks(chain, from-i, newIB)
 		}
 	}
 }
@@ -211,7 +226,8 @@ func processEvent(chain uint64) {
 				data := core.ReadTransactionData(chain/2, c.FirstTransName)
 				core.WriteTransaction(chain, data)
 				ib := core.ReadIDBlocks(chain/2, 1)
-				data = core.ReadBlockData(chain/2, ib.Blocks[0][:])
+				it := ib.Items[0]
+				data = core.ReadBlockData(chain/2, it.Key[:])
 				core.WriteTransaction(chain, data)
 			} else {
 				return
@@ -232,7 +248,9 @@ func processEvent(chain uint64) {
 	ek := core.Hash{}
 	er := core.ReadBlockReliability(chain, ek[:])
 
-	updateChainHeight(chain, index+13, 20)
+	updateChainHeight(chain, index+8, 12)
+
+	log.Println("processEvent 2")
 
 	var relia core.TReliability
 	now := time.Now().Unix()
@@ -314,6 +332,7 @@ func processEvent(chain uint64) {
 		return
 	}
 	stat.RunSuccessCount++
+
 	core.SaveBlockReliability(chain, relia.Key[:], relia)
 	core.SaveBlockRunStat(chain, relia.Key[:], stat)
 
@@ -503,22 +522,32 @@ func autoRegisterMiner(chain uint64) {
 // hp=0,delete;hp>1,add and update; hp=1,add
 func setBlockToIDBlocks(chain, index uint64, key core.Hash, hp uint64) {
 	ib := core.ReadIDBlocks(chain, index)
-	for i, b := range ib.Blocks {
-		if key == b {
-			if hp > ib.HashPower[i] {
-				ib.HashPower[i] = hp
-			} else if hp == 0 {
-				ib.HashPower[i] = 0
-				ib.Blocks[i] = core.Hash{}
+	var newIB core.IDBlocks
+	for _, it := range ib.Items {
+		if key == it.Key {
+			if hp > it.HashPower {
+				it.HashPower = hp
+			}
+			if hp > 0 {
+				newIB.Items = append(newIB.Items, it)
 			}
 			hp = 0
 			continue
 		}
-		if hp > ib.HashPower[i] {
+		if hp > it.HashPower {
 			// log.Printf("IDBlocks switch,index:%d,i:%d,old:%x,new:%x\n", block.Index, i, b, key)
-			hp, ib.HashPower[i] = ib.HashPower[i], hp
-			key, ib.Blocks[i] = b, key
+			nit := core.ItemBlock{Key: key, HashPower: hp}
+			newIB.Items = append(newIB.Items, nit)
+			newIB.Items = append(newIB.Items, it)
+			hp = 0
+		} else {
+			newIB.Items = append(newIB.Items, it)
 		}
 	}
-	core.SaveIDBlocks(chain, index, ib)
+	if hp > 0 {
+		nit := core.ItemBlock{Key: key, HashPower: hp}
+		newIB.Items = append(newIB.Items, nit)
+	}
+	newIB.MaxHeight = ib.MaxHeight
+	core.SaveIDBlocks(chain, index, newIB)
 }
