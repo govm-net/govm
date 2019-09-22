@@ -144,17 +144,13 @@ func updateChainHeight(chain, from, num uint64) {
 		var newIB core.IDBlocks
 		for _, it := range ib.Items {
 			rel := core.ReadBlockReliability(chain, it.Key[:])
-			if rel.Previous.Empty() {
-				if rel.Index == 1 {
-					newIB.Items = append(newIB.Items, it)
-				}
-				continue
-			}
 			ch := core.GetChainHeight(chain, it.Key[:])
 			if ch.Height > ib.MaxHeight {
 				ib.MaxHeight = ch.Height
 			}
-			if ch.Height+5 < ib.MaxHeight {
+			if ch.Height+7 < ib.MaxHeight {
+				log.Printf("Height < MaxHeight,drop it.chain:%d,index:%d,key:%x,height:%d,maxHeight:%d\n",
+					chain, from-i, it.Key[:], ch.Height, ib.MaxHeight)
 				continue
 			}
 			ch.Height++
@@ -248,14 +244,14 @@ func processEvent(chain uint64) {
 	ek := core.Hash{}
 	er := core.ReadBlockReliability(chain, ek[:])
 
-	updateChainHeight(chain, index+8, 12)
+	updateChainHeight(chain, index+13, 20)
 
 	log.Println("processEvent 2")
 
 	var relia core.TReliability
 	now := time.Now().Unix()
 	//check the last 6 block,if exist better block,rollback
-	for i := er.Index - 6; i < er.Index; i++ {
+	for i := index - 6; i <= index; i++ {
 		if i > index {
 			continue
 		}
@@ -521,6 +517,9 @@ func autoRegisterMiner(chain uint64) {
 
 // hp=0,delete;hp>1,add and update; hp=1,add
 func setBlockToIDBlocks(chain, index uint64, key core.Hash, hp uint64) {
+	if key.Empty() {
+		return
+	}
 	ib := core.ReadIDBlocks(chain, index)
 	var newIB core.IDBlocks
 	for _, it := range ib.Items {
@@ -547,6 +546,9 @@ func setBlockToIDBlocks(chain, index uint64, key core.Hash, hp uint64) {
 	if hp > 0 {
 		nit := core.ItemBlock{Key: key, HashPower: hp}
 		newIB.Items = append(newIB.Items, nit)
+	}
+	if len(newIB.Items) > core.MinerNum {
+		newIB.Items = newIB.Items[:core.MinerNum]
 	}
 	newIB.MaxHeight = ib.MaxHeight
 	core.SaveIDBlocks(chain, index, newIB)
