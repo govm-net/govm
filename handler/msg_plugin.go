@@ -96,7 +96,6 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 					ctx.Reply(&messages.ReqBlock{Chain: msg.Chain, Index: msg.Index, Key: msg.Key})
 					return nil
 				}
-
 				processBlock(ctx, msg.Chain, msg.Key, data)
 			}
 			return nil
