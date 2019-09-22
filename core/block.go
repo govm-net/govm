@@ -32,7 +32,7 @@ type TReliability struct {
 	Index      uint64 `json:"index,omitempty"`
 	HashPower  uint64 `json:"hash_power,omitempty"`
 	Miner      bool   `json:"miner,omitempty"`
-	PreExist   bool   `json:"pre_exist,omitempty"`
+	Ready      bool   `json:"ready,omitempty"`
 }
 
 // BlockRunStat stat of block
@@ -55,11 +55,16 @@ const (
 var ldb *database.LDB
 
 func init() {
-	ldb = database.NewLDB("local.db")
+	ldb = database.NewLDB("local.db", 10000)
 	if ldb == nil {
 		log.Println("fail to open ldb,local.db")
 		os.Exit(2)
 	}
+	ldb.SetCache(ldbReliability)
+	ldb.SetCache(ldbBlockRunStat)
+	ldb.SetCache(ldbIDBlocks)
+	ldb.SetCache(ldbChainHeight)
+	ldb.SetCache(ldbMineHistory)
 }
 
 // NewBlock new block
@@ -284,7 +289,7 @@ func (b *StBlock) GetReliability() TReliability {
 	}
 	if b.Index == 1 {
 		power += 1000
-		selfRel.PreExist = true
+		selfRel.Ready = true
 	}
 	power += getHashPower(b.Key)
 	power += preRel.HashPower
@@ -298,9 +303,6 @@ func (b *StBlock) GetReliability() TReliability {
 	selfRel.Parent = b.Parent
 	selfRel.LeftChild = b.LeftChild
 	selfRel.RightChild = b.RightChild
-	if preRel.PreExist {
-		selfRel.PreExist = true
-	}
 
 	return selfRel
 }
@@ -334,12 +336,12 @@ func SaveBlockReliability(chain uint64, key []byte, rb TReliability) {
 	if chain == 0 {
 		return
 	}
-	ldb.LSet(chain, []byte(ldbReliability), key, runtime.Encode(rb))
+	ldb.LSet(chain, ldbReliability, key, runtime.Encode(rb))
 }
 
 // ReadBlockReliability get Reliability of block from db
 func ReadBlockReliability(chain uint64, key []byte) (cl TReliability) {
-	stream := ldb.LGet(chain, []byte(ldbReliability), key)
+	stream := ldb.LGet(chain, ldbReliability, key)
 	if stream != nil {
 		runtime.Decode(stream, &cl)
 	}
@@ -351,7 +353,7 @@ func DeleteBlockReliability(chain uint64, key []byte) {
 	if chain == 0 {
 		return
 	}
-	ldb.LSet(chain, []byte(ldbReliability), key, nil)
+	ldb.LSet(chain, ldbReliability, key, nil)
 }
 
 // SaveBlockRunStat save block stat
@@ -363,7 +365,7 @@ func SaveBlockRunStat(chain uint64, key []byte, rb BlockRunStat) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	ldb.LSet(chain, []byte(ldbBlockRunStat), key, data)
+	ldb.LSet(chain, ldbBlockRunStat, key, data)
 }
 
 // ReadBlockRunStat get stat of block
@@ -371,7 +373,7 @@ func ReadBlockRunStat(chain uint64, key []byte) (cl BlockRunStat) {
 	if chain == 0 {
 		return
 	}
-	stream := ldb.LGet(chain, []byte(ldbBlockRunStat), key)
+	stream := ldb.LGet(chain, ldbBlockRunStat, key)
 	if stream != nil {
 		json.Unmarshal(stream, &cl)
 	}
@@ -384,10 +386,16 @@ func IsExistBlock(chain uint64, key []byte) bool {
 	return runtime.DbExist(dbBlockData{}, chain, key)
 }
 
+// ItemBlock Item of IDBlocks
+type ItemBlock struct {
+	Key       Hash
+	HashPower uint64
+}
+
 // IDBlocks the blocks of same index
 type IDBlocks struct {
-	Blocks    [MinerNum]Hash
-	HashPower [MinerNum]uint64
+	Items     []ItemBlock
+	MaxHeight uint64
 }
 
 // SaveIDBlocks save blocks of the index
@@ -401,7 +409,7 @@ func SaveIDBlocks(chain, index uint64, ib IDBlocks) {
 		log.Println("fail to Marshal IDBlocks.", err)
 		return
 	}
-	ldb.LSet(chain, []byte(ldbIDBlocks), key, data)
+	ldb.LSet(chain, ldbIDBlocks, key, data)
 }
 
 // ReadIDBlocks get blocks of the index
@@ -410,7 +418,7 @@ func ReadIDBlocks(chain, index uint64) (ib IDBlocks) {
 		return
 	}
 	key := runtime.Encode(index)
-	stream := ldb.LGet(chain, []byte(ldbIDBlocks), key)
+	stream := ldb.LGet(chain, ldbIDBlocks, key)
 	if stream != nil {
 		json.Unmarshal(stream, &ib)
 	}
@@ -433,14 +441,14 @@ func SaveChainHeight(chain uint64, key []byte, h ChainHeight) bool {
 	if now.Height > h.Height || now.HashPower > h.HashPower {
 		return false
 	}
-	ldb.LSet(chain, []byte(ldbChainHeight), key, runtime.Encode(h))
+	ldb.LSet(chain, ldbChainHeight, key, runtime.Encode(h))
 	return true
 }
 
 // GetChainHeight get height of block
 func GetChainHeight(chain uint64, key []byte) ChainHeight {
 	var out ChainHeight
-	stream := ldb.LGet(chain, []byte(ldbChainHeight), key)
+	stream := ldb.LGet(chain, ldbChainHeight, key)
 	if stream != nil {
 		runtime.Decode(stream, &out)
 	}
@@ -450,7 +458,7 @@ func GetChainHeight(chain uint64, key []byte) ChainHeight {
 // GetMineCount get mine count
 func GetMineCount(chain uint64, key []byte) uint64 {
 	var out uint64
-	stream := ldb.LGet(chain, []byte(ldbMineHistory), key)
+	stream := ldb.LGet(chain, ldbMineHistory, key)
 	if stream != nil {
 		runtime.Decode(stream, &out)
 	}
@@ -459,7 +467,7 @@ func GetMineCount(chain uint64, key []byte) uint64 {
 
 // SetMineCount set mine count
 func SetMineCount(chain uint64, key []byte, count uint64) {
-	ldb.LSet(chain, []byte(ldbMineHistory), key, runtime.Encode(count))
+	ldb.LSet(chain, ldbMineHistory, key, runtime.Encode(count))
 }
 
 // WriteBlock write block data to database

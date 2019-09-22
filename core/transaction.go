@@ -279,6 +279,7 @@ func GetAppInfoOfChain(chain uint64, name []byte) *AppInfo {
 	return &out
 }
 
+// GetTransInfo get info of transaction
 func GetTransInfo(chain uint64, key []byte) TransInfo {
 	var out TransInfo
 	getDataFormDB(chain, dbTransInfo{}, key, &out)
