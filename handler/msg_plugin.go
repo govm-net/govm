@@ -245,7 +245,7 @@ func blockRun(chain uint64, key []byte) (err error) {
 
 func processBlock(chain uint64, key, data []byte) (err error) {
 	if getHashPower(key) < 5 {
-		return
+		return errors.New("error hashpower")
 	}
 	// 解析block
 	block := core.DecodeBlock(data)
@@ -263,13 +263,13 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 	if chain != block.Chain {
 		if block.Chain != 0 {
 			log.Printf("error chain of block,hope chain:%d,chain:%d,key:%x\n", chain, block.Chain, key)
-			return
+			return errors.New("error chain")
 		}
 
 		if chain > 1 {
 			nIndex := core.GetLastBlockIndex(chain / 2)
 			if nIndex < 1 {
-				return
+				return errors.New("not parent")
 			}
 		}
 	}

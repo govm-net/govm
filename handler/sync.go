@@ -24,6 +24,7 @@ const (
 	eSyncTrans      = "sync_trans"
 	eSyncTransOwner = "sync_owner"
 	eSyncTimeout    = "sync_timeout"
+	eSyncLastBlock  = "sync_last_block"
 	sTimeout        = 120
 )
 
@@ -71,6 +72,7 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 		ctx.GetSession().SetEnv(eSyncTimeout, to)
 		ctx.GetSession().SetEnv(eSyncBlock, hex.EncodeToString(msg.Key))
 		ctx.GetSession().SetEnv(eSyncing, "true")
+		ctx.GetSession().SetEnv(eSyncLastBlock, hex.EncodeToString(msg.Key))
 		ctx.Reply(&messages.ReqBlock{Chain: msg.Chain, Index: msg.Index, Key: msg.Key})
 	case *messages.BlockData:
 		if len(msg.Data) > 102400 {
@@ -98,7 +100,7 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 		if err != nil {
 			return err
 		}
-		e = ctx.GetSession().GetEnv(transOwner)
+		e = ctx.GetSession().GetEnv(eSyncTransOwner)
 		if e == "" {
 			return nil
 		}
@@ -180,14 +182,38 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		}
 		log.Printf("syncDepend trans,chain:%d,index:%d,trans:%x\n", chain, rel.Index, it)
 		e := hex.EncodeToString(it[:])
-		ctx.GetSession().SetEnv(reqTrans, e)
+		ctx.GetSession().SetEnv(eSyncTrans, e)
 		e = hex.EncodeToString(key)
-		ctx.GetSession().SetEnv(transOwner, e)
+		ctx.GetSession().SetEnv(eSyncTransOwner, e)
 		ctx.Reply(&messages.ReqTransaction{Chain: chain, Key: it[:]})
 		return
 	}
+
+	data := core.ReadBlockData(chain, key)
+	err := processBlock(chain, key, data)
+	if err != nil {
+		ctx.GetSession().SetEnv(eSyncBlock, "")
+		ctx.GetSession().SetEnv(eSyncing, "")
+
+		e := ctx.GetSession().GetEnv(eSyncLastBlock)
+		if e == "" {
+			return
+		}
+		key, _ := hex.DecodeString(e)
+		if len(key) == 0 {
+			return
+		}
+		rel = core.TReliability{}
+		rel.HashPower = 0
+		rel.Previous = core.Hash{}
+		rel.Ready = true
+		core.SaveBlockReliability(chain, key, rel)
+		return
+	}
+
 	rel.Ready = true
 	core.SaveBlockReliability(chain, rel.Key[:], rel)
+
 	SetSyncBlock(chain, rel.Index, nil)
 	lastID := core.GetLastBlockIndex(chain)
 	if rel.Index < lastID {
