@@ -69,6 +69,9 @@ func (r *TRuntime) JSONDecode(in []byte, out interface{}) {
 func AdminDbSet(owner interface{}, chain uint64, key, value []byte, life uint64) error {
 	assert(chain > 0)
 	tbName := GetStructName(owner)
+	if len(value) == 0 || life == 0 {
+		return database.Set(chain, tbName, key, nil)
+	}
 	value = append(value, Encode(life)...)
 	err := database.Set(chain, tbName, key, value)
 	if err != nil {

@@ -98,6 +98,7 @@ func main() {
 	n.SetKeyMgr(cp)
 	n.RegistPlugin(new(handler.MsgPlugin))
 	n.RegistPlugin(new(handler.InternalPlugin))
+	n.RegistPlugin(new(handler.SyncPlugin))
 
 	err := n.Listen(c.ServerHost)
 	if err != nil {

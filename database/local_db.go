@@ -134,3 +134,36 @@ func (d *LDB) LSet(chain uint64, tbName string, key, value []byte) error {
 	d.wdisk++
 	return nil
 }
+
+// LGetNext Local DB Get next,for visit all keys
+func (d *LDB) LGetNext(chain uint64, tbName string, prefix []byte) (k, v []byte) {
+	tn := fmt.Sprintf("%d:%s", chain, tbName)
+	d.ldb.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(tn))
+		if b == nil {
+			return nil
+		}
+		c := b.Cursor()
+		var nk, nv []byte
+		if len(prefix) > 0 {
+			nk, nv = c.Seek(prefix)
+			if nk == nil {
+				return nil
+			}
+			nk, nv = c.Next()
+		} else {
+			nk, nv = c.First()
+		}
+
+		if nk == nil {
+			return nil
+		}
+		k = make([]byte, len(nk))
+		copy(k, nk)
+		v = make([]byte, len(nv))
+		copy(v, nv)
+		return nil
+	})
+	d.rdisk++
+	return
+}
