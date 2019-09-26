@@ -275,6 +275,9 @@ func (b *StBlock) GetReliability() TReliability {
 	if b.Producer == preRel.Producer {
 		power -= 7
 	}
+	if power <= preRel.HashPower {
+		power = 0
+	}
 
 	selfRel.Key = b.Key
 	selfRel.Index = b.Index
