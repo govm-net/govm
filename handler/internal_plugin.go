@@ -118,9 +118,9 @@ func (p *InternalPlugin) event(m event.Message) error {
 		return nil
 	case *messages.Rollback:
 		log.Println("rollback block")
-		ib := core.IDBlocks{}
+		ib := IDBlocks{}
 		for i := 0; i < 100; i++ {
-			core.SaveIDBlocks(msg.Chain, msg.Index+uint64(i), ib)
+			SaveIDBlocks(msg.Chain, msg.Index+uint64(i), ib)
 		}
 		m := &messages.ReqBlockInfo{Chain: msg.Chain, Index: msg.Index}
 		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: m})

@@ -2,7 +2,6 @@ package a365d2b302434dac708688612b3b86a486d59c01071be7b2738eb8c6c028fd413
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"github.com/lengzhao/govm/conf"
 	"github.com/lengzhao/govm/database"
 	"github.com/lengzhao/govm/runtime"
@@ -23,48 +22,29 @@ type StBlock struct {
 
 // TReliability Reliability of block
 type TReliability struct {
-	Key        Hash   `json:"key,omitempty"`
-	Previous   Hash   `json:"previous,omitempty"`
-	Parent     Hash   `json:"parent,omitempty"`
-	LeftChild  Hash   `json:"left_child,omitempty"`
-	RightChild Hash   `json:"right_child,omitempty"`
-	Time       uint64 `json:"time,omitempty"`
-	Index      uint64 `json:"index,omitempty"`
-	HashPower  uint64 `json:"hash_power,omitempty"`
-	Miner      bool   `json:"miner,omitempty"`
-	Ready      bool   `json:"ready,omitempty"`
+	Key        Hash    `json:"key,omitempty"`
+	Previous   Hash    `json:"previous,omitempty"`
+	Parent     Hash    `json:"parent,omitempty"`
+	LeftChild  Hash    `json:"left_child,omitempty"`
+	RightChild Hash    `json:"right_child,omitempty"`
+	Producer   Address `json:"producer,omitempty"`
+	Time       uint64  `json:"time,omitempty"`
+	Index      uint64  `json:"index,omitempty"`
+	HashPower  uint64  `json:"hash_power,omitempty"`
+	Miner      bool    `json:"miner,omitempty"`
+	Ready      bool    `json:"ready,omitempty"`
 }
 
-// BlockRunStat stat of block
-type BlockRunStat struct {
-	RunTimes        int    `json:"run_times,omitempty"`
-	RunSuccessCount int    `json:"run_success_count,omitempty"`
-	RollbackCount   int    `json:"rollback_count,omitempty"`
-	RollbackTime    int64  `json:"rollback_time,omitempty"`
-	SelectedCount   uint64 `json:"selected_count,omitempty"`
-}
-
-const (
-	ldbReliability  = "reliability"
-	ldbBlockRunStat = "block_run_stat"
-	ldbIDBlocks     = "id_blocks"
-	ldbChainHeight  = "chain_height"
-	ldbMineHistory  = "mine_history"
-)
-
+const ldbReliability = "reliability" //blockKey:relia
 var ldb *database.LDB
 
 func init() {
-	ldb = database.NewLDB("local.db", 10000)
+	ldb = database.NewLDB("reliability.db", 2000)
 	if ldb == nil {
 		log.Println("fail to open ldb,local.db")
 		os.Exit(2)
 	}
 	ldb.SetCache(ldbReliability)
-	ldb.SetCache(ldbBlockRunStat)
-	ldb.SetCache(ldbIDBlocks)
-	ldb.SetCache(ldbChainHeight)
-	ldb.SetCache(ldbMineHistory)
 }
 
 // NewBlock new block
@@ -86,8 +66,8 @@ func NewBlock(chain uint64, producer Address) *StBlock {
 	getDataFormDB(chain, dbStat{}, []byte{StatBlockInterval}, &blockInterval)
 
 	hashPowerLimit /= 1000
-	if hashPowerLimit < 5 {
-		hashPowerLimit = 5
+	if hashPowerLimit < 10 {
+		hashPowerLimit = 10
 	}
 	out.HashpowerLimit = hashPowerLimit
 
@@ -270,14 +250,12 @@ func DecodeBlock(data []byte) *StBlock {
 
 // GetReliability get block reliability
 func (b *StBlock) GetReliability() TReliability {
-	const (
-		WeightOfHashPower = 10000
-	)
 	var power uint64
-	var selfRel, preRel TReliability
+	var selfRel TReliability
 	var miner Miner
 
-	preRel = ReadBlockReliability(b.Chain, b.Previous[:])
+	preRel := ReadBlockReliability(b.Chain, b.Previous[:])
+	parent := ReadBlockReliability(b.Chain/2, b.Parent[:])
 	getDataFormDB(b.Chain, dbMining{}, runtime.Encode(b.Index), &miner)
 
 	for i := 0; i < minerNum; i++ {
@@ -289,11 +267,14 @@ func (b *StBlock) GetReliability() TReliability {
 	}
 	if b.Index == 1 {
 		power += 1000
-		selfRel.Ready = true
 	}
 	power += getHashPower(b.Key)
+	power += parent.HashPower / 4
 	power += preRel.HashPower
-	power -= preRel.HashPower / 1000000
+	power -= preRel.HashPower >> 30
+	if b.Producer == preRel.Producer {
+		power -= 7
+	}
 
 	selfRel.Key = b.Key
 	selfRel.Index = b.Index
@@ -303,6 +284,7 @@ func (b *StBlock) GetReliability() TReliability {
 	selfRel.Parent = b.Parent
 	selfRel.LeftChild = b.LeftChild
 	selfRel.RightChild = b.RightChild
+	selfRel.Producer = b.Producer
 
 	return selfRel
 }
@@ -331,143 +313,9 @@ func (x TReliability) Cmp(y TReliability) int {
 	return 0
 }
 
-// SaveBlockReliability save block reliability
-func SaveBlockReliability(chain uint64, key []byte, rb TReliability) {
-	if chain == 0 {
-		return
-	}
-	ldb.LSet(chain, ldbReliability, key, runtime.Encode(rb))
-}
-
-// ReadBlockReliability get Reliability of block from db
-func ReadBlockReliability(chain uint64, key []byte) (cl TReliability) {
-	stream := ldb.LGet(chain, ldbReliability, key)
-	if stream != nil {
-		runtime.Decode(stream, &cl)
-	}
-	return
-}
-
-// DeleteBlockReliability delete reliability of block
-func DeleteBlockReliability(chain uint64, key []byte) {
-	if chain == 0 {
-		return
-	}
-	ldb.LSet(chain, ldbReliability, key, nil)
-}
-
-// SaveBlockRunStat save block stat
-func SaveBlockRunStat(chain uint64, key []byte, rb BlockRunStat) {
-	if chain == 0 {
-		return
-	}
-	data, err := json.Marshal(rb)
-	if err != nil {
-		log.Fatal(err)
-	}
-	ldb.LSet(chain, ldbBlockRunStat, key, data)
-}
-
-// ReadBlockRunStat get stat of block
-func ReadBlockRunStat(chain uint64, key []byte) (cl BlockRunStat) {
-	if chain == 0 {
-		return
-	}
-	stream := ldb.LGet(chain, ldbBlockRunStat, key)
-	if stream != nil {
-		json.Unmarshal(stream, &cl)
-	}
-
-	return
-}
-
 // IsExistBlock Determine whether block exists
 func IsExistBlock(chain uint64, key []byte) bool {
 	return runtime.DbExist(dbBlockData{}, chain, key)
-}
-
-// ItemBlock Item of IDBlocks
-type ItemBlock struct {
-	Key       Hash
-	HashPower uint64
-}
-
-// IDBlocks the blocks of same index
-type IDBlocks struct {
-	Items     []ItemBlock
-	MaxHeight uint64
-}
-
-// SaveIDBlocks save blocks of the index
-func SaveIDBlocks(chain, index uint64, ib IDBlocks) {
-	if chain == 0 {
-		return
-	}
-	key := runtime.Encode(index)
-	data, err := json.Marshal(ib)
-	if err != nil {
-		log.Println("fail to Marshal IDBlocks.", err)
-		return
-	}
-	ldb.LSet(chain, ldbIDBlocks, key, data)
-}
-
-// ReadIDBlocks get blocks of the index
-func ReadIDBlocks(chain, index uint64) (ib IDBlocks) {
-	if chain == 0 {
-		return
-	}
-	key := runtime.Encode(index)
-	stream := ldb.LGet(chain, ldbIDBlocks, key)
-	if stream != nil {
-		json.Unmarshal(stream, &ib)
-	}
-
-	return
-}
-
-// ChainHeight height=last-self,HashPower=sum(self...last)
-type ChainHeight struct {
-	Height    uint64
-	HashPower uint64
-}
-
-// SaveChainHeight save height of block,return true when saved
-func SaveChainHeight(chain uint64, key []byte, h ChainHeight) bool {
-	if chain == 0 {
-		return false
-	}
-	now := GetChainHeight(chain, key)
-	if now.Height > h.Height || now.HashPower > h.HashPower {
-		return false
-	}
-	ldb.LSet(chain, ldbChainHeight, key, runtime.Encode(h))
-	return true
-}
-
-// GetChainHeight get height of block
-func GetChainHeight(chain uint64, key []byte) ChainHeight {
-	var out ChainHeight
-	stream := ldb.LGet(chain, ldbChainHeight, key)
-	if stream != nil {
-		runtime.Decode(stream, &out)
-	}
-	return out
-}
-
-// GetMineCount get mine count
-func GetMineCount(chain uint64, key []byte) uint64 {
-	var out uint64
-	stream := ldb.LGet(chain, ldbMineHistory, key)
-	if stream != nil {
-		runtime.Decode(stream, &out)
-	}
-	return out
-}
-
-// SetMineCount set mine count
-func SetMineCount(chain uint64, key []byte, count uint64) {
-	ldb.LSet(chain, ldbMineHistory, key, runtime.Encode(count))
 }
 
 // WriteBlock write block data to database
@@ -541,16 +389,6 @@ func GetBlockTime(chain uint64) uint64 {
 	return pStat.Time
 }
 
-// ChainIsCreated return true when the chain is created
-func ChainIsCreated(chain uint64) bool {
-	var pStat BaseInfo
-	getDataFormDB(chain/2, dbStat{}, []byte{StatBaseInfo}, &pStat)
-	if chain%2 == 0 {
-		return pStat.LeftChildID > 0
-	}
-	return pStat.RightChildID > 0
-}
-
 // IsMiner check miner
 func IsMiner(chain, index uint64, user []byte) bool {
 	var miner Miner
@@ -603,4 +441,38 @@ func CreateBiosTrans(chain uint64) {
 	log.Printf("first app: %x\n", appName)
 	appCode[6] = appCode[6] | AppFlagRun
 	runtime.NewApp(chain, appName, appCode)
+}
+
+// SaveBlockReliability save block reliability
+func SaveBlockReliability(chain uint64, key []byte, rb TReliability) {
+	if chain == 0 {
+		return
+	}
+	ldb.LSet(chain, ldbReliability, key, runtime.Encode(rb))
+}
+
+// ReadBlockReliability get Reliability of block from db
+func ReadBlockReliability(chain uint64, key []byte) (cl TReliability) {
+	if chain == 0 {
+		return
+	}
+	stream := ldb.LGet(chain, ldbReliability, key)
+	if stream != nil {
+		runtime.Decode(stream, &cl)
+	}
+	return
+}
+
+// DeleteBlockReliability delete reliability of block
+func DeleteBlockReliability(chain uint64, key []byte) {
+	if chain == 0 {
+		return
+	}
+	ldb.LSet(chain, ldbReliability, key, nil)
+}
+
+func GetBlockInterval(chain uint64) uint64 {
+	var out uint64
+	getDataFormDB(chain, dbStat{}, []byte{StatBlockInterval}, &out)
+	return out
 }

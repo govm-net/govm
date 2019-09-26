@@ -156,8 +156,6 @@ func (m *TDbMgr) OpenFlag(flag []byte) error {
 		log.Println("fail to set flag:", err)
 		return err
 	}
-	ohn := m.getHistoryFileName(m.id - 5000)
-	os.Remove(ohn)
 	hn := m.getHistoryFileName(m.id)
 	os.Remove(hn)
 	m.historyDb, err = bolt.Open(hn, 0600, nil)
@@ -485,6 +483,9 @@ func (m *TDbMgr) Set(tbName, key, value []byte) error {
 		if err != nil {
 			log.Printf("fail to create bucket,%x\n", tbName)
 			return err
+		}
+		if len(value) == 0 {
+			return b.Delete(key)
 		}
 		err = b.Put(key, value)
 		if err != nil {

@@ -12,11 +12,12 @@ type ReqBlockInfo struct {
 
 // BlockInfo response block info
 type BlockInfo struct {
-	Chain  uint64
-	Index  uint64
-	Key    []byte
-	User   []byte
-	PreKey []byte
+	Chain     uint64
+	Index     uint64
+	HashPower uint64
+	Key       []byte
+	User      []byte
+	PreKey    []byte
 }
 
 // ReqBlock request block data

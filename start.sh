@@ -4,5 +4,5 @@ do
     echo start govm
     date
     ./govm
-    echo something wrong, govm exit
+    echo something wrong, govm exit. $?
 done
