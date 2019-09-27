@@ -215,17 +215,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	core.SaveBlockReliability(chain, rel.Key[:], rel)
 
 	SetSyncBlock(chain, rel.Index, nil)
-	lastID := core.GetLastBlockIndex(chain)
-	if rel.Index < lastID {
-		ib := IDBlocks{}
-		it := ItemBlock{}
-		it.Key = rel.Key
-		it.HashPower = rel.HashPower
-		ib.Items = append(ib.Items, it)
-		SaveIDBlocks(chain, rel.Index, ib)
-	} else {
-		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
-	}
+	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
 
 	newKey := GetSyncBlock(chain, rel.Index+1)
 	if len(newKey) > 0 {

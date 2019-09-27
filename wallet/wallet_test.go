@@ -48,7 +48,7 @@ func TestNewChildPrivateKeyOfIBS(t *testing.T) {
 }
 
 func TestRand(t *testing.T) {
-	priv := getHash([]byte("aaaaa"))
+	priv := GetHash([]byte("aaaaa"))
 	msg := []byte("11111111,this is the message")
 	signSuf := Sign(priv, msg)
 	log.Println("signSuf:", hex.EncodeToString(signSuf))

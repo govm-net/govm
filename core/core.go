@@ -1,4 +1,4 @@
-package a365d2b302434dac708688612b3b86a486d59c01071be7b2738eb8c6c028fd413
+package a9edcee1a25950643c09476b7c039eb8aec09141a8d0e80051fd52a0e37bc60fe
 
 type dbBlockData struct{}
 type dbTransactionData struct{}
@@ -182,7 +182,7 @@ var (
 
 	// gPublicAddr The address of a public account for the preservation of additional rewards.
 	gPublicAddr = Address{prefixOfPlublcAddr, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
-	author      = Address{2, 76, 225, 58, 198, 4, 15, 209, 95, 37, 176, 153, 100, 37, 223, 99, 165, 238, 117, 206, 215, 75, 162, 255}
+	author      = Address{2, 152, 64, 16, 49, 156, 211, 70, 89, 247, 252, 178, 11, 49, 214, 21, 216, 80, 171, 50, 202, 147, 6, 24}
 	gRuntime    IRuntime
 )
 
@@ -645,9 +645,9 @@ func processBlock(chain uint64, key Hash) {
 		assert(decT == blockInterval)
 	}
 	hp := getHashPower(key)
-	assert(hp > 0)
-	assert(hp >= hpLimit/1000)
-	hp = hp + hpLimit - hpLimit/1000 - 5
+	assert(hp > 2)
+	assert(hp+3 >= hpLimit/1000)
+	hp = hp + hpLimit - hpLimit/1000
 	pDbStat.SetInt([]byte{StatHashPower}, hp, maxDbLife)
 
 	if gBS.Chain == 1 {
@@ -720,7 +720,7 @@ func processBlock(chain uint64, key Hash) {
 
 	//Mining guerdon
 	guerdon := pDbStat.GetInt([]byte{StatGuerdon})
-	if gBS.ID < 30 {
+	if gBS.ID < 10 {
 		registerMiner(block.Producer, gBS.ID+1, guerdon/10)
 	}
 	adminTransfer(Address{}, block.Producer, guerdon)

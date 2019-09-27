@@ -3,10 +3,11 @@ package wallet
 import (
 	"bytes"
 	"crypto/rand"
-	"crypto/sha256"
+	// "crypto/sha256"
 	"encoding/binary"
 	// "encoding/hex"
 	"github.com/btcsuite/btcd/btcec"
+	"golang.org/x/crypto/sha3"
 	"log"
 	"time"
 )
@@ -29,9 +30,21 @@ const (
 	TimeDuration = 31558150000 / 12
 )
 
+var hashPrefix = []byte("govm")
+
 func init() {
 	var data = make([]byte, 10)
 	rand.Read(data)
+}
+
+// GetHash get data hash
+func GetHash(in []byte) []byte {
+	sha := sha3.New256()
+	if len(hashPrefix) > 0 {
+		sha.Write(hashPrefix)
+	}
+	sha.Write(in)
+	return sha.Sum(nil)
 }
 
 // NewPrivateKey 获取一个随机的私钥
@@ -39,7 +52,7 @@ func NewPrivateKey() []byte {
 	priKey, _ := btcec.NewPrivateKey(btcec.S256())
 	out := priKey.Serialize()
 	out = append(out, []byte(time.Now().String())...)
-	return getHash(out)
+	return GetHash(out)
 }
 
 // NewChildPrivateKeyOfIBS create child key of the address,time(ms)
@@ -101,7 +114,7 @@ func PublicKeyToAddress(in []byte, addrType uint8) []byte {
 	}
 
 	in = append(in, addrType)
-	h := getHash(in)
+	h := GetHash(in)
 	buf := bytes.NewReader(h)
 	binary.Read(buf, binary.BigEndian, &out)
 	out[0] = addrType
@@ -109,15 +122,9 @@ func PublicKeyToAddress(in []byte, addrType uint8) []byte {
 	return out[:]
 }
 
-func getHash(msg []byte) []byte {
-	sha := sha256.New()
-	sha.Write(msg)
-	return sha.Sum(nil)
-}
-
 // Sign 用私钥对msg进行签名
 func Sign(privK, msg []byte) []byte {
-	msgH := getHash(msg)
+	msgH := GetHash(msg)
 	if len(privK) != privateKeyLen {
 		return nil
 	}
@@ -157,7 +164,7 @@ func bytesToUint64(data []byte) uint64 {
 
 // Recover 通过签名信息，提取钱包地址
 func Recover(address, sign, msg []byte) bool {
-	msgH := getHash(msg)
+	msgH := GetHash(msg)
 	//log.Printf("recover length:%d,hash:%x\n", len(msg), msgH)
 	publicKey := []byte{}
 	switch address[0] {
@@ -194,7 +201,7 @@ func Recover(address, sign, msg []byte) bool {
 		//msg1 = append(msg1, buf1.Bytes()...)
 		//log.Println("Recover msg1:", hex.EncodeToString(msg1))
 
-		msgH = getHash(buf1.Bytes())
+		msgH = GetHash(buf1.Bytes())
 		publicKey = getPublicByRecover(s1, msgH)
 		// log.Println("Recover parentPubK:", hex.EncodeToString(publicKey))
 	}

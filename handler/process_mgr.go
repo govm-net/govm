@@ -55,6 +55,7 @@ func getBestBlock(chain, index uint64) core.TReliability {
 	now := time.Now().Unix() * 1000
 	if len(ib.Items) == 1 {
 		it := ib.Items[0]
+		log.Printf("getBestBlock rst,num:1,chain:%d,index:%d,key:%x\n", chain, index, it)
 		return core.ReadBlockReliability(chain, it.Key[:])
 	}
 	for i, it := range ib.Items {
@@ -181,7 +182,7 @@ func processEvent(chain uint64) {
 		log.Printf("no next block key,chain:%d,index:%d\n", chain, index+1)
 		relia = getBestBlock(chain, index)
 		nowKey := core.GetTheBlockKey(chain, index)
-		if bytes.Compare(relia.Key[:], nowKey) != 0 {
+		if !relia.Key.Empty() && bytes.Compare(relia.Key[:], nowKey) != 0 {
 			log.Printf("dbRollBack block. index:%d,key:%x,next block:%x\n", index, nowKey, relia.Key)
 			dbRollBack(chain, index, nowKey)
 			go processEvent(chain)
@@ -216,6 +217,7 @@ func processEvent(chain uint64) {
 	if err != nil {
 		log.Printf("fail to process block,chain:%d,index:%d,key:%x,error:%s\n", chain, index+1, relia.Key, err)
 		SaveBlockRunStat(chain, relia.Key[:], stat)
+		setBlockToIDBlocks(chain, relia.Index, relia.Key, 0)
 		return
 	}
 	stat.RunSuccessCount++
@@ -237,9 +239,6 @@ func processEvent(chain uint64) {
 	info.Key = relia.Key[:]
 	info.HashPower = relia.HashPower
 	network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
-
-	ib := IDBlocks{}
-	SaveIDBlocks(chain, index, ib)
 
 	cInfo := core.GetChainInfo(chain)
 	if cInfo.LeftChildID == 1 {
@@ -303,7 +302,7 @@ func doMine(chain uint64) {
 	block.Nonce = rand.Uint64()
 	var key core.Hash
 	var oldHP uint64
-	timeout := time.Now().Unix() + 40
+	timeout := time.Now().Unix() + 20
 
 	for {
 		now := time.Now().Unix()

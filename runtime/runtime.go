@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -33,9 +32,7 @@ func (r *TRuntime) SetInfo(chain uint64, flag []byte) {
 
 // GetHash 计算hash值
 func (r *TRuntime) GetHash(in []byte) []byte {
-	var h = sha256.New()
-	h.Write(in)
-	return h.Sum(nil)
+	return GetHash(in)
 }
 
 // Encode 将interface{}转成字符流，不支持可变长度类型

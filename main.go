@@ -113,14 +113,14 @@ func loadNodeKey() []byte {
 		nodeKeyFile = "./conf/node_key.dat"
 		passwd      = "10293847561029384756"
 	)
-	_, privKey, _ := wallet.LoadWallet(nodeKeyFile, passwd)
-	if privKey == nil {
-		privKey = wallet.NewPrivateKey()
-		pubKey := wallet.GetPublicKey(privKey)
+	w, err := wallet.LoadWallet(nodeKeyFile, passwd)
+	if err != nil {
+		w.Key = wallet.NewPrivateKey()
+		pubKey := wallet.GetPublicKey(w.Key)
 		addr := wallet.PublicKeyToAddress(pubKey, wallet.EAddrTypeDefault)
-		wallet.SaveWallet(nodeKeyFile, passwd, addr, privKey, nil)
+		wallet.SaveWallet(nodeKeyFile, passwd, addr, w.Key, nil)
 	}
-	return privKey
+	return w.Key
 }
 
 type logWriter struct {
