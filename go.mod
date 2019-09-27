@@ -7,4 +7,5 @@ require (
 	github.com/btcsuite/btcd v0.0.0-20190213025234-306aecffea32
 	github.com/gorilla/mux v1.7.0
 	github.com/lengzhao/libp2p v0.3.1
+	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 )

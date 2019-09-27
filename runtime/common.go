@@ -3,13 +3,13 @@ package runtime
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/binary"
 	"encoding/gob"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/lengzhao/govm/database"
+	"github.com/lengzhao/govm/wallet"
 	"io/ioutil"
 	"log"
 	"os"
@@ -42,9 +42,7 @@ func init() {
 
 // GetHash 计算hash值
 func GetHash(in []byte) []byte {
-	var h = sha256.New()
-	h.Write(in)
-	return h.Sum(nil)
+	return wallet.GetHash(in)
 }
 
 // Encode 将interface{}转成字符流，不支持可变长度类型

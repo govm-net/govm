@@ -58,8 +58,8 @@ func loadConfig() error {
 		return err
 	}
 	//log.Println("config info:", conf)
-	conf.FirstTransName, _ = hex.DecodeString("ef2dc3bb54242ba576542cb17af4175124c0e443ad2c794cb753e0ad11b23f73")
-	conf.CorePackName, _ = hex.DecodeString("365d2b302434dac708688612b3b86a486d59c01071be7b2738eb8c6c028fd413")
+	conf.FirstTransName, _ = hex.DecodeString("4c8189d591682b524ea58e61447a3ed8734774dc30ff77e36d563f8a7868cc86")
+	conf.CorePackName, _ = hex.DecodeString("9edcee1a25950643c09476b7c039eb8aec09141a8d0e80051fd52a0e37bc60fe")
 
 	if conf.WalletFile == "" {
 		conf.WalletFile = "./conf/wallet.key"
@@ -89,20 +89,21 @@ func Reload() error {
 
 // LoadWallet load wallet
 func LoadWallet(fileName, password string) {
-	addr, privKey, prefix := wallet.LoadWallet(fileName, password)
-	if addr == nil {
-		addr, privKey, prefix = wallet.LoadWallet("./conf/base.dat", password)
-		if addr == nil {
-			privKey = wallet.NewPrivateKey()
-			pubKey := wallet.GetPublicKey(privKey)
-			addr = wallet.PublicKeyToAddress(pubKey, wallet.EAddrTypeDefault)
+	w, err := wallet.LoadWallet(fileName, password)
+	if err != nil {
+		os.Rename(fileName, fileName+".error")
+		w, err = wallet.LoadWallet("./conf/base.dat", password)
+		if err != nil {
+			w.Key = wallet.NewPrivateKey()
+			pubKey := wallet.GetPublicKey(w.Key)
+			w.Address = wallet.PublicKeyToAddress(pubKey, wallet.EAddrTypeDefault)
 		} else {
 			now := time.Now().Unix() * 1000
-			privKey, prefix = wallet.NewChildPrivateKeyOfIBS(privKey, uint64(now))
+			w.Key, w.SignPrefix = wallet.NewChildPrivateKeyOfIBS(w.Key, uint64(now))
 		}
-		wallet.SaveWallet(fileName, password, addr, privKey, prefix)
+		wallet.SaveWallet(fileName, password, w.Address, w.Key, w.SignPrefix)
 	}
-	conf.PrivateKey = privKey
-	conf.WalletAddr = addr
-	conf.SignPrefix = prefix
+	conf.PrivateKey = w.Key
+	conf.WalletAddr = w.Address
+	conf.SignPrefix = w.SignPrefix
 }

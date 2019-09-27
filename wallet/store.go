@@ -13,46 +13,41 @@ import (
 // TWallet 钱包存储的结构体
 type TWallet struct {
 	Tag        string `json:"tag,omitempty"`
-	Address    string `json:"address,omitempty"`
-	Key        string `json:"key,omitempty"`
-	SignPrefix string `json:"sign_prefix,omitempty"`
+	AddressStr string `json:"address_str,omitempty"`
+	Address    []byte `json:"address,omitempty"`
+	Key        []byte `json:"key,omitempty"`
+	SignPrefix []byte `json:"sign_prefix,omitempty"`
 }
 
 // LoadWallet 从文件中加载钱包信息
-func LoadWallet(file string, password string) (addr, privKey, prefix []byte) {
+func LoadWallet(file, password string) (TWallet, error) {
+	info := TWallet{}
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		log.Println("fail to read config file:", file, err)
-		return nil, nil, nil
+		return info, err
 	}
 
-	info := TWallet{}
 	err = json.Unmarshal(data, &info)
 	if err != nil {
 		log.Println("fail to json.Unmarshal:", err)
-		return nil, nil, nil
+		return info, err
 	}
 
-	addr, _ = hex.DecodeString(info.Address)
-	prefix, _ = hex.DecodeString(info.SignPrefix)
 	aesEnc := encrypt.AesEncrypt{}
 	aesEnc.Key = password
-	data, _ = hex.DecodeString(info.Key)
-	privKey, err = aesEnc.Decrypt(data)
+	privKey, err := aesEnc.Decrypt(info.Key)
 	if err != nil {
-		log.Println("fail to decrypt privateKey", err)
-		return nil, nil, nil
+		log.Println("fail to decrypt privateKey.", err)
+		return info, err
 	}
-	pubKey := GetPublicKey(privKey)
-	if len(addr) == 0 {
-		addr = PublicKeyToAddress(pubKey, EAddrTypeDefault)
-	}
+	info.Key = privKey
 
-	return
+	return info, nil
 }
 
 // SaveWallet 将私钥信息和地址保存到文件中
-func SaveWallet(file string, passwd string, addr, privKey, prefix []byte) error {
+func SaveWallet(file, passwd string, addr, privKey, prefix []byte) error {
 	aesEnc := encrypt.AesEncrypt{}
 	aesEnc.Key = passwd
 
@@ -62,9 +57,10 @@ func SaveWallet(file string, passwd string, addr, privKey, prefix []byte) error 
 		return err
 	}
 	info := TWallet{}
-	info.Address = hex.EncodeToString(addr)
-	info.SignPrefix = hex.EncodeToString(prefix)
-	info.Key = hex.EncodeToString(arrEncrypt)
+	info.AddressStr = hex.EncodeToString(addr)
+	info.Address = addr
+	info.SignPrefix = prefix
+	info.Key = arrEncrypt
 	if addr[0] == EAddrTypeIBS {
 		t := GetDeadlineOfIBS(addr)
 		info.Tag = time.Unix(int64(t/1000), 0).Format(time.RFC3339)

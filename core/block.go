@@ -1,4 +1,4 @@
-package a365d2b302434dac708688612b3b86a486d59c01071be7b2738eb8c6c028fd413
+package a9edcee1a25950643c09476b7c039eb8aec09141a8d0e80051fd52a0e37bc60fe
 
 import (
 	"encoding/hex"
@@ -258,6 +258,10 @@ func (b *StBlock) GetReliability() TReliability {
 	parent := ReadBlockReliability(b.Chain/2, b.Parent[:])
 	getDataFormDB(b.Chain, dbMining{}, runtime.Encode(b.Index), &miner)
 
+	if b.Index == 1 {
+		power = 1000
+	}
+
 	for i := 0; i < minerNum; i++ {
 		if miner.Miner[i] == b.Producer {
 			power += uint64(minerNum-i) + 5
@@ -265,18 +269,12 @@ func (b *StBlock) GetReliability() TReliability {
 			break
 		}
 	}
-	if b.Index == 1 {
-		power += 1000
-	}
 	power += getHashPower(b.Key)
 	power += parent.HashPower / 4
 	power += preRel.HashPower
 	power -= preRel.HashPower >> 30
 	if b.Producer == preRel.Producer {
 		power -= 7
-	}
-	if power <= preRel.HashPower {
-		power = 0
 	}
 
 	selfRel.Key = b.Key
@@ -474,6 +472,7 @@ func DeleteBlockReliability(chain uint64, key []byte) {
 	ldb.LSet(chain, ldbReliability, key, nil)
 }
 
+// GetBlockInterval get the interval time of between blocks
 func GetBlockInterval(chain uint64) uint64 {
 	var out uint64
 	getDataFormDB(chain, dbStat{}, []byte{StatBlockInterval}, &out)

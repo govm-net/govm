@@ -726,7 +726,7 @@ func TransactionAppInfoGet(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	keyStr := r.Form.Get("key")
 	if keyStr == "" {
-		keyStr = "365d2b302434dac708688612b3b86a486d59c01071be7b2738eb8c6c028fd413"
+		keyStr = "9edcee1a25950643c09476b7c039eb8aec09141a8d0e80051fd52a0e37bc60fe"
 	}
 	chain, err := strconv.ParseUint(chainStr, 10, 64)
 	if err != nil {

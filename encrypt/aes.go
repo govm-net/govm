@@ -1,9 +1,11 @@
 package encrypt
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha256"
+	"errors"
 )
 
 // AesEncrypt 加密的定义结构
@@ -11,10 +13,12 @@ type AesEncrypt struct {
 	Key string
 }
 
+const prefix = "encrypt"
+
 func (a *AesEncrypt) getKey() []byte {
 	strKey := []byte(a.Key)
 	var h = sha256.New()
-	h.Write(strKey)
+	h.Write([]byte(prefix))
 	h.Write(strKey)
 	return h.Sum(nil)
 }
@@ -23,13 +27,15 @@ func (a *AesEncrypt) getKey() []byte {
 func (a *AesEncrypt) Encrypt(strMesg []byte) ([]byte, error) {
 	key := a.getKey()
 	var iv = []byte(key)[:aes.BlockSize]
-	encrypted := make([]byte, len(strMesg))
+	msg := []byte("prefix")
+	msg = append(msg, strMesg...)
+	encrypted := make([]byte, len(msg))
 	aesBlockEncrypter, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
 	aesEncrypter := cipher.NewCFBEncrypter(aesBlockEncrypter, iv)
-	aesEncrypter.XORKeyStream(encrypted, strMesg)
+	aesEncrypter.XORKeyStream(encrypted, msg)
 	return encrypted, nil
 }
 
@@ -51,5 +57,9 @@ func (a *AesEncrypt) Decrypt(src []byte) (strDesc []byte, err error) {
 	}
 	aesDecrypter := cipher.NewCFBDecrypter(aesBlockDecrypter, iv)
 	aesDecrypter.XORKeyStream(decrypted, src)
-	return decrypted, nil
+	pre := []byte("prefix")
+	if bytes.Compare(pre, decrypted[:len(pre)]) != 0 {
+		return nil, errors.New("error password")
+	}
+	return decrypted[len(pre):], nil
 }
