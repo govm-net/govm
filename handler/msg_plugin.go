@@ -78,9 +78,6 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 
 		index := core.GetLastBlockIndex(msg.Chain)
 		if index > msg.Index {
-			if index > msg.Index+50 {
-				index = msg.Index + 50
-			}
 			key := core.GetTheBlockKey(msg.Chain, index)
 			if len(key) > 0 {
 				rel := core.ReadBlockReliability(msg.Chain, key)
