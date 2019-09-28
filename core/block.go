@@ -69,7 +69,7 @@ func NewBlock(chain uint64, producer Address) *StBlock {
 	if hashPowerLimit < 10 {
 		hashPowerLimit = 10
 	}
-	out.HashpowerLimit = hashPowerLimit
+	out.HashpowerLimit = hashPowerLimit - 3
 
 	if pStat.ID == 1 && chain > 1 {
 		pStat.Time = pStat.Time + blockSyncMax + blockSyncMin + maxBlockInterval

@@ -199,6 +199,8 @@ func processEvent(chain uint64) {
 		network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 		return
 	}
+	stat := ReadBlockRunStat(chain, relia.Key[:])
+	stat.SelectedCount++
 	preKey := core.GetTheBlockKey(chain, index)
 	if bytes.Compare(relia.Previous[:], preKey) != 0 {
 		log.Printf("dbRollBack block. index:%d,key:%x,next block:%x\n", index, preKey, relia.Key)
@@ -206,11 +208,11 @@ func processEvent(chain uint64) {
 		it := ItemBlock{relia.Previous, 1}
 		ib.Items = append(ib.Items, it)
 		SaveIDBlocks(chain, index, ib)
+		SaveBlockRunStat(chain, relia.Key[:], stat)
 		dbRollBack(chain, index, preKey)
 		go processEvent(chain)
 		return
 	}
-	stat := ReadBlockRunStat(chain, relia.Key[:])
 	stat.RunTimes++
 	log.Printf("start to process block,chain:%d,index:%d,key:%x\n", chain, relia.Index, relia.Key)
 	err := blockRun(chain, relia.Key[:])
@@ -302,7 +304,7 @@ func doMine(chain uint64) {
 	block.Nonce = rand.Uint64()
 	var key core.Hash
 	var oldHP uint64
-	timeout := time.Now().Unix() + 20
+	timeout := time.Now().Unix() + 10
 
 	for {
 		now := time.Now().Unix()
@@ -339,7 +341,11 @@ func doMine(chain uint64) {
 	}
 
 	if oldHP == 0 || key.Empty() {
-		log.Printf("fail to doMine,error oldHP")
+		log.Printf("fail to doMine,error oldHP,limit:%d\n", block.HashpowerLimit)
+		count = GetMineCount(chain, block.Previous[:])
+		if count > 0 {
+			SetMineCount(chain, block.Previous[:], count-1)
+		}
 		return
 	}
 
