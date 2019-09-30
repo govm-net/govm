@@ -96,15 +96,15 @@ func (p *InternalPlugin) event(m event.Message) error {
 			log.Printf("[event]trans is exist,chain:%d,key:%x\n", msg.Chain, msg.Key)
 			return nil
 		}
-		trans := core.DecodeTrans(msg.Data)
-		if trans == nil {
-			return errors.New("error transaction")
+		log.Printf("create new trans:%x,\n", msg.Key[:])
+		err := processTransaction(msg.Chain, msg.Key, msg.Data)
+		if err != nil {
+			log.Printf("new trans error.chain:%d,key:%x,err:%s\n", msg.Chain, msg.Key, err)
+			return err
 		}
-		core.WriteTransaction(trans.Chain, msg.Data)
-		addTrans(msg.Key[:], trans.User[:], trans.Chain, trans.Time, trans.Energy, uint64(len(msg.Data)))
-		m := &messages.TransactionInfo{Chain: trans.Chain, Key: msg.Key[:]}
+		m := &messages.TransactionInfo{Chain: msg.Chain, Key: msg.Key[:]}
 		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: m})
-		log.Printf("new trans:%x,chain:%d,ops:%d\n", msg.Key[:], trans.Chain, trans.Ops)
+
 		return nil
 	case *messages.Mine:
 		id := core.GetLastBlockIndex(msg.Chain)
@@ -114,7 +114,7 @@ func (p *InternalPlugin) event(m event.Message) error {
 		log.Println("do mine:", msg.Chain)
 		m := &messages.ReqBlockInfo{Chain: msg.Chain, Index: id}
 		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: m})
-		doMine(msg.Chain)
+		doMine(msg.Chain, true)
 		return nil
 	case *messages.Rollback:
 		log.Println("rollback block")

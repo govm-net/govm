@@ -272,7 +272,7 @@ func (b *StBlock) GetReliability() TReliability {
 	power += getHashPower(b.Key)
 	power += parent.HashPower / 4
 	power += preRel.HashPower
-	power -= preRel.HashPower >> 30
+	power -= preRel.HashPower >> 40
 	if b.Producer == preRel.Producer {
 		power -= 7
 	}
@@ -476,5 +476,12 @@ func DeleteBlockReliability(chain uint64, key []byte) {
 func GetBlockInterval(chain uint64) uint64 {
 	var out uint64
 	getDataFormDB(chain, dbStat{}, []byte{StatBlockInterval}, &out)
+	return out
+}
+
+// GetBlockSizeLimit get the limit size of block
+func GetBlockSizeLimit(chain uint64) uint64 {
+	var out uint64
+	getDataFormDB(chain, dbStat{}, []byte{StatBlockSizeLimit}, &out)
 	return out
 }

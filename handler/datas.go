@@ -24,6 +24,9 @@ const (
 	ldbMineHistory  = "mine_history"   //blockKey:count
 	ldbSyncBlocks   = "sync_blocks"    //index:blockKey
 	ldbTransList    = "trans_list"     //blockKey:transList
+	ldbTransInfo    = "trans_info"     //transKey:info
+	ldbInputTrans   = "input_trans"    //receive transfer
+	ldbOutputTrans  = "output_trans"   //create by self
 )
 
 var ldb *database.LDB
@@ -39,6 +42,7 @@ func init() {
 	ldb.SetCache(ldbMineHistory)
 	ldb.SetCache(ldbSyncBlocks)
 	ldb.SetCache(ldbTransList)
+	ldb.SetCache(ldbTransInfo)
 }
 
 // SaveBlockRunStat save block stat
@@ -150,5 +154,73 @@ func GetTransList(chain uint64, key []byte) []core.Hash {
 		out = append(out, tmp)
 		v = v[len(tmp[:]):]
 	}
+	return out
+}
+
+type transInfo struct {
+	core.TransactionHead
+	Key      core.Hash
+	Size     uint32
+	Stat     uint32
+	Selected uint32
+}
+
+func saveTransInfo(chain uint64, key []byte, info transInfo) {
+	ldb.LSet(chain, ldbTransInfo, key, runtime.Encode(info))
+}
+
+func readTransInfo(chain uint64, key []byte) transInfo {
+	out := transInfo{}
+	v := ldb.LGet(chain, ldbTransInfo, key)
+	if len(v) > 0 {
+		runtime.Decode(v, &out)
+	}
+	return out
+}
+
+func getNextTransInfo(chain uint64, preKey []byte) transInfo {
+	out := transInfo{}
+	_, v := ldb.LGetNext(chain, ldbTransInfo, preKey)
+	if len(v) > 0 {
+		runtime.Decode(v, &out)
+	}
+	return out
+}
+
+func deleteTransInfo(chain uint64, key []byte) {
+	ldb.LSet(chain, ldbTransInfo, key, nil)
+}
+
+// GetOutputTrans get output transaction by self
+func GetOutputTrans(chain uint64, preKey []byte) []core.Hash {
+	out := make([]core.Hash, 0)
+	for i := 0; i < 10; i++ {
+		key, _ := ldb.LGetNext(chain, ldbOutputTrans, preKey)
+		if len(key) == 0 {
+			break
+		}
+		preKey = key
+		it := core.Hash{}
+		runtime.Decode(key, &it)
+		out = append(out, it)
+	}
+
+	return out
+}
+
+// GetInputTrans get input transaction
+func GetInputTrans(chain uint64, preKey []byte) []core.Hash {
+	out := make([]core.Hash, 0)
+	for i := 0; i < 10; i++ {
+		key, _ := ldb.LGetNext(chain, ldbInputTrans, preKey)
+		if len(key) == 0 {
+			break
+		}
+		preKey = key
+		it := core.Hash{}
+		runtime.Decode(key, &it)
+		out = append(out, it)
+	}
+
 	return out
 }

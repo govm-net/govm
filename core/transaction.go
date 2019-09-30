@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
-	"log"
-	"time"
-
 	"github.com/lengzhao/govm/conf"
 	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/govm/wallet"
+	"log"
+	"time"
 )
 
 // StTrans 交易的结构体
@@ -32,7 +31,7 @@ func NewTransaction(chain uint64, user Address) *StTrans {
 	out := StTrans{}
 	out.Chain = chain
 	out.User = user
-	out.Time = uint64(time.Now().Unix() * 1000)
+	out.Time = uint64(time.Now().Unix()*1000) - maxBlockInterval
 	out.Energy = 10000
 	return &out
 }

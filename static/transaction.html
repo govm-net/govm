@@ -138,11 +138,11 @@
             $.get("/api/v1/" + chain + "/transaction/info" + query, function (data, status) {
                 console.log(data)
                 $("#chain").html("<b>" + data.Chain + "</b>");
-                $("#key").html("<b>" + $("#search_key").val() + "</b>");
+                $("#key").html("<b>" + data.Key + "</b>");
                 $("#user").html("<b>" + bytes2Str(data.User) + "</b>");
                 var myDate = new Date()
                 myDate.setTime(data.Time)
-                $("#time").html("<b>" + myDate.toUTCString() + "</b>");
+                $("#time").html("<b>" + myDate.toString() + "</b>");
                 $("#cost").html("<b>" + data.Cost + "</b>");
                 $("#energy").html("<b>" + data.Energy + "</b>");
                 $("#bid").html("<b>" + data.Others.BlockID + "</b>");

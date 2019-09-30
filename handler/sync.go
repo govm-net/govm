@@ -19,14 +19,18 @@ type SyncPlugin struct {
 }
 
 const (
-	eSyncing        = "is_syncing"
-	eSyncBlock      = "sync_block"
-	eSyncTrans      = "sync_trans"
-	eSyncTransOwner = "sync_owner"
-	eSyncTimeout    = "sync_timeout"
-	eSyncLastBlock  = "sync_last_block"
-	sTimeout        = 120
+	eSyncing = byte(iota)
+	eSyncBlock
+	eSyncTrans
+	eSyncTransOwner
+	eSyncTimeout
+	eSyncLastBlock
+	sTimeout = 60
 )
+
+func getSyncEnvKey(chain uint64, typ byte) string {
+	return fmt.Sprintf("sync_%x_%x", chain, typ)
+}
 
 // Startup is called only once when the plugin is loaded
 func (p *SyncPlugin) Startup(n libp2p.Network) {
@@ -41,6 +45,12 @@ func timeToString(t int64) string {
 func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 	switch msg := ctx.GetMessage().(type) {
 	case *messages.BlockInfo:
+		to := ctx.GetSession().GetEnv(getSyncEnvKey(msg.Chain, eSyncTimeout))
+		now := timeToString(time.Now().Unix())
+		if now > to {
+			ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncing), "")
+		}
+
 		// log.Printf("<%x> BlockInfo %d %d\n", ctx.GetPeerID(), msg.Chain, msg.Index)
 		index := core.GetLastBlockIndex(msg.Chain)
 		if index >= msg.Index {
@@ -50,11 +60,11 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 		if bytes.Compare(preKey, msg.PreKey) == 0 {
 			return nil
 		}
-		if ctx.GetSession().GetEnv(eSyncing) != "" {
+		if ctx.GetSession().GetEnv(getSyncEnvKey(msg.Chain, eSyncing)) != "" {
 			return nil
 		}
-		if msg.Index > index+50 {
-			ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + 50})
+		if msg.Index > index+20 {
+			ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + 20})
 			return nil
 		}
 		if core.IsExistBlock(msg.Chain, msg.Key) {
@@ -62,45 +72,45 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 			if !rel.Ready {
 				log.Printf("start sync,chain:%d,block:%x\n", msg.Chain, msg.Key)
 				//start sync
-				ctx.GetSession().SetEnv(eSyncing, "true")
+				ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncing), "true")
 				go p.syncDepend(ctx, msg.Chain, msg.Key)
 			}
 			return nil
 		}
 		SetSyncBlock(msg.Chain, msg.Index, msg.Key)
-		to := timeToString(time.Now().Unix() + sTimeout)
-		ctx.GetSession().SetEnv(eSyncTimeout, to)
-		ctx.GetSession().SetEnv(eSyncBlock, hex.EncodeToString(msg.Key))
-		ctx.GetSession().SetEnv(eSyncing, "true")
-		ctx.GetSession().SetEnv(eSyncLastBlock, hex.EncodeToString(msg.Key))
+		to = timeToString(time.Now().Unix() + sTimeout)
+		ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncTimeout), to)
+		ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncBlock), hex.EncodeToString(msg.Key))
+		ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncing), "true")
+		ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncLastBlock), hex.EncodeToString(msg.Key))
 		ctx.Reply(&messages.ReqBlock{Chain: msg.Chain, Index: msg.Index, Key: msg.Key})
 	case *messages.BlockData:
 		if len(msg.Data) > 102400 {
 			return nil
 		}
-		e := ctx.GetSession().GetEnv(eSyncBlock)
+		e := ctx.GetSession().GetEnv(getSyncEnvKey(msg.Chain, eSyncBlock))
 		k := hex.EncodeToString(msg.Key)
 		if e != k {
 			return nil
 		}
-		defer ctx.GetSession().SetEnv(eSyncBlock, "")
+		defer ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncBlock), "")
 		err := processBlock(msg.Chain, msg.Key, msg.Data)
 		if err != nil {
 			return nil
 		}
 		go p.syncDepend(ctx, msg.Chain, msg.Key)
 	case *messages.TransactionData:
-		e := ctx.GetSession().GetEnv(eSyncTrans)
+		e := ctx.GetSession().GetEnv(getSyncEnvKey(msg.Chain, eSyncTrans))
 		k := hex.EncodeToString(msg.Key)
 		if e != k {
 			return nil
 		}
-		ctx.GetSession().SetEnv(eSyncTrans, "")
+		ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncTrans), "")
 		err := processTransaction(msg.Chain, msg.Key, msg.Data)
 		if err != nil {
 			return err
 		}
-		e = ctx.GetSession().GetEnv(eSyncTransOwner)
+		e = ctx.GetSession().GetEnv(getSyncEnvKey(msg.Chain, eSyncTransOwner))
 		if e == "" {
 			return nil
 		}
@@ -109,15 +119,6 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 			return nil
 		}
 		go p.syncDepend(ctx, msg.Chain, key)
-	default:
-		if ctx.GetSession().GetEnv(eSyncing) == "" {
-			return nil
-		}
-		to := ctx.GetSession().GetEnv(eSyncTimeout)
-		now := timeToString(time.Now().Unix())
-		if now > to {
-			ctx.GetSession().SetEnv(eSyncing, "")
-		}
 
 	}
 	return nil
@@ -133,10 +134,10 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	}()
 	log.Printf("syncDepend,chain:%d,key:%x\n", chain, key)
 	to := timeToString(time.Now().Unix() + sTimeout)
-	ctx.GetSession().SetEnv(eSyncTimeout, to)
+	ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncTimeout), to)
 
 	if !core.IsExistBlock(chain, key) {
-		ctx.GetSession().SetEnv(eSyncBlock, hex.EncodeToString(key))
+		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), hex.EncodeToString(key))
 		ctx.Reply(&messages.ReqBlock{Chain: chain, Key: key})
 		log.Printf("syncDepend, ReqBlock,chain:%d,key:%x\n", chain, key)
 		return
@@ -182,9 +183,9 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		}
 		log.Printf("syncDepend trans,chain:%d,index:%d,trans:%x\n", chain, rel.Index, it)
 		e := hex.EncodeToString(it[:])
-		ctx.GetSession().SetEnv(eSyncTrans, e)
+		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncTrans), e)
 		e = hex.EncodeToString(key)
-		ctx.GetSession().SetEnv(eSyncTransOwner, e)
+		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncTransOwner), e)
 		ctx.Reply(&messages.ReqTransaction{Chain: chain, Key: it[:]})
 		return
 	}
@@ -192,10 +193,10 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	data := core.ReadBlockData(chain, key)
 	err := processBlock(chain, key, data)
 	if err != nil {
-		ctx.GetSession().SetEnv(eSyncBlock, "")
-		ctx.GetSession().SetEnv(eSyncing, "")
+		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), "")
+		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncing), "")
 
-		e := ctx.GetSession().GetEnv(eSyncLastBlock)
+		e := ctx.GetSession().GetEnv(getSyncEnvKey(chain, eSyncLastBlock))
 		if e == "" {
 			return
 		}
@@ -223,9 +224,31 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		go p.syncDepend(ctx, chain, newKey)
 	} else {
 		log.Printf("stop sync,not next SyncBlock,chain:%d,key:%x,next:%d\n", chain, key, rel.Index+1)
-		ctx.GetSession().SetEnv(eSyncBlock, "")
-		ctx.GetSession().SetEnv(eSyncing, "")
+		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), "")
+		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncing), "")
 
 		go processEvent(chain)
 	}
 }
+
+// func rebuildReliability() {
+// 	var chain uint64
+// 	for chain = 1; ; chain++ {
+// 		var index uint64
+// 		for index = 1; ; index++ {
+// 			key := core.GetTheBlockKey(chain, index)
+// 			if len(key) == 0 {
+// 				break
+// 			}
+// 			rel := core.ReadBlockReliability(chain, key)
+// 			if rel.HashPower > 1000 {
+// 				continue
+// 			}
+// 			data := core.ReadBlockData(chain, key)
+// 			processBlock(chain, key, data)
+// 		}
+// 		if index < 2 {
+// 			break
+// 		}
+// 	}
+// }
