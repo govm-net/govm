@@ -2,9 +2,7 @@ package handler
 
 import (
 	"bytes"
-	"github.com/lengzhao/govm/event"
 	"log"
-	"math/rand"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -12,8 +10,6 @@ import (
 	"github.com/lengzhao/govm/conf"
 	core "github.com/lengzhao/govm/core"
 	"github.com/lengzhao/govm/messages"
-	"github.com/lengzhao/govm/runtime"
-	"github.com/lengzhao/govm/wallet"
 )
 
 // chain->index->blockKey->reliability
@@ -25,12 +21,12 @@ type tProcessMgr struct {
 }
 
 const (
-	tSecond          = 1000
-	tMinute          = 60 * 1000
-	tHour            = 60 * tMinute
-	tDat             = 24 * tHour
-	processStartTime = tMinute
-	transAcceptTime  = 3 * tDat
+	tSecond         = 1000
+	tMinute         = 60 * 1000
+	tHour           = 60 * tMinute
+	tDat            = 24 * tHour
+	blockAcceptTime = tMinute
+	transAcceptTime = 9 * tDat
 )
 
 var procMgr tProcessMgr
@@ -55,7 +51,7 @@ func getBestBlock(chain, index uint64) core.TReliability {
 	now := time.Now().Unix() * 1000
 	if len(ib.Items) == 1 {
 		it := ib.Items[0]
-		log.Printf("getBestBlock rst,num:1,chain:%d,index:%d,key:%x\n", chain, index, it)
+		log.Printf("getBestBlock rst,num:1,chain:%d,index:%d,key:%x,hp:%d\n", chain, index, it.Key, it.HashPower)
 		return core.ReadBlockReliability(chain, it.Key[:])
 	}
 	for i, it := range ib.Items {
@@ -189,7 +185,7 @@ func processEvent(chain uint64) {
 			return
 		}
 		t := core.GetBlockTime(chain)
-		go doMine(chain)
+		go doMine(chain, false)
 
 		if t+core.GetBlockInterval(chain) >= now {
 			return
@@ -265,144 +261,6 @@ func getHashPower(in []byte) uint64 {
 		}
 	}
 	return out
-}
-
-func doMine(chain uint64) {
-	c := conf.GetConf()
-	if !c.DoMine {
-		return
-	}
-	if c.ChainOfMine != 0 && c.ChainOfMine != chain {
-		return
-	}
-
-	select {
-	case procMgr.mineLock <- 1:
-		log.Println("start to doMine:", chain)
-	default:
-		return
-	}
-	defer func() {
-		<-procMgr.mineLock
-		log.Println("finish doMine:", chain)
-	}()
-
-	addr := core.Address{}
-	runtime.Decode(c.WalletAddr, &addr)
-	block := core.NewBlock(chain, addr)
-
-	count := GetMineCount(chain, block.Previous[:])
-	if count > 1 {
-		return
-	}
-	SetMineCount(chain, block.Previous[:], count+1)
-
-	transList, size := getTransListForMine(chain)
-
-	block.SetTransList(transList)
-	block.Size = uint32(size)
-	block.Nonce = rand.Uint64()
-	var key core.Hash
-	var oldHP uint64
-	timeout := time.Now().Unix() + 10
-
-	for {
-		now := time.Now().Unix()
-		if timeout < now && block.Time < uint64(now)*1000+processStartTime {
-			break
-		}
-		signData := block.GetSignData()
-		sign := wallet.Sign(c.PrivateKey, signData)
-		if len(sign) == 0 {
-			continue
-		}
-		if len(c.SignPrefix) > 0 {
-			s := make([]byte, len(c.SignPrefix))
-			copy(s, c.SignPrefix)
-			sign = append(s, sign...)
-		}
-
-		block.SetSign(sign)
-		data := block.Output()
-
-		hp := getHashPower(block.Key[:])
-		if hp <= block.HashpowerLimit {
-			block.Nonce++
-			// log.Printf("drop hash:%x,data:%x\n", key, signData[:6])
-			continue
-		}
-		if hp > oldHP {
-			core.WriteBlock(chain, data)
-			rel := block.GetReliability()
-			core.SaveBlockReliability(chain, block.Key[:], rel)
-			key = block.Key
-			oldHP = hp
-		}
-	}
-
-	if oldHP == 0 || key.Empty() {
-		log.Printf("fail to doMine,error oldHP,limit:%d\n", block.HashpowerLimit)
-		count = GetMineCount(chain, block.Previous[:])
-		if count > 0 {
-			SetMineCount(chain, block.Previous[:], count-1)
-		}
-		return
-	}
-
-	log.Printf("mine one blok,chain:%d,index:%d,hashpower:%d,hp limit:%d,key:%x\n",
-		chain, block.Index, oldHP, block.HashpowerLimit, key[:])
-	rel := core.ReadBlockReliability(chain, key[:])
-	info := messages.BlockInfo{}
-	info.Chain = chain
-	info.Index = rel.Index
-	info.Key = key[:]
-	info.HashPower = rel.HashPower
-
-	network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
-	if rel.Time > uint64(time.Now().Unix())*1000 {
-		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
-	}
-}
-
-func autoRegisterMiner(chain uint64) {
-	c := conf.GetConf()
-	if c.CostOfRegMiner < 100 {
-		return
-	}
-	if chain != c.ChainOfMine && c.ChainOfMine != 0 {
-		return
-	}
-	cost := core.GetUserCoin(chain, c.WalletAddr)
-	if cost < c.CostOfRegMiner {
-		return
-	}
-	index := core.GetLastBlockIndex(chain)
-	index += 50
-	miner := core.GetMinerInfo(chain, index)
-	if c.CostOfRegMiner < miner.Cost[5] {
-		return
-	}
-	cAddr := core.Address{}
-	runtime.Decode(c.WalletAddr, &cAddr)
-	trans := core.NewTransaction(chain, cAddr)
-	trans.Time = core.GetBlockTime(chain)
-	trans.CreateRegisterMiner(0, index, c.CostOfRegMiner)
-	td := trans.GetSignData()
-	sign := wallet.Sign(c.PrivateKey, td)
-	if len(c.SignPrefix) > 0 {
-		s := make([]byte, len(c.SignPrefix))
-		copy(s, c.SignPrefix)
-		sign = append(s, sign...)
-	}
-	trans.SetSign(sign)
-	td = trans.Output()
-
-	msg := new(messages.NewTransaction)
-	msg.Chain = chain
-	msg.Key = trans.Key[:]
-	msg.Data = td
-	event.Send(msg)
-	// log.Println("SendInternalMsg autoRegisterMiner:", msg)
 }
 
 // hp=0,delete;hp>1,add and update; hp=1,add

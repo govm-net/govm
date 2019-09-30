@@ -758,6 +758,7 @@ func TransactionAppInfoGet(w http.ResponseWriter, r *http.Request) {
 // TransInfo transaction info
 type TransInfo struct {
 	core.TransactionHead
+	Key    []byte
 	Others interface{}
 }
 
@@ -797,6 +798,7 @@ func TransactionInfoGet(w http.ResponseWriter, r *http.Request) {
 
 	info := TransInfo{}
 	info.TransactionHead = trans.TransactionHead
+	info.Key = key
 	si := core.DecodeOpsDataOfTrans(info.Ops, trans.Data)
 	ti := core.GetTransInfo(chain, key)
 	si["BlockID"] = ti.BlockID
