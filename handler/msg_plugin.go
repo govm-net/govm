@@ -95,7 +95,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 				return nil
 			}
 			if !rel.Ready {
-				downloadBlockDepend(ctx, msg.Chain, msg.Key)
+				p.downloadBlockDepend(ctx, msg.Chain, msg.Key)
 			} else {
 				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, 1)
 			}
@@ -159,7 +159,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			log.Printf("fail to processBlock,chain:%d,key:%x,err:%s\n", msg.Chain, msg.Key, err)
 			return err
 		}
-		downloadBlockDepend(ctx, msg.Chain, msg.Key)
+		p.downloadBlockDepend(ctx, msg.Chain, msg.Key)
 
 	case *messages.TransactionData:
 		log.Printf("<%x> TransactionData %d %x\n", ctx.GetPeerID(), msg.Chain, msg.Key)
@@ -206,7 +206,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		}
 
 		bk, _ := hex.DecodeString(e)
-		downloadBlockDepend(ctx, msg.Chain, bk)
+		p.downloadBlockDepend(ctx, msg.Chain, bk)
 
 	default:
 		//log.Println("msg", ctx.GetPeerID(), msg)
@@ -316,7 +316,7 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 	return
 }
 
-func downloadBlockDepend(ctx libp2p.Event, chain uint64, key []byte) {
+func (p *MsgPlugin) downloadBlockDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	log.Printf("downloadBlockDepend,chain:%d,key:%x\n", chain, key)
 	rel := core.ReadBlockReliability(chain, key)
 	if rel.Ready {
@@ -355,6 +355,7 @@ func downloadBlockDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	log.Printf("setBlockToIDBlocks,chain:%d,index:%d,key:%x,hp:%d\n", chain, rel.Index, rel.Key, rel.HashPower)
 	ctx.GetSession().SetEnv(getEnvKey(chain, transOwner), "")
 	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+
 	go processEvent(chain)
 	return
 }

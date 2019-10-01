@@ -1,16 +1,15 @@
 package handler
 
 import (
-	"github.com/lengzhao/govm/event"
-	"log"
-	"math/rand"
-	"time"
-
 	"github.com/lengzhao/govm/conf"
 	core "github.com/lengzhao/govm/core"
+	"github.com/lengzhao/govm/event"
 	"github.com/lengzhao/govm/messages"
 	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/govm/wallet"
+	"log"
+	"math/rand"
+	"time"
 )
 
 func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
@@ -45,11 +44,14 @@ func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 			continue
 		}
 		trans.Selected++
-		if trans.Selected > 5 && trans.Ops == core.OpsRunApp {
-			deleteTransInfo(chain, trans.Key[:])
-			continue
+		if trans.Selected > 1 {
+			if trans.Ops == core.OpsRunApp || trans.Ops == core.OpsNewChain {
+				deleteTransInfo(chain, trans.Key[:])
+				continue
+			}
 		}
-		if trans.Selected > 50 {
+
+		if trans.Selected > 3 {
 			deleteTransInfo(chain, trans.Key[:])
 			continue
 		}
