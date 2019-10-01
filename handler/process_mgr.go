@@ -27,6 +27,7 @@ const (
 	tDat            = 24 * tHour
 	blockAcceptTime = tMinute
 	transAcceptTime = 9 * tDat
+	blockSyncTime   = 5 * tMinute
 )
 
 var procMgr tProcessMgr
@@ -110,6 +111,38 @@ func processEvent(chain uint64) {
 			log.Println(string(debug.Stack()))
 		}
 	}()
+
+	t1 := core.GetBlockTime(chain)
+	t0 := core.GetBlockTime(chain)
+	if t0 > 0 {
+		if t1 > t0+blockSyncTime {
+			log.Printf("blockSyncTime,process parent.chain:%d\n", chain)
+			go processEvent(chain / 2)
+			return
+		} else if t1 > t0 {
+			go processEvent(chain / 2)
+		}
+	}
+	t2 := core.GetBlockTime(2 * chain)
+	if t2 > 0 {
+		if t1 > t2+blockSyncTime {
+			log.Printf("blockSyncTime,process leftchild.chain:%d\n", chain)
+			go processEvent(2 * chain)
+			return
+		} else if t1 > t2 {
+			go processEvent(2 * chain)
+		}
+	}
+	t3 := core.GetBlockTime(2*chain + 1)
+	if t3 > 0 {
+		if t1 > t3+blockSyncTime {
+			log.Printf("blockSyncTime,process rightchild.chain:%d\n", chain)
+			go processEvent(2*chain + 1)
+			return
+		} else if t1 > t3 {
+			go processEvent(2*chain + 1)
+		}
+	}
 
 	procMgr.mu.Lock()
 	wait, ok := procMgr.wait[chain]
@@ -240,11 +273,26 @@ func processEvent(chain uint64) {
 
 	cInfo := core.GetChainInfo(chain)
 	if cInfo.LeftChildID == 1 {
-		go processEvent(chain * 2)
+		go writeFirstBlockToChain(chain * 2)
 	} else if cInfo.RightChildID == 1 {
-		go processEvent(chain*2 + 1)
+		go writeFirstBlockToChain(chain*2 + 1)
 	}
 
+	go processEvent(chain)
+}
+
+func writeFirstBlockToChain(chain uint64) {
+	if chain <= 1 {
+		return
+	}
+	c := conf.GetConf()
+	data := core.ReadTransactionData(1, c.FirstTransName)
+	core.WriteTransaction(chain, data)
+	key := core.GetTheBlockKey(1, 1)
+	data = core.ReadBlockData(1, key)
+	processBlock(chain, key, data)
+	rel := core.ReadBlockReliability(chain, key)
+	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
 	go processEvent(chain)
 }
 

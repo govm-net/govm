@@ -353,6 +353,7 @@ func downloadBlockDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	log.Printf("setBlockToIDBlocks,chain:%d,index:%d,key:%x,hp:%d\n", chain, rel.Index, rel.Key, rel.HashPower)
 	ctx.GetSession().SetEnv(getEnvKey(chain, transOwner), "")
 	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+	go processEvent(chain)
 	return
 }
 

@@ -102,7 +102,12 @@ func (p *InternalPlugin) event(m event.Message) error {
 			log.Printf("new trans error.chain:%d,key:%x,err:%s\n", msg.Chain, msg.Key, err)
 			return err
 		}
-		m := &messages.TransactionInfo{Chain: msg.Chain, Key: msg.Key[:]}
+		head := readTransInfo(msg.Chain, msg.Key)
+		m := &messages.TransactionInfo{}
+		m.Chain = msg.Chain
+		m.Key = msg.Key
+		m.Time = head.Time
+		m.User = head.User[:]
 		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: m})
 
 		return nil
