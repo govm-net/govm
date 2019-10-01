@@ -110,6 +110,16 @@
     <script src="js/load.js"></script>
 
     <script type="text/javascript">
+        function getLinkString(chain,key){
+            var out = ""
+            var k = bytes2Str(key)
+            if (k == "0000000000000000000000000000000000000000000000000000000000000000"){
+                return "NULL"
+            }
+            out += "<a href=\"?key=" + k;
+            out += "&chain="+chain + "\">" + k;
+            return out
+        }
         function getBlock(chain, index,key) {
             $("#chain").html("")
             $("#key").html("")
@@ -134,10 +144,10 @@
                 var myDate=new Date()
                 myDate.setTime(data.Time)
                 $("#time").html("<b>" + myDate.toString() + "</b>");
-                $("#previous").html("<b><a href=\"?key=" + bytes2Str(data.Previous) + "\">" + bytes2Str(data.Previous) + "</b>");
-                $("#parent").html("<b>" + bytes2Str(data.Parent) + "</b>");
-                $("#left_child").html("<b>" + bytes2Str(data.LeftChild) + "</b>");
-                $("#right_child").html("<b>" + bytes2Str(data.RightChild) + "</b>");
+                $("#previous").html("<b>"+ getLinkString(data.Chain,data.Previous) + "</b>");
+                $("#parent").html("<b>" + getLinkString(data.Chain/2,data.Parent) + "</b>");
+                $("#left_child").html("<b>" + getLinkString(data.Chain*2,data.LeftChild) + "</b>");
+                $("#right_child").html("<b>" + getLinkString(data.Chain*2+1,data.RightChild) + "</b>");
                 $("#producer").html("<b>" + bytes2Str(data.Producer) + "</b>");
                 $("#index").html("<b>" + data.Index + "</b>");
                 //console.log(data);
@@ -164,7 +174,8 @@
         if (chain < 1){
             chain = 1;
         }
-        getBlock(1, index,key)
+        console.log("chain:"+chain+",index:"+index+",key:"+key)
+        getBlock(chain, index,key)
     </script>
 </body>
 

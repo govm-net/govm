@@ -81,7 +81,6 @@ func getBestBlock(chain, index uint64) core.TReliability {
 				chain, index, key, stat.RollbackCount,
 				stat.RunTimes, stat.RunSuccessCount)
 			setBlockToIDBlocks(chain, index, it.Key, 0)
-			continue
 		}
 		hp := rel.HashPower
 		hp -= stat.SelectedCount / 5
@@ -179,17 +178,43 @@ func processEvent(chain uint64) {
 
 	// check child chain
 	{
+		if chain > 1 {
+			cInfo := core.GetChainInfo(chain / 2)
+			if (chain%2 == 0 && cInfo.LeftChildID == 0) ||
+				(chain%2 == 1 && cInfo.RightChildID == 0) {
+				log.Printf("rollback chain:%d,parent.LeftChild:%d,parent.RightChain:%d\n",
+					chain, cInfo.LeftChildID, cInfo.RightChildID)
+				dbRollBack(chain, 0, nil)
+				return
+			}
+		}
 		cInfo := core.GetChainInfo(chain)
 		if cInfo.LeftChildID == 1 {
 			go writeFirstBlockToChain(chain * 2)
 		} else if cInfo.RightChildID == 1 {
 			go writeFirstBlockToChain(chain*2 + 1)
 		}
-		if chain > 1 {
-			cInfo := core.GetChainInfo(chain / 2)
-			if (chain%2 == 0 && cInfo.LeftChildID == 0) ||
-				(chain%2 == 1 && cInfo.RightChildID == 0) {
-				dbRollBack(chain, 0, nil)
+
+		// chain1.Time-chain2.Time > blockSyncTime, stop
+		t1 := core.GetBlockTime(chain)
+		if cInfo.ParentID > 1 {
+			t0 := core.GetBlockTime(chain / 2)
+			if t1 > t0+blockSyncTime {
+				log.Printf("wait chain. parent.Time:%d,self.Time:%d\n", t0, t1)
+				return
+			}
+		}
+		if cInfo.LeftChildID > 1 {
+			t2 := core.GetBlockTime(chain * 2)
+			if t1 > t2+blockSyncTime {
+				log.Printf("wait chain. leftChild.Time:%d,self.Time:%d\n", t2, t1)
+				return
+			}
+		}
+		if cInfo.RightChildID > 1 {
+			t3 := core.GetBlockTime(chain*2 + 1)
+			if t1 > t3+blockSyncTime {
+				log.Printf("wait chain. rightChild.Time:%d,self.Time:%d\n", t3, t1)
 				return
 			}
 		}
@@ -207,6 +232,11 @@ func processEvent(chain uint64) {
 			log.Printf("dbRollBack block. index:%d,key:%x,next block:%x\n", index, nowKey, relia.Key)
 			dbRollBack(chain, index, nowKey)
 			go processEvent(chain)
+			return
+		}
+		relia = getBestBlock(chain, index+2)
+		if !relia.Previous.Empty() {
+			setBlockToIDBlocks(chain, relia.Index-1, relia.Previous, 1)
 			return
 		}
 		t := core.GetBlockTime(chain)
@@ -263,6 +293,10 @@ func writeFirstBlockToChain(chain uint64) {
 	if chain <= 1 {
 		return
 	}
+	id := core.GetLastBlockIndex(chain)
+	if id > 0 {
+		return
+	}
 	c := conf.GetConf()
 	data := core.ReadTransactionData(1, c.FirstTransName)
 	core.WriteTransaction(chain, data)
@@ -271,6 +305,7 @@ func writeFirstBlockToChain(chain uint64) {
 	processBlock(chain, key, data)
 	rel := core.ReadBlockReliability(chain, key)
 	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+	log.Println("new chain:", chain)
 	go processEvent(chain)
 }
 
