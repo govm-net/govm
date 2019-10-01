@@ -110,7 +110,7 @@
     <script src="js/load.js"></script>
 
     <script type="text/javascript">
-        function getBlock(chain, query) {
+        function getBlock(chain, index,key) {
             $("#chain").html("")
             $("#key").html("")
             $("#time").html("")
@@ -121,6 +121,12 @@
             $("#producer").html("")
             $("#index").html("")
             $("#result").html("")
+            var query =""
+            if (index != ""){
+                query += "?index=" + index
+            }else if (key != ""){
+                query += "?key=" + key
+            }
             $.get("/api/v1/" + chain + "/block/info" + query, function (data, status) {
                 console.log(data)
                 $("#chain").html("<b>" + data.Chain + "</b>");
@@ -141,13 +147,24 @@
         }
 
         $("#btn_id").click(function () {
-            getBlock($("#search_chain").val(), "?index=" + $("#search_id").val())
+            getBlock($("#search_chain").val(), $("#search_id").val(),"")
         });
         $("#btn_key").click(function () {
-            getBlock($("#search_chain").val(), "?key=" + $("#search_key").val())
+            getBlock($("#search_chain").val(), "",$("#search_key").val())
         });
-        var query = window.location.search;
-        getBlock(1, query)
+        function getUrlParam(name) {
+            var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)"); //构造一个含有目标参数的正则表达式对象
+            var r = window.location.search.substr(1).match(reg);  //匹配目标参数
+            if (r != null) return unescape(r[2]); 
+            return ""; //返回参数值
+        }
+        var chain = getUrlParam('chain');
+        var key = getUrlParam('key');
+        var index = getUrlParam('index');
+        if (chain < 1){
+            chain = 1;
+        }
+        getBlock(1, index,key)
     </script>
 </body>
 
