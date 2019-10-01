@@ -42,7 +42,17 @@ func init() {
 
 func timeoutFunc() {
 	time.AfterFunc(time.Second*20, timeoutFunc)
-	processEvent(1)
+	processChains(1)
+}
+
+func processChains(chain uint64) {
+	id := core.GetLastBlockIndex(chain)
+	if id == 0 {
+		return
+	}
+	go processEvent(chain)
+	processChains(2 * chain)
+	processChains(2*chain + 1)
 }
 
 func getBestBlock(chain, index uint64) core.TReliability {
@@ -112,38 +122,6 @@ func processEvent(chain uint64) {
 		}
 	}()
 
-	t1 := core.GetBlockTime(chain)
-	t0 := core.GetBlockTime(chain)
-	if t0 > 0 {
-		if t1 > t0+blockSyncTime {
-			log.Printf("blockSyncTime,process parent.chain:%d\n", chain)
-			go processEvent(chain / 2)
-			return
-		} else if t1 > t0 {
-			go processEvent(chain / 2)
-		}
-	}
-	t2 := core.GetBlockTime(2 * chain)
-	if t2 > 0 {
-		if t1 > t2+blockSyncTime {
-			log.Printf("blockSyncTime,process leftchild.chain:%d\n", chain)
-			go processEvent(2 * chain)
-			return
-		} else if t1 > t2 {
-			go processEvent(2 * chain)
-		}
-	}
-	t3 := core.GetBlockTime(2*chain + 1)
-	if t3 > 0 {
-		if t1 > t3+blockSyncTime {
-			log.Printf("blockSyncTime,process rightchild.chain:%d\n", chain)
-			go processEvent(2*chain + 1)
-			return
-		} else if t1 > t3 {
-			go processEvent(2*chain + 1)
-		}
-	}
-
 	procMgr.mu.Lock()
 	wait, ok := procMgr.wait[chain]
 	if !ok {
@@ -199,9 +177,23 @@ func processEvent(chain uint64) {
 		core.CreateBiosTrans(chain)
 	}
 
-	// get the last index(processed)
-	ek := core.Hash{}
-	er := core.ReadBlockReliability(chain, ek[:])
+	// check child chain
+	{
+		cInfo := core.GetChainInfo(chain)
+		if cInfo.LeftChildID == 1 {
+			go writeFirstBlockToChain(chain * 2)
+		} else if cInfo.RightChildID == 1 {
+			go writeFirstBlockToChain(chain*2 + 1)
+		}
+		if chain > 1 {
+			cInfo := core.GetChainInfo(chain / 2)
+			if (chain%2 == 0 && cInfo.LeftChildID == 0) ||
+				(chain%2 == 1 && cInfo.RightChildID == 0) {
+				dbRollBack(chain, 0, nil)
+				return
+			}
+		}
+	}
 
 	var relia core.TReliability
 	now := uint64(time.Now().Unix() * 1000)
@@ -257,26 +249,12 @@ func processEvent(chain uint64) {
 	core.SaveBlockReliability(chain, relia.Key[:], relia)
 	SaveBlockRunStat(chain, relia.Key[:], stat)
 
-	// save the last index
-	if er.Index < index+1 {
-		er.Index = index + 1
-		er.Time = uint64(time.Now().Unix())
-		core.SaveBlockReliability(chain, ek[:], er)
-	}
-
 	info := messages.BlockInfo{}
 	info.Chain = chain
 	info.Index = index + 1
 	info.Key = relia.Key[:]
 	info.HashPower = relia.HashPower
 	network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
-
-	cInfo := core.GetChainInfo(chain)
-	if cInfo.LeftChildID == 1 {
-		go writeFirstBlockToChain(chain * 2)
-	} else if cInfo.RightChildID == 1 {
-		go writeFirstBlockToChain(chain*2 + 1)
-	}
 
 	go processEvent(chain)
 }
