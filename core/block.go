@@ -105,6 +105,9 @@ func NewBlock(chain uint64, producer Address) *StBlock {
 		getDataFormLog(2*chain, logBlockInfo{}, key[:], &tmp)
 		if !key.Empty() && out.Time > tmp.Time && out.Time-tmp.Time > blockSyncMin {
 			out.LeftChild = key
+		} else if pStat.LeftChildID == 1 {
+			getDataFormLog(chain, logBlockInfo{}, runtime.Encode(pStat.LeftChildID), &key)
+			out.LeftChild = key
 		} else {
 			getDataFormLog(2*chain, logBlockInfo{}, runtime.Encode(pStat.LeftChildID), &key)
 			out.LeftChild = key
@@ -116,6 +119,9 @@ func NewBlock(chain uint64, producer Address) *StBlock {
 		getDataFormLog(2*chain+1, logBlockInfo{}, runtime.Encode(pStat.RightChildID+1), &key)
 		getDataFormLog(2*chain+1, logBlockInfo{}, key[:], &tmp)
 		if !key.Empty() && out.Time > tmp.Time && out.Time-tmp.Time > blockSyncMin {
+			out.RightChild = key
+		} else if pStat.RightChildID == 1 {
+			getDataFormLog(chain, logBlockInfo{}, runtime.Encode(pStat.RightChildID), &key)
 			out.RightChild = key
 		} else {
 			getDataFormLog(2*chain+1, logBlockInfo{}, runtime.Encode(pStat.RightChildID), &key)

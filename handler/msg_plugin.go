@@ -96,6 +96,8 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			}
 			if !rel.Ready {
 				downloadBlockDepend(ctx, msg.Chain, msg.Key)
+			} else {
+				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, 1)
 			}
 			return nil
 		}
