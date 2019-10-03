@@ -152,43 +152,26 @@ func processEvent(chain uint64) {
 	if index == 0 {
 		// first block
 		c := conf.GetConf()
-		if chain > 1 {
-			cInfo := core.GetChainInfo(chain / 2)
-			if cInfo.LeftChildID == 1 || cInfo.RightChildID == 1 {
-				data := core.ReadTransactionData(chain/2, c.FirstTransName)
-				core.WriteTransaction(chain, data)
-				ib := ReadIDBlocks(chain/2, 1)
-				it := ib.Items[0]
-				data = core.ReadBlockData(chain/2, it.Key[:])
-				core.WriteTransaction(chain, data)
-			} else {
-				return
-			}
-		}
 		if !core.IsExistTransaction(chain, c.FirstTransName) {
-			info := messages.ReqBlockInfo{}
-			info.Chain = chain
-			info.Index = 1
-			network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
 			return
 		}
-
 		core.CreateBiosTrans(chain)
 	}
 
 	// check child chain
 	{
-		if chain > 1 {
-			cInfo := core.GetChainInfo(chain / 2)
-			if (chain%2 == 0 && cInfo.LeftChildID == 0) ||
-				(chain%2 == 1 && cInfo.RightChildID == 0) {
-				log.Printf("rollback chain:%d,parent.LeftChild:%d,parent.RightChain:%d\n",
-					chain, cInfo.LeftChildID, cInfo.RightChildID)
-				dbRollBack(chain, 0, nil)
+		cInfo := core.GetChainInfo(chain)
+		if chain > 1 && index < 100 {
+			// parent chain rollback,the block(new chain) is not exist
+			pk := core.GetParentBlockOfChain(chain)
+			k := core.GetTheBlockKey(chain/2, cInfo.ParentID)
+			if bytes.Compare(k, pk[:]) != 0 {
+				log.Printf("rollback chain:%d,index:%d,hope:%x,get:%x\n", chain, index, pk, k)
+				lk := core.GetTheBlockKey(chain, 1)
+				dbRollBack(chain, 1, lk)
 				return
 			}
 		}
-		cInfo := core.GetChainInfo(chain)
 		if cInfo.LeftChildID == 1 {
 			go writeFirstBlockToChain(chain * 2)
 		} else if cInfo.RightChildID == 1 {
@@ -200,21 +183,21 @@ func processEvent(chain uint64) {
 		if cInfo.ParentID > 1 {
 			t0 := core.GetBlockTime(chain / 2)
 			if t1 > t0+blockSyncTime {
-				log.Printf("wait chain. parent.Time:%d,self.Time:%d\n", t0, t1)
+				log.Printf("wait chain:%d,index:%d. parent.Time:%d,self.Time:%d\n", chain, index, t0, t1)
 				return
 			}
 		}
 		if cInfo.LeftChildID > 1 {
 			t2 := core.GetBlockTime(chain * 2)
 			if t1 > t2+blockSyncTime {
-				log.Printf("wait chain. leftChild.Time:%d,self.Time:%d\n", t2, t1)
+				log.Printf("wait chain:%d,index:%d. leftChild.Time:%d,self.Time:%d\n", chain, index, t2, t1)
 				return
 			}
 		}
 		if cInfo.RightChildID > 1 {
 			t3 := core.GetBlockTime(chain*2 + 1)
 			if t1 > t3+blockSyncTime {
-				log.Printf("wait chain. rightChild.Time:%d,self.Time:%d\n", t3, t1)
+				log.Printf("wait chain:%d,index:%d. rightChild.Time:%d,self.Time:%d\n", chain, index, t3, t1)
 				return
 			}
 		}
@@ -237,7 +220,6 @@ func processEvent(chain uint64) {
 		relia = getBestBlock(chain, index+2)
 		if !relia.Previous.Empty() {
 			setBlockToIDBlocks(chain, relia.Index-1, relia.Previous, 1)
-			return
 		}
 		t := core.GetBlockTime(chain)
 		go doMine(chain, false)

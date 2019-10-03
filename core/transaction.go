@@ -1,4 +1,4 @@
-package a9edcee1a25950643c09476b7c039eb8aec09141a8d0e80051fd52a0e37bc60fe
+package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
 
 import (
 	"bytes"
@@ -216,33 +216,27 @@ func DecodeOpsDataOfTrans(ops uint8, data []byte) map[string]interface{} {
 		out["peer"] = chain
 		return out
 	case OpsNewApp:
-		var (
-			LineNum   uint32
-			Flag      uint8
-			DependNum uint8
-		)
-		n := runtime.Decode(data, &LineNum)
-		n += runtime.Decode(data[n:], &Flag)
-		n += runtime.Decode(data[n:], &DependNum)
+		ni := newAppInfo{}
+		runtime.Decode(data, &ni)
 		key := runtime.GetHash(data)
 		out["code_hash"] = hex.EncodeToString(key)
-		if Flag&AppFlagPlublc != 0 {
+		if ni.Flag&AppFlagPlublc != 0 {
 			out["is_public"] = true
 			out["app_name"] = out["code_hash"]
 		} else {
 			out["is_public"] = false
 		}
-		if Flag&AppFlagRun != 0 {
+		if ni.Flag&AppFlagRun != 0 {
 			out["enable_run"] = true
 		} else {
 			out["enable_run"] = false
 		}
-		if Flag&AppFlagImport != 0 {
+		if ni.Flag&AppFlagImport != 0 {
 			out["enable_import"] = true
 		} else {
 			out["enable_import"] = false
 		}
-		out["depend_num"] = DependNum
+		out["depend_num"] = ni.DependNum
 		return out
 	case OpsRunApp:
 		name := Hash{}

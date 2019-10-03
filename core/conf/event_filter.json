@@ -1,4 +1,4 @@
 {
-    "a9edcee1a25950643c09476b7c039eb8aec09141a8d0e80051fd52a0e37bc60fe.logBlockInfo.finish_block":"a5f4fcf34e4800cab8e59a6.finish_block",
-    "a9edcee1a25950643c09476b7c039eb8aec09141a8d0e80051fd52a0e37bc60fe.dbTransInfo.new_chain":"a5f4fcf34e4800cab8e59a6.new_chain"
+    "ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c.logBlockInfo.finish_block":"core.finish_block",
+    "ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c.dbTransInfo.new_chain":"core.new_chain"
 }

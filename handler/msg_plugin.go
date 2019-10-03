@@ -63,7 +63,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		ctx.Reply(resp)
 		return nil
 	case *messages.BlockInfo:
-		log.Printf("<%x> BlockKey %d %d,key:%x\n", ctx.GetPeerID(), msg.Chain, msg.Index, msg.Key)
+		log.Printf("<%x> BlockKey %d %d,key:%x,preKey:%x\n", ctx.GetPeerID(), msg.Chain, msg.Index, msg.Key, msg.PreKey)
 		hp := getHashPower(msg.Key)
 		if hp < 5 || hp > 250 {
 			return nil
@@ -432,6 +432,7 @@ func dbRollBack(chain, index uint64, key []byte) error {
 
 	lKey := core.GetTheBlockKey(chain, index)
 	if bytes.Compare(lKey, key) != 0 {
+		log.Printf("dbRollBack error.different key of chain:%d,hope:%x,get:%x\n", chain, key, lKey)
 		return errors.New("error block key of the index")
 	}
 	for nIndex >= index {

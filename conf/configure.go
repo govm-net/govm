@@ -58,8 +58,8 @@ func loadConfig() error {
 		return err
 	}
 	//log.Println("config info:", conf)
-	conf.FirstTransName, _ = hex.DecodeString("4c8189d591682b524ea58e61447a3ed8734774dc30ff77e36d563f8a7868cc86")
-	conf.CorePackName, _ = hex.DecodeString("9edcee1a25950643c09476b7c039eb8aec09141a8d0e80051fd52a0e37bc60fe")
+	conf.FirstTransName, _ = hex.DecodeString("0c64e484f3b329fea41a03be2677161eaac92741105cb0548b6ec4a5529efc71")
+	conf.CorePackName, _ = hex.DecodeString("e4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c")
 
 	if conf.WalletFile == "" {
 		conf.WalletFile = "./conf/wallet.key"

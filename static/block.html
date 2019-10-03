@@ -110,16 +110,6 @@
     <script src="js/load.js"></script>
 
     <script type="text/javascript">
-        function getLinkString(chain,key){
-            var out = ""
-            var k = bytes2Str(key)
-            if (k == "0000000000000000000000000000000000000000000000000000000000000000"){
-                return "NULL"
-            }
-            out += "<a href=\"?key=" + k;
-            out += "&chain="+chain + "\">" + k;
-            return out
-        }
         function getBlock(chain, index,key) {
             $("#chain").html("")
             $("#key").html("")
@@ -144,10 +134,10 @@
                 var myDate=new Date()
                 myDate.setTime(data.Time)
                 $("#time").html("<b>" + myDate.toString() + "</b>");
-                $("#previous").html("<b>"+ getLinkString(data.Chain,data.Previous) + "</b>");
-                $("#parent").html("<b>" + getLinkString(data.Chain/2,data.Parent) + "</b>");
-                $("#left_child").html("<b>" + getLinkString(data.Chain*2,data.LeftChild) + "</b>");
-                $("#right_child").html("<b>" + getLinkString(data.Chain*2+1,data.RightChild) + "</b>");
+                $("#previous").html("<b>"+ getLinkString("",data.Chain,data.Previous) + "</b>");
+                $("#parent").html("<b>" + getLinkString("",data.Chain/2,data.Parent) + "</b>");
+                $("#left_child").html("<b>" + getLinkString("",data.Chain*2,data.LeftChild) + "</b>");
+                $("#right_child").html("<b>" + getLinkString("",data.Chain*2+1,data.RightChild) + "</b>");
                 $("#producer").html("<b>" + bytes2Str(data.Producer) + "</b>");
                 $("#index").html("<b>" + data.Index + "</b>");
                 //console.log(data);
@@ -162,19 +152,12 @@
         $("#btn_key").click(function () {
             getBlock($("#search_chain").val(), "",$("#search_key").val())
         });
-        function getUrlParam(name) {
-            var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)"); //构造一个含有目标参数的正则表达式对象
-            var r = window.location.search.substr(1).match(reg);  //匹配目标参数
-            if (r != null) return unescape(r[2]); 
-            return ""; //返回参数值
-        }
         var chain = getUrlParam('chain');
         var key = getUrlParam('key');
         var index = getUrlParam('index');
         if (chain < 1){
             chain = 1;
         }
-        console.log("chain:"+chain+",index:"+index+",key:"+key)
         getBlock(chain, index,key)
     </script>
 </body>
