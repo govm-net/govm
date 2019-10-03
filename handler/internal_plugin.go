@@ -109,7 +109,6 @@ func (p *InternalPlugin) event(m event.Message) error {
 		m.Time = head.Time
 		m.User = head.User[:]
 		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: m})
-
 		return nil
 	case *messages.Mine:
 		id := core.GetLastBlockIndex(msg.Chain)

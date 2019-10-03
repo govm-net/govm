@@ -139,6 +139,20 @@ var routes = Routes{
 	},
 
 	Route{
+		"HistoryInGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/transaction/history/input",
+		HistoryInGet,
+	},
+
+	Route{
+		"HistoryOutGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/transaction/history/output",
+		HistoryOutGet,
+	},
+
+	Route{
 		"BlockMinePost",
 		strings.ToUpper("Post"),
 		"/api/v1/{chain}/block/mine",

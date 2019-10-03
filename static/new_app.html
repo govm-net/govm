@@ -69,7 +69,7 @@
                 </div>
                 <div class="input-group">
                     <span class="input-group-addon">App Name:</span>
-                    <input type="text" class="form-control" id="search_key" placeholder="9edcee1a25950643c09476b7c039eb8aec09141a8d0e80051fd52a0e37bc60fe">
+                    <input type="text" class="form-control" id="search_key" placeholder="e4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c">
                     <span class="input-group-btn">
                         <button class="btn btn-default" type="button" id="btn_key">Go!</button>
                     </span>
@@ -192,7 +192,7 @@
                 $("#account").html("<b>" + bytes2Str(data.Account) + "</b>");
                 var myDate = new Date()
                 myDate.setTime(data.Life)
-                $("#life").html("<b>" + myDate.toUTCString() + "</b>");
+                $("#life").html("<b>" + myDate.toString() + "</b>");
             }).fail(function () {
                 $("#result").html("not found");
             });

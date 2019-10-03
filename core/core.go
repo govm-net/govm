@@ -1,4 +1,4 @@
-package a9edcee1a25950643c09476b7c039eb8aec09141a8d0e80051fd52a0e37bc60fe
+package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
 
 type dbBlockData struct{}
 type dbTransactionData struct{}
@@ -142,6 +142,7 @@ const (
 	StatChangingConfig
 	StatBroadcast
 	StatHateRatio
+	StatParentKey
 	StatMax
 )
 
@@ -631,7 +632,7 @@ func processBlock(chain uint64, key Hash) {
 	info.Producer = block.Producer
 
 	sizeLimit := pDbStat.GetInt([]byte{StatBlockSizeLimit})
-	assert(block.Size <= uint32(sizeLimit))
+	assert(uint64(block.Size) <= sizeLimit)
 	avgSize := pDbStat.GetInt([]byte{StatAvgBlockSize})
 	avgSize = (avgSize*(depositCycle-1) + uint64(block.Size)) / depositCycle
 	pDbStat.SetInt([]byte{StatAvgBlockSize}, avgSize, maxDbLife)
@@ -641,6 +642,10 @@ func processBlock(chain uint64, key Hash) {
 	decT := block.Time - preB.Time
 	if block.Index == 2 && block.Chain > 1 {
 		assert(decT == blockSyncMax+blockSyncMin+maxBlockInterval)
+		k, _ := pDbStat.Get([]byte{StatParentKey})
+		var parent Hash
+		Decode(0, k, &parent)
+		assert(parent == block.Parent)
 	} else {
 		assert(decT == blockInterval)
 	}
@@ -712,17 +717,14 @@ func processBlock(chain uint64, key Hash) {
 	assert(pLogBlockInfo.Write(Encode(0, info.Index), key[:]))
 	pDbStat.Set([]byte{StatBaseInfo}, Encode(0, gBS), maxDbLife)
 
-	var size uint32
+	var size uint64
 	if !block.TransListHash.Empty() {
 		size = processTransList(info, block.TransListHash, transList)
 	}
-	assert(size == block.Size)
+	assert(size == uint64(block.Size))
 
 	//Mining guerdon
 	guerdon := pDbStat.GetInt([]byte{StatGuerdon})
-	if gBS.ID < 10 {
-		registerMiner(block.Producer, gBS.ID+1, guerdon/10)
-	}
 	adminTransfer(Address{}, block.Producer, guerdon)
 	adminTransfer(Address{}, author, guerdon/100)
 
@@ -733,9 +735,8 @@ func processBlock(chain uint64, key Hash) {
 	}
 
 	val := pDbCoin.GetInt(gPublicAddr[:]) / depositCycle
-	if val > 0 {
-		adminTransfer(gPublicAddr, block.Producer, val)
-	}
+	adminTransfer(gPublicAddr, author, val/100)
+	adminTransfer(gPublicAddr, block.Producer, val)
 
 	Event(logBlockInfo{}, "finish_block", key[:])
 }
@@ -786,7 +787,7 @@ func processFirstBlock(block Block, transList []byte) {
 	guerdon := pDbStat.GetInt([]byte{StatGuerdon})
 
 	pDbStat.SetInt([]byte{StatBlockSizeLimit}, blockSizeLimit, maxDbLife)
-	pDbStat.SetInt([]byte{StatHashPower}, 5000, maxDbLife)
+	pDbStat.SetInt([]byte{StatHashPower}, 10000, maxDbLife)
 	pDbStat.SetInt([]byte{StatBlockInterval}, getBlockInterval(gBS.Chain), maxDbLife)
 	pDbStat.Set([]byte{StatFirstBlockKey}, gBS.Key[:], maxDbLife)
 	pDbStat.SetInt([]byte{StatHateRatio}, hateRatioMax, maxDbLife)
@@ -835,7 +836,7 @@ func getBlockLog(chain uint64, key Hash) *BlockInfo {
 	return &out
 }
 
-func processTransList(block BlockInfo, key Hash, data []byte) uint32 {
+func processTransList(block BlockInfo, key Hash, data []byte) uint64 {
 	assert(data != nil)
 	size := len(data)
 	num := size / HashLen
@@ -868,7 +869,7 @@ func processTransList(block BlockInfo, key Hash, data []byte) uint32 {
 	assert(len(transList) == 1)
 	assert(transList[0] == key)
 
-	var out uint32
+	var out uint64
 	for i := 0; i < len(transListBack); i++ {
 		out += processTransaction(block, transListBack[i])
 	}
@@ -902,7 +903,7 @@ type TransInfo struct {
 	Cost    uint64
 }
 
-func processTransaction(block BlockInfo, key Hash) uint32 {
+func processTransaction(block BlockInfo, key Hash) uint64 {
 	Event(dbTransInfo{}, "start_transaction", key[:])
 	ti, _ := pDbTransInfo.Get(key[:])
 	assert(ti == nil)
@@ -967,14 +968,14 @@ func processTransaction(block BlockInfo, key Hash) uint32 {
 		assert(dataLen < 300)
 		pRegisterMiner(trans)
 	case OpsDisableAdmin:
-		assert(dataLen == 1)
-		pDisableAdmin(trans.User, trans.data[0], trans.Cost)
+		assert(dataLen < 300)
+		pDisableAdmin(trans.User, trans.data, trans.Cost)
 	default:
 		assert(false)
 	}
 
 	Event(dbTransInfo{}, "finish_transaction", key[:])
-	return uint32(len(data))
+	return uint64(len(data))
 }
 
 // t.data = Address + msg
@@ -1038,6 +1039,7 @@ func MoveCost(user interface{}, chain, cost uint64) {
 
 type syncNewChain struct {
 	Chain      uint64
+	BlockKey   Hash
 	Guerdon    uint64
 	ParentID   uint64
 	Time       uint64
@@ -1055,6 +1057,7 @@ func pNewChain(producer Address, t Transaction) {
 	si := syncNewChain{}
 	si.Chain = newChain
 	si.Guerdon = guerdon*9/10 + minGuerdon
+	si.BlockKey = gBS.Key
 	si.ParentID = gBS.ID
 	si.Producer = producer
 	si.Time = gBS.Time - blockSyncMax + 1
@@ -1376,18 +1379,24 @@ func RegisterAdmin(app interface{}, index uint8, cost uint64) {
 }
 
 // pDisableAdmin disable admin
-func pDisableAdmin(user Address, index uint8, cost uint64) {
+func pDisableAdmin(user Address, data []byte, cost uint64) {
 	assert(cost > minGuerdon)
+	index := data[0]
 	stream, life := pDbAdmin.Get([]byte{index})
 	if life <= gBS.Time {
 		return
 	}
+	var app Hash
+	Decode(0, data[1:], &app)
 
 	adminTransfer(user, gPublicAddr, cost)
 	cost = cost / 10
 
 	info := AdminInfo{}
 	Decode(0, stream, &info)
+	if info.App != app {
+		return
+	}
 
 	if cost >= info.Cost {
 		pDbAdmin.Set(info.App[:], nil, 0)
@@ -1414,7 +1423,7 @@ func UpdateConfig(user interface{}, ops uint8, newSize uint32) {
 	switch ops {
 	case StatBlockSizeLimit:
 		min = blockSizeLimit
-		max = 1 << 40
+		max = 1<<32 - 1
 	case StatBlockInterval:
 		min = minBlockInterval
 		max = maxBlockInterval
@@ -1721,6 +1730,7 @@ func (info *tSyncInfo) syncInfo(from uint64, ops uint8, data []byte) {
 		assert(gBS.Key == nc.FirstBlock)
 		gBS.ParentID = nc.ParentID
 		gBS.Time = nc.Time
+		pDbStat.Set([]byte{StatParentKey}, nc.BlockKey[:], TimeDay)
 		pDbStat.Set([]byte{StatBaseInfo}, Encode(0, gBS), maxDbLife)
 		pDbStat.SetInt([]byte{StatGuerdon}, nc.Guerdon, maxDbLife)
 		registerMiner(nc.Producer, 2, nc.Guerdon)

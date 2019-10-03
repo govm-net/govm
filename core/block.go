@@ -1,4 +1,4 @@
-package a9edcee1a25950643c09476b7c039eb8aec09141a8d0e80051fd52a0e37bc60fe
+package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
 
 import (
 	"encoding/hex"
@@ -91,7 +91,7 @@ func NewBlock(chain uint64, producer Address) *StBlock {
 		var tmp BlockInfo
 		getDataFormLog(chain/2, logBlockInfo{}, runtime.Encode(pStat.ParentID+1), &key)
 		getDataFormLog(chain/2, logBlockInfo{}, key[:], &tmp)
-		if !key.Empty() && out.Time > tmp.Time && out.Time-tmp.Time > blockSyncMin {
+		if out.Index != 2 && !key.Empty() && out.Time > tmp.Time && out.Time-tmp.Time > blockSyncMin {
 			out.Parent = key
 		} else {
 			getDataFormLog(chain/2, logBlockInfo{}, runtime.Encode(pStat.ParentID), &key)
@@ -270,9 +270,12 @@ func (b *StBlock) GetReliability() TReliability {
 
 	for i := 0; i < minerNum; i++ {
 		if miner.Miner[i] == b.Producer {
-			power += uint64(minerNum-i) + 5
+			power += uint64(minerNum-i) + 2
 			selfRel.Miner = true
 			break
+		}
+		if selfRel.Miner && miner.Miner[i].Empty() {
+			power--
 		}
 	}
 	power += getHashPower(b.Key)
@@ -489,5 +492,12 @@ func GetBlockInterval(chain uint64) uint64 {
 func GetBlockSizeLimit(chain uint64) uint64 {
 	var out uint64
 	getDataFormDB(chain, dbStat{}, []byte{StatBlockSizeLimit}, &out)
+	return out
+}
+
+// GetParentBlockOfChain get parent block of chain
+func GetParentBlockOfChain(chain uint64) Hash {
+	var out Hash
+	getDataFormDB(chain, dbStat{}, []byte{StatParentKey}, &out)
 	return out
 }

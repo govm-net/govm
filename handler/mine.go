@@ -30,7 +30,7 @@ func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 			break
 		}
 		if trans.Time > t {
-			log.Printf("trans.Time too new, trans:%d,now:%d,sub:%d", trans.Time, t, trans.Time-t)
+			deleteTransInfo(chain, trans.Key[:])
 			continue
 		}
 		if trans.Time+transAcceptTime < t {
@@ -102,7 +102,7 @@ func doMine(chain uint64, force bool) {
 	block.Nonce = rand.Uint64()
 	var key core.Hash
 	var oldHP uint64
-	timeout := time.Now().Unix() + 10
+	timeout := time.Now().Unix() + 20
 
 	for {
 		now := time.Now().Unix()
@@ -155,10 +155,12 @@ func doMine(chain uint64, force bool) {
 	info.Index = rel.Index
 	info.Key = key[:]
 	info.HashPower = rel.HashPower
+	info.PreKey = rel.Previous[:]
 
 	network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 	if rel.Time > uint64(time.Now().Unix())*1000 {
 		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+		log.Printf("mine setBlockToIDBlocks.chain:%d,index:%d,hp:%d,key:%x\n", chain, rel.Index, rel.HashPower, rel.Key)
 	}
 }
 

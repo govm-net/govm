@@ -118,7 +118,7 @@
     <script src="js/load.js"></script>
 
     <script type="text/javascript">
-        function getTrans(chain, query) {
+        function getTrans(chain, key) {
             $("#chain").html("")
             $("#key").html("")
             $("#user").html("")
@@ -135,10 +135,14 @@
             $("#value3").html("")
             $("#name4").html("")
             $("#value4").html("")
+            var query =""
+            if (key != ""){
+                query += "?key=" + key
+            }
             $.get("/api/v1/" + chain + "/transaction/info" + query, function (data, status) {
-                console.log(data)
+                //console.log(data)
                 $("#chain").html("<b>" + data.Chain + "</b>");
-                $("#key").html("<b>" + data.Key + "</b>");
+                $("#key").html("<b>" + key + "</b>");
                 $("#user").html("<b>" + bytes2Str(data.User) + "</b>");
                 var myDate = new Date()
                 myDate.setTime(data.Time)
@@ -200,7 +204,7 @@
 
                 }
                 $("#result").html("");
-                console.log(data);
+                // console.log(data);
             }).fail(function () {
                 $("#result").html("not found");
             });
@@ -209,13 +213,17 @@
         $('#btn_key').on('click', function () {
             var chain = $("#search_chain").val()
             var key = $("#search_key").val()
-            getTrans(chain, "?key=" + key)
+            getTrans(chain, key)
         });
-        var query = window.location.search;
-        if (query == "") {
-            query = "?key=4c8189d591682b524ea58e61447a3ed8734774dc30ff77e36d563f8a7868cc86"
+        var chain = getUrlParam('chain');
+        var key = getUrlParam('key');
+        if (chain < 1){
+            chain = 1;
         }
-        getTrans(1, query)
+        if (key == ""){
+            key = "0c64e484f3b329fea41a03be2677161eaac92741105cb0548b6ec4a5529efc71";
+        }
+        getTrans(chain, key)
     </script>
 </body>
 

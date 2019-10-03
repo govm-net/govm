@@ -155,9 +155,6 @@ func TransactionMovePost(w http.ResponseWriter, r *http.Request) {
 	runtime.Decode(c.WalletAddr, &cAddr)
 	trans := core.NewTransaction(chain, cAddr)
 	trans.CreateMove(info.DstChain, info.Cost)
-	// if conf.DebugMod {
-	// 	trans.Time = core.GetBlockTime(chain)
-	// }
 	if info.Energy > trans.Energy {
 		trans.Energy = info.Energy
 	}
@@ -253,9 +250,6 @@ func TransactionTranferPost(w http.ResponseWriter, r *http.Request) {
 	log.Printf("transfer,from:%x,to:%x,cost:%d\n", cAddr, dstAddr, info.Cost)
 	trans := core.NewTransaction(chain, cAddr)
 	trans.CreateTransfer(dstAddr, info.Cost)
-	// if conf.DebugMod {
-	// 	trans.Time = core.GetBlockTime(chain)
-	// }
 	if info.Energy > trans.Energy {
 		trans.Energy = info.Energy
 	}
@@ -383,9 +377,6 @@ func TransactionMinerPost(w http.ResponseWriter, r *http.Request) {
 	runtime.Decode(c.WalletAddr, &cAddr)
 	trans := core.NewTransaction(chain, cAddr)
 	trans.CreateRegisterMiner(info.TagetChain, info.Index, info.Cost)
-	// if conf.DebugMod {
-	// 	trans.Time = core.GetBlockTime(chain)
-	// }
 	if info.Energy > trans.Energy {
 		trans.Energy = info.Energy
 	}
@@ -485,9 +476,6 @@ func TransactionNewAppPost(w http.ResponseWriter, r *http.Request) {
 	runtime.Decode(c.WalletAddr, &cAddr)
 	trans := core.NewTransaction(chain, cAddr)
 	trans.CreateNewApp(code, ln)
-	// if conf.DebugMod {
-	// 	trans.Time = core.GetBlockTime(chain)
-	// }
 	if info.Energy > trans.Energy {
 		trans.Energy = info.Energy
 	}
@@ -600,9 +588,6 @@ func TransactionRunAppPost(w http.ResponseWriter, r *http.Request) {
 		trans.CreateRunApp(app, info.Cost, param)
 	}
 
-	// if conf.DebugMod {
-	// 	trans.Time = core.GetBlockTime(chain)
-	// }
 	if info.Energy > trans.Energy {
 		trans.Energy = info.Energy
 	}
@@ -685,9 +670,6 @@ func TransactionAppLifePost(w http.ResponseWriter, r *http.Request) {
 	trans := core.NewTransaction(chain, cAddr)
 	trans.CreateUpdateAppLife(app, info.Life)
 
-	// if conf.DebugMod {
-	// 	trans.Time = core.GetBlockTime(chain)
-	// }
 	if info.Energy > trans.Energy {
 		trans.Energy = info.Energy
 	}
@@ -726,7 +708,7 @@ func TransactionAppInfoGet(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	keyStr := r.Form.Get("key")
 	if keyStr == "" {
-		keyStr = "9edcee1a25950643c09476b7c039eb8aec09141a8d0e80051fd52a0e37bc60fe"
+		keyStr = "e4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c"
 	}
 	chain, err := strconv.ParseUint(chainStr, 10, 64)
 	if err != nil {
@@ -985,9 +967,6 @@ func ChainNew(w http.ResponseWriter, r *http.Request) {
 	runtime.Decode(c.WalletAddr, &cAddr)
 	trans := core.NewTransaction(chain, cAddr)
 	trans.CreateNewChain(info.DstChain, info.Cost)
-	// if conf.DebugMod {
-	// 	trans.Time = core.GetBlockTime(chain)
-	// }
 	if info.Energy > trans.Energy {
 		trans.Energy = info.Energy
 	}
@@ -1105,4 +1084,60 @@ func NodesGet(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	enc := json.NewEncoder(w)
 	enc.Encode(handler.Nodes)
+}
+
+// HistoryInGet get transaction history of recieve
+func HistoryInGet(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chainStr := vars["chain"]
+	r.ParseForm()
+	keyStr := r.Form.Get("key")
+	chain, err := strconv.ParseUint(chainStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("error chain"))
+		return
+	}
+	var key []byte
+	if keyStr != "" {
+		key, err = hex.DecodeString(keyStr)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("error key"))
+			return
+		}
+	}
+	trans := handler.GetInputTrans(chain, key)
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	enc.Encode(trans)
+}
+
+// HistoryOutGet get transaction history of send
+func HistoryOutGet(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chainStr := vars["chain"]
+	r.ParseForm()
+	keyStr := r.Form.Get("key")
+	chain, err := strconv.ParseUint(chainStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("error chain"))
+		return
+	}
+	var key []byte
+	if keyStr != "" {
+		key, err = hex.DecodeString(keyStr)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("error key"))
+			return
+		}
+	}
+	trans := handler.GetOutputTrans(chain, key)
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	enc.Encode(trans)
 }

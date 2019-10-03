@@ -40,6 +40,26 @@
                     </div>
                 </div>
             </div>
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Send History</h3>
+                </div>
+                <div class="panel-body">
+                    <div id="output"></div>
+                    <br>
+                    <button type="button" class="btn btn-success pull-right" id="send_next">Next</button>
+                </div>
+            </div>
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Receive History</h3>
+                </div>
+                <div class="panel-body">
+                    <div id="intput"></div>
+                    <br>
+                    <button type="button" class="btn btn-success pull-right" id="receive_next">Next</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -51,7 +71,8 @@
     <script src="js/load.js"></script>
 
     <script type="text/javascript">
-
+        var last_send = ""
+        var last_receive = ""
         $.get("/api/v1/1/account", function (data, status) {
             if (status != "success") {
                 alert("Data: " + data + "\nStatus: " + status);
@@ -63,16 +84,55 @@
             }
         });
 
-        function fmoney(s) {
-            console.log("money:"+s)
-            s = parseFloat((s + "").replace(/[^\d\.-]/g, "")).toFixed(10) + "";
-            var l = s.split(".")[0].split("").reverse();
-            var t = "";
-            for (i = 0; i < l.length; i++) {
-                t += l[i] + ((i + 1) % 3 == 0 && (i + 1) != l.length ? "," : "");
+        function getSendHistory(chain, key) {
+            var query = ""
+            if (key != "") {
+                query = "?key=" + key
             }
-            return t.split("").reverse().join("");
+            $("#output").html("");
+            $.get("/api/v1/" + chain + "/transaction/history/output" + query, function (data, status) {
+                for (i in data) {
+                    last_send = bytes2Str(data[i])
+                    $("#output").append(
+                        $("<div class='input-group'>").append(
+                            $("<span class='input-group-addon'>transaction:</span>")
+                        ).append(
+                            $("<span class='form-control'>").append(
+                                getLinkString("transaction.html", chain, data[i])
+                            )
+                        ));
+                }
+                
+            });
         }
+        function getReceiveHistory(chain, key) {
+            var query = ""
+            if (key != "") {
+                query = "?key=" + key
+            }
+            $("#input").html("");
+            $.get("/api/v1/" + chain + "/transaction/history/input" + query, function (data, status) {
+                for (i in data) {
+                    last_receive = bytes2Str(data[i])
+                    $("#input").append(
+                        $("<div class='input-group'>").append(
+                            $("<span class='input-group-addon'>transaction:</span>")
+                        ).append(
+                            $("<span class='form-control'>").append(
+                                getLinkString("transaction.html", chain, data[i])
+                            )
+                        ));
+                }
+            });
+        }
+        $('#send_next').on('click', function () {
+            getSendHistory(1, last_send)
+        });
+        $('#receive_next').on('click', function () {
+            getReceiveHistory(1, last_receive)
+        });
+        getSendHistory(1, "")
+        getReceiveHistory(1, "")
     </script>
 
 </body>
