@@ -75,7 +75,7 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 				ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncing), "true")
 				go p.syncDepend(ctx, msg.Chain, msg.Key)
 			} else {
-				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, 1)
+				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, core.BaseRelia)
 			}
 			return nil
 		}

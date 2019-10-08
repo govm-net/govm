@@ -100,13 +100,14 @@ func doMine(chain uint64, force bool) {
 	block.SetTransList(transList)
 	block.Size = uint32(size)
 	block.Nonce = rand.Uint64()
-	var key core.Hash
-	var oldHP uint64
+
+	var oldRel core.TReliability
+
 	timeout := time.Now().Unix() + 20
 
 	for {
 		now := time.Now().Unix()
-		if timeout < now && block.Time < uint64(now)*1000+blockAcceptTime/2 {
+		if timeout < now && block.Time < uint64(now)*1000 {
 			break
 		}
 		signData := block.GetSignData()
@@ -129,38 +130,30 @@ func doMine(chain uint64, force bool) {
 			// log.Printf("drop hash:%x,data:%x\n", key, signData[:6])
 			continue
 		}
-		if hp > oldHP {
+		rel := block.GetReliability()
+		if rel.Cmp(oldRel) > 0 {
+			oldRel = rel
 			core.WriteBlock(chain, data)
-			rel := block.GetReliability()
 			core.SaveBlockReliability(chain, block.Key[:], rel)
-			key = block.Key
-			oldHP = hp
+			info := messages.BlockInfo{}
+			info.Chain = chain
+			info.Index = rel.Index
+			info.Key = rel.Key[:]
+			info.HashPower = rel.HashPower
+			info.PreKey = rel.Previous[:]
+			network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
+			log.Printf("mine one blok,chain:%d,index:%d,hashpower:%d,hp limit:%d,key:%x\n",
+				chain, rel.Index, rel.HashPower, block.HashpowerLimit, rel.Key)
 		}
 	}
 
-	if oldHP == 0 || key.Empty() {
+	if oldRel.HashPower == 0 {
 		log.Printf("fail to doMine,error oldHP,limit:%d\n", block.HashpowerLimit)
 		count := GetMineCount(chain, block.Previous[:])
 		if count > 0 {
 			SetMineCount(chain, block.Previous[:], count-1)
 		}
 		return
-	}
-
-	log.Printf("mine one blok,chain:%d,index:%d,hashpower:%d,hp limit:%d,key:%x\n",
-		chain, block.Index, oldHP, block.HashpowerLimit, key[:])
-	rel := core.ReadBlockReliability(chain, key[:])
-	info := messages.BlockInfo{}
-	info.Chain = chain
-	info.Index = rel.Index
-	info.Key = key[:]
-	info.HashPower = rel.HashPower
-	info.PreKey = rel.Previous[:]
-
-	network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
-	if rel.Time > uint64(time.Now().Unix())*1000 {
-		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
-		log.Printf("mine setBlockToIDBlocks.chain:%d,index:%d,hp:%d,key:%x\n", chain, rel.Index, rel.HashPower, rel.Key)
 	}
 }
 

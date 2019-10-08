@@ -254,6 +254,11 @@ func DecodeBlock(data []byte) *StBlock {
 	return out
 }
 
+const (
+	// BaseRelia base reliability
+	BaseRelia = 1000
+)
+
 // GetReliability get block reliability
 func (b *StBlock) GetReliability() TReliability {
 	var power uint64
@@ -265,7 +270,7 @@ func (b *StBlock) GetReliability() TReliability {
 	getDataFormDB(b.Chain, dbMining{}, runtime.Encode(b.Index), &miner)
 
 	if b.Index == 1 {
-		power = 1000
+		power = BaseRelia
 	}
 
 	for i := 0; i < minerNum; i++ {
