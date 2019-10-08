@@ -258,14 +258,14 @@ func processEvent(chain uint64) {
 		return
 	}
 	stat.RunSuccessCount++
-
 	SaveBlockRunStat(chain, relia.Key[:], stat)
 
 	info := messages.BlockInfo{}
 	info.Chain = chain
-	info.Index = index + 1
+	info.Index = relia.Index
 	info.Key = relia.Key[:]
 	info.HashPower = relia.HashPower
+	info.PreKey = relia.Previous[:]
 	network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 
 	go processEvent(chain)

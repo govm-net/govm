@@ -8,7 +8,6 @@ import (
 	"github.com/lengzhao/govm/wallet"
 	"log"
 	"os"
-	"time"
 )
 
 // StBlock StBlock
@@ -225,9 +224,6 @@ func DecodeBlock(data []byte) *StBlock {
 		return nil
 	}
 	if out.Index < 1 {
-		return nil
-	}
-	if out.Time > uint64(time.Now().Unix()+5)*1000 {
 		return nil
 	}
 
