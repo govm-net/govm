@@ -56,18 +56,13 @@ func processChains(chain uint64) {
 }
 
 func getBestBlock(chain, index uint64) core.TReliability {
-	var relia, rel core.TReliability
+	var relia core.TReliability
 	var num int
 	ib := ReadIDBlocks(chain, index)
 	now := time.Now().Unix() * 1000
-	if len(ib.Items) == 1 {
-		it := ib.Items[0]
-		log.Printf("getBestBlock rst,num:1,chain:%d,index:%d,key:%x,hp:%d\n", chain, index, it.Key, it.HashPower)
-		return core.ReadBlockReliability(chain, it.Key[:])
-	}
 	for i, it := range ib.Items {
 		key := it.Key[:]
-		rel = core.ReadBlockReliability(chain, key)
+		rel := core.ReadBlockReliability(chain, key)
 
 		// time.Second
 		if rel.Time > uint64(now) {
@@ -98,7 +93,6 @@ func getBestBlock(chain, index uint64) core.TReliability {
 			stat.RunTimes, stat.RunSuccessCount, stat.SelectedCount)
 
 		rel.HashPower = hp
-
 		if rel.Cmp(relia) > 0 {
 			relia = rel
 		}
@@ -258,14 +252,14 @@ func processEvent(chain uint64) {
 		return
 	}
 	stat.RunSuccessCount++
-
 	SaveBlockRunStat(chain, relia.Key[:], stat)
 
 	info := messages.BlockInfo{}
 	info.Chain = chain
-	info.Index = index + 1
+	info.Index = relia.Index
 	info.Key = relia.Key[:]
 	info.HashPower = relia.HashPower
+	info.PreKey = relia.Previous[:]
 	network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 
 	go processEvent(chain)
