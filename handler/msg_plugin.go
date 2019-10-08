@@ -97,7 +97,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			if !rel.Ready {
 				p.downloadBlockDepend(ctx, msg.Chain, msg.Key)
 			} else {
-				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, 1)
+				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, core.BaseRelia)
 			}
 			return nil
 		}
@@ -352,6 +352,8 @@ func (p *MsgPlugin) downloadBlockDepend(ctx libp2p.Event, chain uint64, key []by
 		log.Printf("trans is not exist,chain:%d,key:%x\n", chain, it)
 		return
 	}
+	rel.Ready = true
+	core.SaveBlockReliability(chain, rel.Key[:], rel)
 	log.Printf("setBlockToIDBlocks,chain:%d,index:%d,key:%x,hp:%d\n", chain, rel.Index, rel.Key, rel.HashPower)
 	ctx.GetSession().SetEnv(getEnvKey(chain, transOwner), "")
 	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)

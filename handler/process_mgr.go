@@ -75,16 +75,18 @@ func getBestBlock(chain, index uint64) core.TReliability {
 		}
 
 		stat := ReadBlockRunStat(chain, key)
-		if stat.RunTimes-stat.RunSuccessCount > 3 ||
-			stat.RunTimes > 8 {
-			log.Printf("delete idBlocks.chain:%d,index:%d,key:%x,rollback:%d,runTimes:%d,success:%d\n",
-				chain, index, key, stat.RollbackCount,
-				stat.RunTimes, stat.RunSuccessCount)
-			setBlockToIDBlocks(chain, index, it.Key, 0)
-		}
 		hp := rel.HashPower
 		hp -= stat.SelectedCount / 5
 		hp -= uint64(stat.RunTimes) / 10
+		if hp == 0 {
+			setBlockToIDBlocks(chain, index, it.Key, 0)
+			core.DeleteBlock(chain, it.Key[:])
+			stat = BlockRunStat{}
+			SaveBlockRunStat(chain, it.Key[:], stat)
+			rel.HashPower = 0
+			core.SaveBlockReliability(chain, rel.Key[:], rel)
+			continue
+		}
 
 		if rel.HashPower > it.HashPower {
 			setBlockToIDBlocks(chain, index, it.Key, rel.HashPower)
@@ -219,7 +221,7 @@ func processEvent(chain uint64) {
 		}
 		relia = getBestBlock(chain, index+2)
 		if !relia.Previous.Empty() {
-			setBlockToIDBlocks(chain, relia.Index-1, relia.Previous, 1)
+			setBlockToIDBlocks(chain, relia.Index-1, relia.Previous, core.BaseRelia)
 		}
 		t := core.GetBlockTime(chain)
 		go doMine(chain, false)
@@ -256,9 +258,7 @@ func processEvent(chain uint64) {
 		return
 	}
 	stat.RunSuccessCount++
-	relia.Ready = true
 
-	core.SaveBlockReliability(chain, relia.Key[:], relia)
 	SaveBlockRunStat(chain, relia.Key[:], stat)
 
 	info := messages.BlockInfo{}
