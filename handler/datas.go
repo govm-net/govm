@@ -152,7 +152,7 @@ func GetTransList(chain uint64, key []byte) []core.Hash {
 		var tmp core.Hash
 		runtime.Decode(v, &tmp)
 		out = append(out, tmp)
-		v = v[len(tmp[:]):]
+		v = v[core.HashLen:]
 	}
 	return out
 }

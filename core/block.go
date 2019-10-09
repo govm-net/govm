@@ -257,45 +257,18 @@ const (
 
 // GetReliability get block reliability
 func (b *StBlock) GetReliability() TReliability {
-	var power uint64
 	var selfRel TReliability
-	var miner Miner
-
-	preRel := ReadBlockReliability(b.Chain, b.Previous[:])
-	parent := ReadBlockReliability(b.Chain/2, b.Parent[:])
-	getDataFormDB(b.Chain, dbMining{}, runtime.Encode(b.Index), &miner)
-
-	if b.Index == 1 {
-		power = BaseRelia
-	}
-
-	for i := 0; i < minerNum; i++ {
-		if miner.Miner[i] == b.Producer {
-			power += uint64(minerNum-i) + 2
-			selfRel.Miner = true
-			break
-		}
-		if selfRel.Miner && miner.Miner[i].Empty() {
-			power--
-		}
-	}
-	power += getHashPower(b.Key)
-	power += parent.HashPower / 4
-	power += preRel.HashPower
-	power -= preRel.HashPower >> 40
-	if b.Producer == preRel.Producer {
-		power -= 7
-	}
 
 	selfRel.Key = b.Key
 	selfRel.Index = b.Index
 	selfRel.Previous = b.Previous
-	selfRel.HashPower = power
 	selfRel.Time = b.Time
 	selfRel.Parent = b.Parent
 	selfRel.LeftChild = b.LeftChild
 	selfRel.RightChild = b.RightChild
 	selfRel.Producer = b.Producer
+
+	selfRel.Recalculation(b.Chain)
 
 	return selfRel
 }
@@ -305,14 +278,14 @@ func (b *StBlock) GetReliability() TReliability {
 //   +1 if x >  y
 //   -1 if x <  y
 //   0  if x =  y
-func (x TReliability) Cmp(y TReliability) int {
-	if x.HashPower > y.HashPower {
+func (r TReliability) Cmp(y TReliability) int {
+	if r.HashPower > y.HashPower {
 		return 1
 	}
-	if x.HashPower < y.HashPower {
+	if r.HashPower < y.HashPower {
 		return -1
 	}
-	for i, b := range x.Key {
+	for i, b := range r.Key {
 		if b > y.Key[i] {
 			return -1
 		}
@@ -322,6 +295,39 @@ func (x TReliability) Cmp(y TReliability) int {
 	}
 
 	return 0
+}
+
+// Recalculation recalculation
+func (r *TReliability) Recalculation(chain uint64) {
+	var power uint64
+	var miner Miner
+
+	preRel := ReadBlockReliability(chain, r.Previous[:])
+	parent := ReadBlockReliability(chain/2, r.Parent[:])
+	getDataFormDB(chain, dbMining{}, runtime.Encode(r.Index), &miner)
+
+	if r.Index == 1 {
+		power = BaseRelia
+	}
+
+	for i := 0; i < minerNum; i++ {
+		if miner.Miner[i] == r.Producer {
+			power += uint64(minerNum-i) + 2
+			r.Miner = true
+			break
+		}
+		if r.Miner && miner.Miner[i].Empty() {
+			power--
+		}
+	}
+	power += getHashPower(r.Key)
+	power += (parent.HashPower / 4)
+	power += preRel.HashPower
+	power -= (preRel.HashPower >> 40)
+	if r.Producer == preRel.Producer {
+		power -= 7
+	}
+	r.HashPower = power
 }
 
 // IsExistBlock Determine whether block exists

@@ -197,23 +197,10 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	if err != nil {
 		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), "")
 		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncing), "")
-
-		e := ctx.GetSession().GetEnv(getSyncEnvKey(chain, eSyncLastBlock))
-		if e == "" {
-			return
-		}
-		key, _ := hex.DecodeString(e)
-		if len(key) == 0 {
-			return
-		}
-		rel = core.TReliability{}
-		rel.HashPower = 0
-		rel.Previous = core.Hash{}
-		rel.Ready = true
-		core.SaveBlockReliability(chain, key, rel)
 		return
 	}
 
+	rel.Recalculation(chain)
 	rel.Ready = true
 	core.SaveBlockReliability(chain, rel.Key[:], rel)
 
@@ -225,32 +212,10 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		log.Printf("start next SyncBlock,chain:%d,key:%x,next:%x\n", chain, key, newKey)
 		go p.syncDepend(ctx, chain, newKey)
 	} else {
-		log.Printf("stop sync,not next SyncBlock,chain:%d,key:%x,next:%d\n", chain, key, rel.Index+1)
+		// log.Printf("stop sync,not next SyncBlock,chain:%d,key:%x,next:%d\n", chain, key, rel.Index+1)
 		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), "")
 		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncing), "")
 
 		go processEvent(chain)
 	}
 }
-
-// func rebuildReliability() {
-// 	var chain uint64
-// 	for chain = 1; ; chain++ {
-// 		var index uint64
-// 		for index = 1; ; index++ {
-// 			key := core.GetTheBlockKey(chain, index)
-// 			if len(key) == 0 {
-// 				break
-// 			}
-// 			rel := core.ReadBlockReliability(chain, key)
-// 			if rel.HashPower > 1000 {
-// 				continue
-// 			}
-// 			data := core.ReadBlockData(chain, key)
-// 			processBlock(chain, key, data)
-// 		}
-// 		if index < 2 {
-// 			break
-// 		}
-// 	}
-// }
