@@ -68,11 +68,16 @@ func getBestBlock(chain, index uint64) core.TReliability {
 		if rel.Time > uint64(now) {
 			continue
 		}
+		if it.HashPower > rel.HashPower {
+			rel.Recalculation(chain)
+			core.SaveBlockReliability(chain, rel.Key[:], rel)
+		}
 
 		stat := ReadBlockRunStat(chain, key)
 		hp := rel.HashPower
 		hp -= stat.SelectedCount / 5
 		hp -= uint64(stat.RunTimes) / 10
+		hp -= uint64(stat.RunTimes - stat.RunSuccessCount)
 		if hp == 0 {
 			setBlockToIDBlocks(chain, index, it.Key, 0)
 			core.DeleteBlock(chain, it.Key[:])
@@ -213,10 +218,6 @@ func processEvent(chain uint64) {
 			go processEvent(chain)
 			return
 		}
-		relia = getBestBlock(chain, index+2)
-		if !relia.Previous.Empty() {
-			setBlockToIDBlocks(chain, relia.Index-1, relia.Previous, core.BaseRelia)
-		}
 		t := core.GetBlockTime(chain)
 		go doMine(chain, false)
 
@@ -234,7 +235,7 @@ func processEvent(chain uint64) {
 	if bytes.Compare(relia.Previous[:], preKey) != 0 {
 		log.Printf("dbRollBack block. index:%d,key:%x,next block:%x\n", index, preKey, relia.Key)
 		ib := IDBlocks{}
-		it := ItemBlock{relia.Previous, 1}
+		it := ItemBlock{relia.Previous, core.BaseRelia}
 		ib.Items = append(ib.Items, it)
 		SaveIDBlocks(chain, index, ib)
 		SaveBlockRunStat(chain, relia.Key[:], stat)
@@ -253,6 +254,12 @@ func processEvent(chain uint64) {
 	}
 	stat.RunSuccessCount++
 	SaveBlockRunStat(chain, relia.Key[:], stat)
+
+	old := relia.HashPower
+	relia.Recalculation(chain)
+	if old != relia.HashPower {
+		core.SaveBlockReliability(chain, relia.Key[:], relia)
+	}
 
 	info := messages.BlockInfo{}
 	info.Chain = chain
@@ -337,4 +344,52 @@ func setBlockToIDBlocks(chain, index uint64, key core.Hash, hp uint64) {
 	}
 	newIB.MaxHeight = ib.MaxHeight
 	SaveIDBlocks(chain, index, newIB)
+}
+
+func reliaRecalculation(chain uint64) {
+	var index uint64
+	var preKey []byte
+	defer recover()
+	for index = 1; ; index++ {
+		key := core.GetTheBlockKey(chain, index)
+		if len(key) == 0 {
+			break
+		}
+		rel := core.ReadBlockReliability(chain, key)
+		if rel.Index != index {
+			rel.Index = index
+		}
+		if index > 1 && bytes.Compare(rel.Previous[:], preKey) != 0 {
+			log.Printf("error Previous of Recalculation,chain:%d,index:%d,hope:%x,get:%x\n",
+				chain, index, preKey, rel.Previous)
+			data := core.ReadBlockData(chain, key)
+			processBlock(chain, key, data)
+			continue
+		}
+		preKey = key
+		old := rel.HashPower
+		rel.Recalculation(chain)
+		if rel.HashPower != old {
+			log.Printf("rel.Recalculation chain:%d,index:%d,new hp:%d,old hp:%d\n", chain, index, rel.HashPower, old)
+			core.SaveBlockReliability(chain, key, rel)
+		}
+	}
+	if index == 1 {
+		log.Println("finish reliaRecalculation(not block):", chain)
+		return
+	}
+	ib := ReadIDBlocks(chain, index)
+	for _, it := range ib.Items {
+		rel := core.ReadBlockReliability(chain, it.Key[:])
+		old := rel.HashPower
+		rel.Recalculation(chain)
+		if rel.HashPower != old {
+			log.Printf("IDBlocks.Recalculation chain:%d,index:%d,new hp:%d,old hp:%d\n", chain, index, rel.HashPower, old)
+			core.SaveBlockReliability(chain, it.Key[:], rel)
+		}
+	}
+
+	reliaRecalculation(2 * chain)
+	reliaRecalculation(2*chain + 1)
+	log.Println("finish reliaRecalculation:", chain, index)
 }
