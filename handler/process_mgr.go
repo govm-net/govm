@@ -261,6 +261,11 @@ func processEvent(chain uint64) {
 		core.SaveBlockReliability(chain, relia.Key[:], relia)
 	}
 
+	if relia.Time+tMinute < now {
+		go processEvent(chain)
+		return
+	}
+
 	info := messages.BlockInfo{}
 	info.Chain = chain
 	info.Index = relia.Index

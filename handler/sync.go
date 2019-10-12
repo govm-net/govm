@@ -25,7 +25,8 @@ const (
 	eSyncTransOwner
 	eSyncTimeout
 	eSyncLastBlock
-	sTimeout = 60
+	sTimeout      = 60
+	acceptBlockID = 20
 )
 
 func getSyncEnvKey(chain uint64, typ byte) string {
@@ -63,8 +64,8 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 		if ctx.GetSession().GetEnv(getSyncEnvKey(msg.Chain, eSyncing)) != "" {
 			return nil
 		}
-		if msg.Index > index+20 {
-			ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + 20})
+		if msg.Index > index+acceptBlockID {
+			ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + acceptBlockID})
 			return nil
 		}
 		if core.IsExistBlock(msg.Chain, msg.Key) {
