@@ -65,11 +65,13 @@
                     <div class="input-group">
                         <span class="input-group-addon">Cost:</span>
                         <span class="form-control" id="cost"></span>
+                        <span class="input-group-addon" id="base_cost"></span>
                     </div>
                     <br>
                     <div class="input-group">
                         <span class="input-group-addon">Energy:</span>
                         <span class="form-control" id="energy"></span>
+                        <span class="input-group-addon" id="base_energy"></span>
                     </div>
                     <br>
                     <div class="input-group">
@@ -118,6 +120,9 @@
     <script src="js/load.js"></script>
 
     <script type="text/javascript">
+        $("#base_cost").html(gCostBase);
+        $("#base_energy").html(gCostBase);
+        $("#search_chain").val(gChainID);
         function getTrans(chain, key) {
             $("#chain").html("")
             $("#key").html("")
@@ -147,8 +152,8 @@
                 var myDate = new Date()
                 myDate.setTime(data.Time)
                 $("#time").html("<b>" + myDate.toString() + "</b>");
-                $("#cost").html("<b>" + data.Cost + "</b>");
-                $("#energy").html("<b>" + data.Energy + "</b>");
+                $("#cost").html("<b>" + getValueWithBase(data.Cost,gCostBase) + "</b>");
+                $("#energy").html("<b>" + getValueWithBase(data.Energy,gCostBase) + "</b>");
                 $("#bid").html("<b>" + data.Others.BlockID + "</b>");
                 switch (data.Ops) {
                     case 0:
@@ -218,7 +223,7 @@
         var chain = getUrlParam('chain');
         var key = getUrlParam('key');
         if (chain < 1){
-            chain = 1;
+            chain = gChainID;
         }
         if (key == ""){
             key = "0c64e484f3b329fea41a03be2677161eaac92741105cb0548b6ec4a5529efc71";

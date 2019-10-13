@@ -37,6 +37,7 @@
                     <div class="input-group">
                         <span class="input-group-addon">Balance:</span>
                         <span class="form-control" id="balance"></span>
+                        <span class="input-group-addon" id="base_cost"></span>
                     </div>
                 </div>
             </div>
@@ -73,14 +74,15 @@
     <script type="text/javascript">
         var last_send = ""
         var last_receive = ""
-        $.get("/api/v1/1/account", function (data, status) {
+        $("#base_cost").html(gCostBase);
+
+        $.get("/api/v1/"+gChainID+"/account", function (data, status) {
             if (status != "success") {
                 alert("Data: " + data + "\nStatus: " + status);
             } else {
                 $("#chain").html("<b>" + data.chain + "</b>");
                 $("#address").html("<b>" + data.address + "</b>");
-                $("#balance").html("<b>" + fmoney(data.cost) + "</b>");
-                // $("#balance").html("<b>" + data.cost/1000000000.0 + "</b>");
+                $("#balance").html("<b><p title='" + fmoney(data.cost) + "'>" + getValueWithBase(data.cost,gCostBase) + "</p></b>");
             }
         });
 
@@ -102,7 +104,6 @@
                             )
                         ));
                 }
-                
             });
         }
         function getReceiveHistory(chain, key) {
@@ -126,13 +127,13 @@
             });
         }
         $('#send_next').on('click', function () {
-            getSendHistory(1, last_send)
+            getSendHistory(gChainID, last_send)
         });
         $('#receive_next').on('click', function () {
-            getReceiveHistory(1, last_receive)
+            getReceiveHistory(gChainID, last_receive)
         });
-        getSendHistory(1, "")
-        getReceiveHistory(1, "")
+        getSendHistory(gChainID, "")
+        getReceiveHistory(gChainID, "")
     </script>
 
 </body>

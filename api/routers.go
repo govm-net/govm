@@ -199,4 +199,10 @@ var routes = Routes{
 		"/api/v1/nodes",
 		NodesGet,
 	},
+	Route{
+		"VersionGet",
+		strings.ToUpper("Get"),
+		"/api/v1/version",
+		VersionGet,
+	},
 }
