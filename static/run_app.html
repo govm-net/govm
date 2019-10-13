@@ -39,19 +39,15 @@
                     <br>
                     <div class="input-group">
                         <span class="input-group-addon">Cost</span>
-                        <input type="number" class="form-control" value="10000000" name="cost">
+                        <input type="number" class="form-control" value="10" name="cost">
+                        <span class="input-group-addon" id="base_cost"></span>
                         <span class="input-group-addon label-success">*</span>
                     </div>
                     <br>
                     <div class="input-group">
                         <span class="input-group-addon">Energy</span>
-                        <input type="number" class="form-control" placeholder="500000" name="energy">
-                    </div>
-
-                    <br>
-                    <div class="input-group">
-                        <span class="input-group-addon"><input type="checkbox" checked="checked" name="save_result">Save Result</span>
-                        <span class="form-control"></span>
+                        <input type="number" class="form-control" name="energy" value="1">
+                        <span class="input-group-addon" id="base_energy"></span>
                     </div>
 
                     <br>
@@ -75,11 +71,15 @@
     <script src="js/load.js"></script>
 
     <script type="text/javascript">
+        $("#base_cost").html(gCostBase);
+        $("#base_energy").html(gCostBase);
+        $("input[name='chain']").val(gChainID);
         $('#submit').on('click', function () {
             $("#result").html("");
             var data = $('form').serializeJSON()
-            data.cost = parseInt(data.cost)
-            data.energy = parseInt(data.energy)
+            base = getBaseByName(gCostBase)
+            data.cost = parseInt(data.cost*base)
+            data.energy = parseInt(data.energy*base)
             if (data.save_result == "on"){
                 data.save_result = true
             }

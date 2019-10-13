@@ -32,7 +32,20 @@ type TConfig struct {
 	ReliaRecalculation bool   `json:"relia_recalculation,omitempty"`
 }
 
-var conf TConfig
+// DebugMod debug mode
+const (
+	CreateFristTrans = false
+)
+
+var (
+	conf TConfig
+	// Version software version
+	Version string = "v0.1.0"
+	// BuildTime build time
+	BuildTime string
+	// GitHead git head
+	GitHead string
+)
 
 func init() {
 	bit := 32 << (^uint(0) >> 63)
@@ -45,6 +58,7 @@ func init() {
 		log.Println("fail to read file,conf.json,", err)
 		os.Exit(2)
 	}
+	log.Printf("software version:%s,build time:%s,git head:%s", Version, BuildTime, GitHead)
 }
 
 func loadConfig() error {

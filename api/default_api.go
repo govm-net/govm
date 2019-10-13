@@ -1141,3 +1141,19 @@ func HistoryOutGet(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
 	enc.Encode(trans)
 }
+
+// VersionInfo version info
+type VersionInfo struct {
+	Version   string
+	BuildTime string
+	GitHead   string
+}
+
+// VersionGet get software version
+func VersionGet(w http.ResponseWriter, r *http.Request) {
+	info := VersionInfo{conf.Version, conf.BuildTime, conf.GitHead}
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	enc.Encode(info)
+}

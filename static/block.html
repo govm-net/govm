@@ -152,11 +152,12 @@
         $("#btn_key").click(function () {
             getBlock($("#search_chain").val(), "",$("#search_key").val())
         });
+        $("#search_chain").val(gChainID)
         var chain = getUrlParam('chain');
         var key = getUrlParam('key');
         var index = getUrlParam('index');
         if (chain < 1){
-            chain = 1;
+            chain = gChainID;
         }
         getBlock(chain, index,key)
     </script>

@@ -35,13 +35,15 @@
                         <br>
                         <div class="input-group">
                             <span class="input-group-addon">Cost:</span>
-                            <input type="number" min="1" class="form-control" name="cost">
+                            <input type="number" class="form-control" name="cost">
+                            <span class="input-group-addon" id="base_cost"></span>
                             <span class="input-group-addon label-success">*</span>
                         </div>
                         <br>
                         <div class="input-group">
                             <span class="input-group-addon">Energy:</span>
-                            <input type="number" min="1" class="form-control" name="energy">
+                            <input type="number" class="form-control" name="energy">
+                            <span class="input-group-addon" id="base_energy"></span>
                         </div>
                         <br>
                         <button type="button" class="btn btn-success pull-right" id="submit">Submit</button>
@@ -107,25 +109,38 @@
     <script src="js/load.js"></script>
 
     <script type="text/javascript">
+        $("#base_cost").html(gCostBase);
+        $("#base_energy").html(gCostBase);
+        $("#search_chain").val(gChainID);
+        $("input[name='chain']").val(gChainID);
         function getMiner(chain, query) {
             $.get("/api/v1/" + chain + "/transaction/miner" + query, function (data, status) {
                 // console.log(data)
                 $("#s_chain").html("<b>" + chain + "</b>");
                 $("#s_index").html("<b>" + data.index + "</b>");
-                var newRow = ""
+                // var newRow = ""
+                $("#miners").html("");
                 for (i in data.Miner) {
-                    newRow += "<div class=\"input-group\">\
-                    <span class=\"input-group-addon\">Miner"+i+":</span>\
-                    <span class=\"form-control\">";
-                    newRow += bytes2Str(data.Miner[i]);
-                    newRow += "</div><br>";
-                    newRow += "<div class=\"input-group\">\
-                    <span class=\"input-group-addon\">Cost"+i+":</span>\
-                    <span class=\"form-control\">";
-                    newRow += data.Cost[i];
-                    newRow += "</div><br>";
+                    $("#miners").append(
+                        $("<div class='input-group'>").append(
+                            $("<span class='input-group-addon'>").append("Miner" + i)
+                        ).append(
+                            $("<span class='form-control'>").append(
+                                bytes2Str(data.Miner[i])
+                            )
+                        )
+                    ).append(
+                        $("<div class='input-group'>").append(
+                            $("<span class='input-group-addon'>").append("Cost" + i)
+                        ).append(
+                            $("<span class='form-control'>").append(
+                                getValueWithBase(data.Cost[i],gCostBase)
+                            )
+                        ).append(
+                            $("<span class='input-group-addon'>").append(gCostBase)
+                        )
+                    ).append("<br>");
                 }
-                $("#miners").html(newRow);
                 $("#result").html("");
             }).fail(function () {
                 $("#result").html("not found");
@@ -144,9 +159,10 @@
 
         $('#submit').on('click', function () {
             var data = $('form').serializeJSON()
-            console.log(data);
-            data.energy = parseInt(data.energy)
-            data.cost = parseInt(data.cost)
+            // console.log(data);
+            base = getBaseByName(gCostBase)
+            data.energy = parseInt(data.energy*base)
+            data.cost = parseInt(data.cost*base)
             data.index = parseInt(data.index)
             var chain = data.chain
             data = JSON.stringify(data)

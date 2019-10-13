@@ -34,13 +34,15 @@
                     <br>
                     <div class="input-group">
                         <span class="input-group-addon">Amount</span>
-                        <input type="number" min="1" class="form-control" placeholder="100" name="cost">
+                        <input type="number" class="form-control" placeholder="100" name="cost">
+                        <span class="input-group-addon" id="base_cost"></span>
                         <span class="input-group-addon label-success">*</span>
                     </div>
                     <br>
                     <div class="input-group">
                         <span class="input-group-addon">Energy</span>
-                        <input type="number" min="10000" class="form-control" name="energy" value="10000000">
+                        <input type="number" class="form-control" name="energy" value="0.01">
+                        <span class="input-group-addon" id="base_energy"></span>
                     </div>
                     <br>
                     <button type="button" class="btn btn-success pull-right" id="submit">Submit</button>
@@ -64,11 +66,16 @@
     <script src="js/load.js"></script>
 
     <script type="application/javascript">
+        $("#base_cost").html(gCostBase);
+        $("#base_energy").html(gCostBase);
+        $("#search_chain").val(gChainID);
+        $("input[name='chain']").val(gChainID);
         //发送表单ajax请求
         $('#submit').on('click', function () {
             var data = $('form').serializeJSON()
-            data.cost = parseInt(data.cost)
-            data.energy = parseInt(data.energy)
+            base = getBaseByName(gCostBase);
+            data.cost = parseInt(data.cost*base)
+            data.energy = parseInt(data.energy*base)
             var chain = data.chain
             data = JSON.stringify(data)
             $.ajax({

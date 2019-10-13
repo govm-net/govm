@@ -34,7 +34,8 @@
                     <br>
                     <div class="input-group">
                         <span class="input-group-addon">Energy</span>
-                        <input type="number" class="form-control" placeholder="500000" name="energy">
+                        <input type="number" class="form-control" placeholder="100" name="energy">
+                        <span class="input-group-addon" id="base_energy"></span>
                     </div>
 
                     <br>
@@ -69,7 +70,7 @@
                 </div>
                 <div class="input-group">
                     <span class="input-group-addon">App Name:</span>
-                    <input type="text" class="form-control" id="search_key" placeholder="e4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c">
+                    <input type="text" class="form-control" id="search_key" value="e4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c">
                     <span class="input-group-btn">
                         <button class="btn btn-default" type="button" id="btn_key">Go!</button>
                     </span>
@@ -124,9 +125,12 @@
     <script src="js/load.js"></script>
 
     <script type="text/javascript">
+        $("#base_energy").html(gCostBase);
+        $("#search_chain").val(gChainID);
+        $("input[name='chain']").val(gChainID);
         $('#submit').on('click', function () {
             var data = $('form').serializeJSON()
-            data.energy = parseInt(data.energy)
+            data.energy = parseInt(data.energy*getBaseByName(gCostBase))
             if (data.is_private == "on") {
                 data.is_private = true
             }
