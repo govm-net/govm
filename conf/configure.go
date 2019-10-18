@@ -20,7 +20,6 @@ type TConfig struct {
 	FirstTransName     []byte `json:"first_trans_name,omitempty"`
 	ChainOfMine        uint64 `json:"chain_of_mine,omitempty"`
 	EnergyOfTrans      uint64 `json:"energy_of_trans,omitempty"`
-	EnergyLimitOfMine  uint64 `json:"energy_limit_of_mine,omitempty"`
 	WalletAddr         []byte `json:"wallet_addr,omitempty"`
 	SignPrefix         []byte `json:"sign_prefix,omitempty"`
 	PrivateKey         []byte `json:"private_key,omitempty"`

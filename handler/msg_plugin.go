@@ -414,7 +414,7 @@ func processTransaction(chain uint64, key, data []byte) error {
 		ldb.LSet(chain, ldbInputTrans, trans.Key[:], []byte{1})
 	}
 
-	if (chain == c.ChainOfMine || c.ChainOfMine == 0) && trans.Energy > c.EnergyLimitOfMine &&
+	if (chain == c.ChainOfMine || c.ChainOfMine == 0) && trans.Energy > c.EnergyOfTrans &&
 		trans.Time <= uint64(time.Now().Unix())*1000 {
 		info := transInfo{}
 		info.TransactionHead = trans.TransactionHead

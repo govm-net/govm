@@ -96,6 +96,10 @@ func NewBlock(chain uint64, producer Address) *StBlock {
 			getDataFormLog(chain/2, logBlockInfo{}, runtime.Encode(pStat.ParentID), &key)
 			out.Parent = key
 		}
+		getDataFormDB(chain/2, dbStat{}, []byte{StatHashPower}, &hashPowerLimit)
+		if out.HashpowerLimit+8 < hashPowerLimit {
+			out.HashpowerLimit = hashPowerLimit - 8
+		}
 	}
 	if pStat.LeftChildID > 0 {
 		var key Hash
@@ -308,6 +312,10 @@ func (r *TReliability) Recalculation(chain uint64) {
 
 	if r.Index == 1 {
 		power = BaseRelia
+		preRel.HashPower = 0
+		if chain == 1 {
+			parent.HashPower = 0
+		}
 	}
 
 	for i := 0; i < minerNum; i++ {

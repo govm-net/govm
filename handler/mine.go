@@ -88,6 +88,10 @@ func doMine(chain uint64, force bool) {
 	block := core.NewBlock(chain, addr)
 
 	if !force {
+		if block.Time+tHour < uint64(time.Now().Unix())*1000 {
+			return
+		}
+
 		count := GetMineCount(chain, block.Previous[:])
 		if count > 1 {
 			return
@@ -180,7 +184,7 @@ func autoRegisterMiner(chain uint64) {
 	trans := core.NewTransaction(chain, cAddr)
 	trans.Time = core.GetBlockTime(chain)
 	trans.CreateRegisterMiner(0, index, c.CostOfRegMiner)
-	trans.Energy = c.EnergyLimitOfMine
+	trans.Energy = c.EnergyOfTrans
 	td := trans.GetSignData()
 	sign := wallet.Sign(c.PrivateKey, td)
 	if len(c.SignPrefix) > 0 {

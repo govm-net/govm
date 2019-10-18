@@ -536,3 +536,34 @@ func (m *TDbMgr) Exist(tbName, key []byte) (bExist bool) {
 
 	return
 }
+
+// GetNextKey get next key
+func (m *TDbMgr) GetNextKey(tbName, preKey []byte) []byte {
+	var out []byte
+	m.dataDb.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(tbName)
+		if b == nil {
+			return nil
+		}
+		c := b.Cursor()
+		var nk []byte
+		if len(preKey) > 0 {
+			nk, _ = c.Seek(preKey)
+			if nk == nil {
+				return nil
+			}
+			nk, _ = c.Next()
+		} else {
+			nk, _ = c.First()
+		}
+
+		if nk == nil {
+			return nil
+		}
+		out = make([]byte, len(nk))
+		copy(out, nk)
+		return nil
+	})
+
+	return out
+}

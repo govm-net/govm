@@ -81,6 +81,9 @@ func CheckTransaction(chain uint64, key []byte) (uint32, error) {
 	case OpsNewChain:
 		var newChain uint64
 		runtime.Decode(trans.Data, &newChain)
+		if newChain/2 != chain {
+			return 0, errors.New("error chain id")
+		}
 		id := GetLastBlockIndex(newChain)
 		if id > 0 {
 			return 0, errors.New("the chain is exist")

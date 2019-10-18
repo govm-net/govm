@@ -741,6 +741,7 @@ func TransactionAppInfoGet(w http.ResponseWriter, r *http.Request) {
 type TransInfo struct {
 	core.TransactionHead
 	Key    []byte
+	Size   int
 	Others interface{}
 }
 
@@ -785,6 +786,7 @@ func TransactionInfoGet(w http.ResponseWriter, r *http.Request) {
 	ti := core.GetTransInfo(chain, key)
 	si["BlockID"] = ti.BlockID
 	info.Others = si
+	info.Size = len(data)
 
 	d, _ := json.Marshal(info.Others)
 	log.Println("trans info:", info.Others, string(d))
@@ -1001,6 +1003,98 @@ func ChainNew(w http.ResponseWriter, r *http.Request) {
 	enc.Encode(info)
 }
 
+// DataInfo data info
+type DataInfo struct {
+	AppName    string `json:"app_name,omitempty"`
+	StructName string `json:"struct_name,omitempty"`
+	IsDBData   bool   `json:"is_db_data,omitempty"`
+	Key        string `json:"key,omitempty"`
+	Value      string `json:"value,omitempty"`
+	Life       uint64 `json:"life,omitempty"`
+}
+
+// DataGet read data
+func DataGet(w http.ResponseWriter, r *http.Request) {
+	info := DataInfo{}
+	vars := mux.Vars(r)
+	chainStr := vars["chain"]
+	r.ParseForm()
+	info.AppName = r.Form.Get("app_name")
+	info.StructName = r.Form.Get("struct_name")
+	info.Key = r.Form.Get("key")
+	if r.Form.Get("is_db_data") == "true" {
+		info.IsDBData = true
+	}
+
+	chain, err := strconv.ParseUint(chainStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("error chain"))
+		return
+	}
+
+	key, err := hex.DecodeString(info.Key)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "fail to Decode preKey,", info.Key, err)
+		return
+	}
+	val, life := runtime.GetValue(chain, info.IsDBData, info.AppName, info.StructName, key)
+	info.Value = hex.EncodeToString(val)
+	info.Life = life
+
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	enc.Encode(info)
+}
+
+// DataNextKey the next key of data
+type DataNextKey struct {
+	AppName    string `json:"app_name,omitempty"`
+	StructName string `json:"struct_name,omitempty"`
+	PreKey     string `json:"pre_key,omitempty"`
+	IsDBData   bool   `json:"is_db_data,omitempty"`
+	Key        string `json:"key,omitempty"`
+}
+
+// DataNextKeyGet get next key
+func DataNextKeyGet(w http.ResponseWriter, r *http.Request) {
+	info := DataNextKey{}
+	vars := mux.Vars(r)
+	chainStr := vars["chain"]
+	r.ParseForm()
+	info.AppName = r.Form.Get("app_name")
+	info.StructName = r.Form.Get("struct_name")
+	info.PreKey = r.Form.Get("pre_key")
+	if r.Form.Get("is_db_data") == "true" {
+		info.IsDBData = true
+	}
+
+	chain, err := strconv.ParseUint(chainStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("error chain"))
+		return
+	}
+	var preKey []byte
+	if info.PreKey != "" {
+		preKey, err = hex.DecodeString(info.PreKey)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintln(w, "fail to Decode preKey,", info.PreKey, err)
+			return
+		}
+	}
+	key := runtime.GetNextKey(chain, info.IsDBData, info.AppName, info.StructName, preKey)
+	info.Key = hex.EncodeToString(key)
+
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	enc.Encode(info)
+}
+
 // EventInfo event
 type EventInfo struct {
 	Who   string
@@ -1156,4 +1250,106 @@ func VersionGet(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	enc := json.NewEncoder(w)
 	enc.Encode(info)
+}
+
+// CryptoInfo crypto info
+type CryptoInfo struct {
+	Owner   string
+	Sign    string
+	Message string
+	HexMsg  bool
+}
+
+// CryptoSign crypto:sign message
+func CryptoSign(w http.ResponseWriter, r *http.Request) {
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "fail to read body of request,", err)
+		return
+	}
+	info := CryptoInfo{}
+	err = json.Unmarshal(data, &info)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "fail to Unmarshal body of request,", err)
+		return
+	}
+	if info.Message == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "not message")
+		return
+	}
+	msg := []byte(info.Message)
+	if info.HexMsg {
+		msg, err = hex.DecodeString(info.Message)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintln(w, "fail to DecodeString message,", err)
+			return
+		}
+	}
+	c := conf.GetConf()
+	sign := wallet.Sign(c.PrivateKey, msg)
+	info.Owner = hex.EncodeToString(c.WalletAddr)
+	info.Sign = hex.EncodeToString(sign)
+
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	enc.Encode(info)
+}
+
+// CryptoCheck Crypto:check the sign
+func CryptoCheck(w http.ResponseWriter, r *http.Request) {
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "fail to read body of request,", err)
+		return
+	}
+	info := CryptoInfo{}
+	err = json.Unmarshal(data, &info)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "fail to Unmarshal body of request,", err)
+		return
+	}
+	if info.Owner == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "not owner")
+		return
+	}
+	if info.Message == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "not message")
+		return
+	}
+	if info.Sign == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "not sign")
+		return
+	}
+	msg := []byte(info.Message)
+	if info.HexMsg {
+		msg, err = hex.DecodeString(info.Message)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintln(w, "fail to DecodeString message,", err)
+			return
+		}
+	}
+	sign, err := hex.DecodeString(info.Sign)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "fail to DecodeString sign,", err)
+		return
+	}
+
+	rst := wallet.Recover([]byte(info.Owner), sign, msg)
+	if !rst {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }

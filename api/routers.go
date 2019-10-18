@@ -181,6 +181,20 @@ var routes = Routes{
 	},
 
 	Route{
+		"DataRead",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/data",
+		DataGet,
+	},
+
+	Route{
+		"DataNextKeyGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/data/visit",
+		DataNextKeyGet,
+	},
+
+	Route{
 		"EventPost",
 		strings.ToUpper("Post"),
 		"/api/v1/{chain}/event",
@@ -204,5 +218,17 @@ var routes = Routes{
 		strings.ToUpper("Get"),
 		"/api/v1/version",
 		VersionGet,
+	},
+	Route{
+		"CryptoSign",
+		strings.ToUpper("Post"),
+		"/api/v1/crypto/sign",
+		CryptoSign,
+	},
+	Route{
+		"CryptoCheck",
+		strings.ToUpper("Post"),
+		"/api/v1/crypto/check",
+		CryptoCheck,
 	},
 }
