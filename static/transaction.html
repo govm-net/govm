@@ -7,6 +7,8 @@
     <meta charset="utf-8">
     <link href="css/bootstrap.min.css" rel="stylesheet">
 
+    <link rel="icon" type="image/x-ico" href="logo.ico" />
+    <link rel="shortcut icon" href="logo.ico">
 </head>
 
 <body ng-app="">
@@ -152,8 +154,8 @@
                 var myDate = new Date()
                 myDate.setTime(data.Time)
                 $("#time").html("<b>" + myDate.toString() + "</b>");
-                $("#cost").html("<b>" + getValueWithBase(data.Cost,gCostBase) + "</b>");
-                $("#energy").html("<b>" + getValueWithBase(data.Energy,gCostBase) + "</b>");
+                $("#cost").html("<b><p title='" + fmoney(data.Cost) + "'>" + getValueWithBase(data.Cost,gCostBase) + "</p></b>");
+                $("#energy").html("<b><p title='" + fmoney(data.Energy) + "'>" + getValueWithBase(data.Energy,gCostBase) + "</p></b>");
                 $("#bid").html("<b>" + data.Others.BlockID + "</b>");
                 switch (data.Ops) {
                     case 0:

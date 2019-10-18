@@ -132,3 +132,10 @@ func (t *TDb) GetLastFlag(chain *uint64, reply *([]byte)) error {
 	*reply = dbm.GetLastFlag()
 	return nil
 }
+
+// GetNextKey GetNextKey
+func (t *TDb) GetNextKey(args *GetArgs, reply *([]byte)) error {
+	dbm := t.getMgr(args.Chain)
+	*reply = dbm.GetNextKey(args.TbName, args.Key)
+	return nil
+}

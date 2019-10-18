@@ -217,6 +217,28 @@ func Get(chain uint64, tbName, key []byte) []byte {
 	return reply
 }
 
+// GetNextKey get next key
+func GetNextKey(chain uint64, tbName, preKey []byte) []byte {
+	var err error
+	id := <-lock
+	defer func() { lock <- id }()
+	if client[id] == nil {
+		client[id], err = rpc.DialHTTP(addrType, dbServer)
+	}
+
+	args := GetArgs{chain, tbName, preKey}
+	var reply = make([]byte, 500)
+	err = client[id].Call("TDb.GetNextKey", &args, &reply)
+	if err != nil {
+		log.Println("fail to TDb.GetNextKey:", err)
+		client[id].Close()
+		client[id] = nil
+		return nil
+	}
+
+	return reply
+}
+
 // Exist 数据是否存在
 func Exist(chain uint64, tbName, key []byte) bool {
 	var err error

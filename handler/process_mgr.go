@@ -261,7 +261,7 @@ func processEvent(chain uint64) {
 		core.SaveBlockReliability(chain, relia.Key[:], relia)
 	}
 
-	if relia.Time+tMinute < now {
+	if relia.Time+blockSyncTime < now {
 		go processEvent(chain)
 		return
 	}

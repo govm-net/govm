@@ -18,6 +18,11 @@ type TRuntime struct {
 	Flag  []byte
 }
 
+const (
+	startOfDB  = 'd'
+	startOfLog = 'l'
+)
+
 func assert(cond bool) {
 	if !cond {
 		panic("error")
@@ -186,6 +191,40 @@ func LogRead(owner interface{}, chain uint64, key []byte) ([]byte, uint64) {
 	return data[:n-8], life
 }
 
+// GetNextKey get next key
+func GetNextKey(chain uint64, isDb bool, appName, structName string, preKey []byte) []byte {
+	var tbName string
+	if isDb {
+		tbName = string(startOfDB)
+	} else {
+		tbName = string(startOfLog)
+	}
+	tbName += appName + "." + structName
+	// log.Printf("GetNextKey,tbName:%s\n", string(tbName))
+	return database.GetNextKey(chain, []byte(tbName), preKey)
+}
+
+// GetValue get value of key
+func GetValue(chain uint64, isDb bool, appName, structName string, key []byte) ([]byte, uint64) {
+	var tbName string
+	if isDb {
+		tbName = string(startOfDB)
+	} else {
+		tbName = string(startOfLog)
+	}
+	tbName += appName + "." + structName
+	// log.Printf("GetNextKey,tbName:%s\n", string(tbName))
+	data := database.Get(chain, []byte(tbName), key)
+	if len(data) == 0 {
+		return nil, 0
+	}
+	n := len(data)
+	lifeBytes := data[n-8:]
+	var life uint64
+	Decode(lifeBytes, &life)
+	return data[:n-8], life
+}
+
 // Recover 校验签名信息
 func (r *TRuntime) Recover(address, sign, msg []byte) bool {
 	return wallet.Recover(address, sign, msg)
@@ -207,7 +246,7 @@ func GetStructName(owner interface{}) []byte {
 		panic(typ)
 	}
 	out := []byte(typ)
-	out[0] = 'd'
+	out[0] = startOfDB
 	return out
 }
 
@@ -227,7 +266,7 @@ func getNameOfLogDB(owner interface{}) []byte {
 		panic(typ)
 	}
 	out := []byte(typ)
-	out[0] = 'l'
+	out[0] = startOfLog
 	return out
 }
 
