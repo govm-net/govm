@@ -129,7 +129,7 @@ func doMine(chain uint64, force bool) {
 		data := block.Output()
 
 		hp := getHashPower(block.Key[:])
-		if hp <= block.HashpowerLimit {
+		if hp < block.HashpowerLimit {
 			block.Nonce++
 			// log.Printf("drop hash:%x,data:%x\n", key, signData[:6])
 			continue
