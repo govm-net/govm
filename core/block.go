@@ -318,17 +318,19 @@ func (r *TReliability) Recalculation(chain uint64) {
 		}
 	}
 
+	hp := getHashPower(r.Key)
 	for i := 0; i < minerNum; i++ {
+		if chain == 1 && r.Index < depositCycle {
+			break
+		}
 		if miner.Miner[i] == r.Producer {
-			power += uint64(minerNum-i) + 2
+			hp = hp + hp*uint64(minerNum-i+5)/50
 			r.Miner = true
 			break
 		}
-		if r.Miner && miner.Miner[i].Empty() {
-			power--
-		}
 	}
-	power += getHashPower(r.Key)
+
+	power += hp
 	power += (parent.HashPower / 4)
 	power += preRel.HashPower
 	power -= (preRel.HashPower >> 40)

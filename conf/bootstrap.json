@@ -3,5 +3,9 @@
     "tcp://01f54cd403a175ce4121834f51875f1c8a2d4bd22d1a83f7@govm.club:17778",
     "ws://0123e458c99a84a6b0eae8e48b9789e95242bd18cc712d41@govm.club:27778/govm",
     "s2s://0134d9d6efcb415c978a15addf4db45c3f6a8ecdb0ac7de0@govm.club:37778",
-    "s2s://01bbf883e6a9caf4de8b7a03687c50b36753cadc491168a5@govm.net:27777"
+    "s2s://01bbf883e6a9caf4de8b7a03687c50b36753cadc491168a5@govm.net:27777",
+    "s2s://0135e8462d48aba5c98faaa058e0c4062018493f895844d9@govm.club:47778",
+    "s2s://01ce5bf50126472fac7128f2ab84ea9013dfa48b6f2c6e0c@govm.club:57778",
+    "s2s://0137295cc81f79af2cec92bdf85dab66d8f30109e1fee5e4@govm.top:27778",
+    "s2s://015dc83a958abbabf14b518e5b4fbafdb51b2f7fc188a349@govm.top:17778"
 ]
