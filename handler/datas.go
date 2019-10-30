@@ -7,6 +7,7 @@ import (
 	"github.com/lengzhao/govm/runtime"
 	"log"
 	"os"
+	"time"
 )
 
 // BlockRunStat stat of block
@@ -27,6 +28,7 @@ const (
 	ldbTransInfo    = "trans_info"     //transKey:info
 	ldbInputTrans   = "input_trans"    //receive transfer
 	ldbOutputTrans  = "output_trans"   //create by self
+	ldbBlacklist    = "user_blacklist" //blacklist of user,user:info
 )
 
 var ldb *database.LDB
@@ -43,6 +45,7 @@ func init() {
 	ldb.SetCache(ldbSyncBlocks)
 	ldb.SetCache(ldbTransList)
 	ldb.SetCache(ldbTransInfo)
+	ldb.SetCache(ldbBlacklist)
 }
 
 // SaveBlockRunStat save block stat
@@ -223,4 +226,37 @@ func GetInputTrans(chain uint64, preKey []byte) []core.Hash {
 	}
 
 	return out
+}
+
+// BlackItem  the info of blacklist
+type blackItem struct {
+	Timeout int64
+	Count   uint64
+	Other   uint64
+}
+
+func saveBlackItem(chain uint64, key []byte) {
+	info := blackItem{}
+	v := ldb.LGet(chain, ldbBlacklist, key)
+	if len(v) > 0 {
+		runtime.Decode(v, &info)
+	}
+	info.Count++
+	if info.Count%5 == 0 {
+		info.Timeout = time.Now().Add(3 * time.Hour).Unix()
+	}
+	ldb.LSet(chain, ldbBlacklist, key, runtime.Encode(info))
+}
+
+func believable(chain uint64, key []byte) bool {
+	info := blackItem{}
+	v := ldb.LGet(chain, ldbBlacklist, key)
+	if len(v) == 0 {
+		return true
+	}
+	runtime.Decode(v, &info)
+	if info.Timeout < time.Now().Unix() {
+		return true
+	}
+	return false
 }

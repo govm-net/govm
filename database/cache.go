@@ -2,6 +2,7 @@ package database
 
 import (
 	"container/list"
+	"sync"
 )
 
 // CacheNode cache node
@@ -14,6 +15,7 @@ type LRUCache struct {
 	cap      int
 	dlist    *list.List
 	cacheMap map[interface{}]*list.Element
+	mu       sync.Mutex
 }
 
 // NewLRUCache new cache
@@ -26,11 +28,15 @@ func NewLRUCache(cap int) *LRUCache {
 
 // Size get length of cached
 func (lru *LRUCache) Size() int {
+	lru.mu.Lock()
+	defer lru.mu.Unlock()
 	return lru.dlist.Len()
 }
 
 // Set add new item
 func (lru *LRUCache) Set(k, v interface{}) {
+	lru.mu.Lock()
+	defer lru.mu.Unlock()
 	if pElement, ok := lru.cacheMap[k]; ok {
 		lru.dlist.MoveToFront(pElement)
 		pElement.Value.(*CacheNode).Value = v
@@ -54,9 +60,25 @@ func (lru *LRUCache) Set(k, v interface{}) {
 
 // Get get cache value
 func (lru *LRUCache) Get(k interface{}) (v interface{}, ok bool) {
+	lru.mu.Lock()
+	defer lru.mu.Unlock()
 	if pElement, ok := lru.cacheMap[k]; ok {
 		lru.dlist.MoveToFront(pElement)
 		return pElement.Value.(*CacheNode).Value, true
 	}
 	return nil, false
+}
+
+// GetNext get next item
+func (lru *LRUCache) GetNext(preKey interface{}) (k, v interface{}, ok bool) {
+	lru.mu.Lock()
+	defer lru.mu.Unlock()
+	if pElement, ok := lru.cacheMap[k]; ok {
+		pElement = pElement.Next()
+		if pElement != nil {
+			node := pElement.Value.(*CacheNode)
+			return node.Key, node.Value, true
+		}
+	}
+	return nil, nil, false
 }
