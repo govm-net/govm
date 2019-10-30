@@ -250,6 +250,13 @@ func processEvent(chain uint64) {
 		log.Printf("fail to process block,chain:%d,index:%d,key:%x,error:%s\n", chain, index+1, relia.Key, err)
 		SaveBlockRunStat(chain, relia.Key[:], stat)
 		setBlockToIDBlocks(chain, relia.Index, relia.Key, 0)
+		//delete transaction
+		transList := GetTransList(chain, relia.Key[:])
+		for _, k := range transList {
+			deleteTransInfo(chain, k[:])
+			tInfo := readTransInfo(chain, k[:])
+			saveBlackItem(chain, tInfo.User[:])
+		}
 		return
 	}
 	stat.RunSuccessCount++

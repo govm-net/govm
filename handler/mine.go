@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"github.com/lengzhao/govm/conf"
 	core "github.com/lengzhao/govm/core"
 	"github.com/lengzhao/govm/event"
@@ -18,6 +19,7 @@ func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 	out := make([]core.Hash, 0)
 	limit := core.GetBlockSizeLimit(chain)
 	t := core.GetBlockTime(chain)
+	c := conf.GetConf()
 	for {
 		trans := getNextTransInfo(chain, preKey)
 		if trans.Key.Empty() {
@@ -43,19 +45,9 @@ func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 			log.Printf("error trans.chain:%d,key:%x,err:%s\n", chain, trans.Key, err)
 			continue
 		}
-		trans.Selected++
-		if trans.Selected > 1 {
-			if trans.Ops == core.OpsRunApp || trans.Ops == core.OpsNewChain {
-				deleteTransInfo(chain, trans.Key[:])
-				continue
-			}
-		}
-
-		if trans.Selected > 3 {
-			deleteTransInfo(chain, trans.Key[:])
+		if !believable(chain, trans.User[:]) && bytes.Compare(trans.User[:], c.WalletAddr) != 0 {
 			continue
 		}
-		saveTransInfo(chain, trans.Key[:], trans)
 
 		out = append(out, trans.Key)
 		size += uint64(trans.Size)
