@@ -73,7 +73,16 @@ func (lru *LRUCache) Get(k interface{}) (v interface{}, ok bool) {
 func (lru *LRUCache) GetNext(preKey interface{}) (k, v interface{}, ok bool) {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
-	if pElement, ok := lru.cacheMap[k]; ok {
+	if preKey == nil {
+		pElement := lru.dlist.Front()
+		if pElement != nil {
+			node := pElement.Value.(*CacheNode)
+			return node.Key, node.Value, true
+		}
+		return nil, nil, false
+	}
+
+	if pElement, ok := lru.cacheMap[preKey]; ok {
 		pElement = pElement.Next()
 		if pElement != nil {
 			node := pElement.Value.(*CacheNode)

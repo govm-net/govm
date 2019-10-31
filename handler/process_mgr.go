@@ -24,9 +24,9 @@ const (
 	tSecond         = 1000
 	tMinute         = 60 * 1000
 	tHour           = 60 * tMinute
-	tDat            = 24 * tHour
+	tDay            = 24 * tHour
 	blockAcceptTime = tMinute
-	transAcceptTime = 9 * tDat
+	transAcceptTime = 9 * tDay
 	blockSyncTime   = 5 * tMinute
 )
 

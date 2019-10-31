@@ -312,10 +312,10 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 	}
 
 	// 将数据写入db
-	core.WriteBlock(chain, data)
 	rel := block.GetReliability()
 	core.SaveBlockReliability(chain, block.Key[:], rel)
 	SaveTransList(chain, block.Key[:], block.TransList)
+	core.WriteBlock(chain, data)
 	log.Printf("new block,chain:%d,index:%d,key:%x,hashpower:%d\n", chain, block.Index, block.Key, rel.HashPower)
 
 	return
