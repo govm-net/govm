@@ -73,7 +73,7 @@ func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 	}
 }
 
-// PeerDisconnect peer connect
+// PeerDisconnect peer disconnect
 func (p *InternalPlugin) PeerDisconnect(s libp2p.Session) {
 	peer := s.GetPeerAddr()
 	addr := peer.String()

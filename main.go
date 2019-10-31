@@ -99,6 +99,7 @@ func main() {
 	n.RegistPlugin(new(handler.MsgPlugin))
 	n.RegistPlugin(new(handler.InternalPlugin))
 	n.RegistPlugin(new(handler.SyncPlugin))
+	n.RegistPlugin(new(handler.NATTPlugin))
 
 	err := n.Listen(c.ServerHost)
 	if err != nil {

@@ -64,14 +64,14 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 		if ctx.GetSession().GetEnv(getSyncEnvKey(msg.Chain, eSyncing)) != "" {
 			return nil
 		}
-		if msg.Index > index+acceptBlockID {
+		if msg.Index > index+acceptBlockID && core.GetBlockTime(msg.Chain)+tHour > uint64(time.Now().Unix())*1000 {
 			ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + acceptBlockID})
 			return nil
 		}
 		if core.IsExistBlock(msg.Chain, msg.Key) {
 			rel := core.ReadBlockReliability(msg.Chain, msg.Key)
 			if !rel.Ready {
-				log.Printf("start sync,chain:%d,block:%x\n", msg.Chain, msg.Key)
+				log.Printf("start sync,chain:%d,index:%d,block:%x\n", msg.Chain, msg.Index, msg.Key)
 				//start sync
 				ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncing), "true")
 				go p.syncDepend(ctx, msg.Chain, msg.Key)
@@ -135,14 +135,14 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 			log.Println(string(debug.Stack()))
 		}
 	}()
-	log.Printf("syncDepend,chain:%d,key:%x\n", chain, key)
+	log.Printf("syncDepend,chain:%d,key:%x,from:%s\n", chain, key, ctx.GetSession().GetPeerAddr().Host())
 	to := timeToString(time.Now().Unix() + sTimeout)
 	ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncTimeout), to)
 
 	if !core.IsExistBlock(chain, key) {
 		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), hex.EncodeToString(key))
 		ctx.Reply(&messages.ReqBlock{Chain: chain, Key: key})
-		log.Printf("syncDepend, ReqBlock,chain:%d,key:%x\n", chain, key)
+		// log.Printf("syncDepend, ReqBlock,chain:%d,key:%x\n", chain, key)
 		return
 	}
 	rel := core.ReadBlockReliability(chain, key)
@@ -150,7 +150,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	if !rel.Previous.Empty() {
 		pRel := core.ReadBlockReliability(chain, rel.Previous[:])
 		if !pRel.Ready {
-			log.Printf("syncDepend previous,chain:%d,index:%d,preKey:%x\n", chain, rel.Index, rel.Previous)
+			// log.Printf("syncDepend previous,chain:%d,index:%d,preKey:%x\n", chain, rel.Index, rel.Previous)
 			go p.syncDepend(ctx, chain, rel.Previous[:])
 			return
 		}
@@ -158,7 +158,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	if !rel.Parent.Empty() {
 		pRel := core.ReadBlockReliability(chain/2, rel.Parent[:])
 		if !pRel.Ready {
-			log.Printf("syncDepend Parent,chain:%d,index:%d,Parent:%x\n", chain, rel.Index, rel.Parent)
+			// log.Printf("syncDepend Parent,chain:%d,index:%d,Parent:%x\n", chain, rel.Index, rel.Parent)
 			go p.syncDepend(ctx, chain/2, rel.Parent[:])
 			return
 		}
@@ -166,7 +166,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	if !rel.LeftChild.Empty() {
 		lRel := core.ReadBlockReliability(chain*2, rel.LeftChild[:])
 		if !lRel.Ready {
-			log.Printf("syncDepend LeftChild,chain:%d,index:%d,LeftChild:%x\n", chain, rel.Index, rel.LeftChild)
+			// log.Printf("syncDepend LeftChild,chain:%d,index:%d,LeftChild:%x\n", chain, rel.Index, rel.LeftChild)
 			go p.syncDepend(ctx, chain*2, rel.LeftChild[:])
 			return
 		}
@@ -174,7 +174,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	if !rel.RightChild.Empty() {
 		rRel := core.ReadBlockReliability(chain*2+1, rel.RightChild[:])
 		if !rRel.Ready {
-			log.Printf("syncDepend RightChild,chain:%d,index:%d,RightChild:%x\n", chain, rel.Index, rel.RightChild)
+			// log.Printf("syncDepend RightChild,chain:%d,index:%d,RightChild:%x\n", chain, rel.Index, rel.RightChild)
 			go p.syncDepend(ctx, chain*2, rel.RightChild[:])
 			return
 		}
@@ -184,7 +184,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		if core.IsExistTransaction(chain, it[:]) {
 			continue
 		}
-		log.Printf("syncDepend trans,chain:%d,index:%d,trans:%x\n", chain, rel.Index, it)
+		// log.Printf("syncDepend trans,chain:%d,index:%d,trans:%x\n", chain, rel.Index, it)
 		e := hex.EncodeToString(it[:])
 		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncTrans), e)
 		e = hex.EncodeToString(key)
@@ -210,13 +210,12 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 
 	newKey := GetSyncBlock(chain, rel.Index+1)
 	if len(newKey) > 0 {
-		log.Printf("start next SyncBlock,chain:%d,key:%x,next:%x\n", chain, key, newKey)
+		// log.Printf("start next SyncBlock,chain:%d,key:%x,next:%x\n", chain, key, newKey)
 		go p.syncDepend(ctx, chain, newKey)
 	} else {
 		// log.Printf("stop sync,not next SyncBlock,chain:%d,key:%x,next:%d\n", chain, key, rel.Index+1)
 		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), "")
 		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncing), "")
-
 		go processEvent(chain)
 	}
 }
