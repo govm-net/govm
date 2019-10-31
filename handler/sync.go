@@ -15,7 +15,8 @@ import (
 // SyncPlugin sync plugin
 type SyncPlugin struct {
 	*libp2p.Plugin
-	net libp2p.Network
+	net     libp2p.Network
+	syncCID string
 }
 
 const (
@@ -42,14 +43,26 @@ func timeToString(t int64) string {
 	return fmt.Sprintf("%020d", t)
 }
 
+// PeerDisconnect peer disconnect
+func (p *SyncPlugin) PeerDisconnect(s libp2p.Session) {
+	cid := s.GetEnv(libp2p.EnvConnectID)
+	if p.syncCID == cid {
+		p.syncCID = ""
+	}
+}
+
 // Receive receive message
 func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 	switch msg := ctx.GetMessage().(type) {
 	case *messages.BlockInfo:
 		to := ctx.GetSession().GetEnv(getSyncEnvKey(msg.Chain, eSyncTimeout))
+		cid := ctx.GetSession().GetEnv(libp2p.EnvConnectID)
 		now := timeToString(time.Now().Unix())
 		if now > to {
 			ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncing), "")
+			if p.syncCID == cid {
+				p.syncCID = ""
+			}
 		}
 
 		// log.Printf("<%x> BlockInfo %d %d\n", ctx.GetPeerID(), msg.Chain, msg.Index)
@@ -64,9 +77,17 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 		if ctx.GetSession().GetEnv(getSyncEnvKey(msg.Chain, eSyncing)) != "" {
 			return nil
 		}
-		if msg.Index > index+acceptBlockID && core.GetBlockTime(msg.Chain)+tHour > uint64(time.Now().Unix())*1000 {
-			ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + acceptBlockID})
-			return nil
+		if msg.Index > index+acceptBlockID {
+			if core.GetBlockTime(msg.Chain)+tHour > uint64(time.Now().Unix())*1000 {
+				ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + acceptBlockID})
+				return nil
+			}
+			if p.syncCID == "" || p.syncCID == cid {
+				p.syncCID = cid
+			} else {
+				ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + acceptBlockID})
+				return nil
+			}
 		}
 		if core.IsExistBlock(msg.Chain, msg.Key) {
 			rel := core.ReadBlockReliability(msg.Chain, msg.Key)
@@ -135,7 +156,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 			log.Println(string(debug.Stack()))
 		}
 	}()
-	log.Printf("syncDepend,chain:%d,key:%x,from:%s\n", chain, key, ctx.GetSession().GetPeerAddr().Host())
+	// log.Printf("syncDepend,chain:%d,key:%x,from:%s\n", chain, key, ctx.GetSession().GetPeerAddr().Host())
 	to := timeToString(time.Now().Unix() + sTimeout)
 	ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncTimeout), to)
 
