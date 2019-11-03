@@ -12,7 +12,6 @@
                 <li><a href="/new_app.html">New APP</a></li>
                 <li><a href="/block.html">Block</a></li>
                 <li><a href="/transaction.html">Transaction</a></li>
-                <li><a href="/miner.html">Miner</a></li>
                 <li><a href="/nodes.html">Node</a></li>
                 <li><a href="/setting.html">Setting</a></li>
             </ul>
