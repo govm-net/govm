@@ -102,6 +102,13 @@ func (p *InternalPlugin) event(m event.Message) error {
 			log.Printf("new trans error.chain:%d,key:%x,err:%s\n", msg.Chain, msg.Key, err)
 			return err
 		}
+
+		_, err = core.CheckTransaction(msg.Chain, msg.Key)
+		if err != nil {
+			log.Printf("fail to check the transaction.chain:%d,key:%x,err:%s\n", msg.Chain, msg.Key, err)
+			return err
+		}
+
 		head := readTransInfo(msg.Chain, msg.Key)
 		m := &messages.TransactionInfo{}
 		m.Chain = msg.Chain

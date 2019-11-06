@@ -4,12 +4,22 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lengzhao/govm/conf"
+	"log"
+	"runtime/debug"
 
 	"github.com/lengzhao/govm/runtime"
 )
 
 // CheckTransaction check trans for mine
-func CheckTransaction(chain uint64, key []byte) (uint32, error) {
+func CheckTransaction(chain uint64, key []byte) (l uint32, err error) {
+	defer func() {
+		e := recover()
+		if e != nil {
+			log.Println("something error,", e)
+			log.Println(string(debug.Stack()))
+			err = fmt.Errorf("recover:%s", e)
+		}
+	}()
 	if chain == 0 {
 		return 0, errors.New("not support,chain == 0")
 	}
@@ -54,12 +64,15 @@ func CheckTransaction(chain uint64, key []byte) (uint32, error) {
 	}
 	switch trans.Ops {
 	case OpsTransfer:
-		if len(trans.Data) >= 100 {
-			return 0, errors.New("data length over 100")
+		if len(stream) >= 300 {
+			return 0, errors.New("transaction length over 300")
+		}
+		if len(trans.Data) < AddressLen {
+			return 0, errors.New("error peer address of transfer")
 		}
 	case OpsMove:
-		if len(trans.Data) >= 100 {
-			return 0, errors.New("data length over 100")
+		if len(stream) >= 300 {
+			return 0, errors.New("transaction length over 300")
 		}
 		if trans.Energy <= 200000 {
 			return 0, errors.New("not enough energy")
@@ -79,6 +92,9 @@ func CheckTransaction(chain uint64, key []byte) (uint32, error) {
 		}
 
 	case OpsNewChain:
+		if len(stream) >= 300 {
+			return 0, errors.New("transaction length over 300")
+		}
 		var newChain uint64
 		runtime.Decode(trans.Data, &newChain)
 		if newChain/2 != chain {
@@ -88,8 +104,21 @@ func CheckTransaction(chain uint64, key []byte) (uint32, error) {
 		if id > 0 {
 			return 0, errors.New("the chain is exist")
 		}
+		if newChain%2 == 1 {
+			id := GetLastBlockIndex(2 * chain)
+			if id == 0 {
+				return 0, errors.New("the left child chain is not exist")
+			}
+		}
 	case OpsNewApp:
+		if len(stream) >= 81920 {
+			return 0, errors.New("transaction length over 81920")
+		}
+
 	case OpsRunApp:
+		if len(stream) >= 2048 {
+			return 0, errors.New("transaction length over 2048")
+		}
 		info := AppInfo{}
 		getDataFormDB(chain, dbApp{}, trans.Data[:HashLen], &info)
 		if info.Flag&AppFlagRun == 0 {
@@ -97,16 +126,40 @@ func CheckTransaction(chain uint64, key []byte) (uint32, error) {
 		}
 
 	case OpsUpdateAppLife:
+		var info UpdateInfo
+		n := runtime.Decode(trans.Data, &info)
+		if n != len(trans.Data) {
+			return 0, errors.New("error len of transaction.data")
+		}
 	case OpsRegisterMiner:
+		if len(stream) >= 300 {
+			return 0, errors.New("transaction length over 300")
+		}
 		var guerdon uint64
 		getDataFormDB(chain, dbStat{}, []byte{StatGuerdon}, &guerdon)
 		if trans.Cost < 3*guerdon {
 			return 0, fmt.Errorf("no enough cost,hope:%d,have:%d", 3*guerdon, trans.Cost)
 		}
-	case OpsDisableAdmin:
-		if len(trans.Data) != 1 {
-			return 0, fmt.Errorf("OpsDisableAdmin,error data len:%d", len(trans.Data))
+		info := RegMiner{}
+		runtime.Decode(trans.Data, &info)
+		if info.Chain != 0 {
+			if info.Chain > chain {
+				if info.Chain/2 != chain {
+					return 0, errors.New("error dst chain")
+				}
+				return uint32(len(stream)), nil
+			} else if chain > info.Chain {
+				if chain/2 != info.Chain {
+					return 0, errors.New("error dst chain")
+				}
+				return uint32(len(stream)), nil
+			}
 		}
+		id := GetLastBlockIndex(chain)
+		if info.Index <= id+25 || info.Index > id+depositCycle {
+			return 0, errors.New("error index")
+		}
+	// case OpsDisableAdmin:
 	default:
 		return 0, errors.New("not support ops")
 	}

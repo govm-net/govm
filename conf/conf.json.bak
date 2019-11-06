@@ -6,7 +6,6 @@
     "db_server_port": 17777,
     "chain_of_mine":0,
     "energy_of_trans":1000000,
-    "energy_limit_of_mine":1000,
     "wallet_file":"./conf/wallet.key",
     "cost_of_reg_miner":0,
     "do_mine":true,

@@ -165,12 +165,24 @@ func autoRegisterMiner(chain uint64) {
 	if cost < c.CostOfRegMiner {
 		return
 	}
+	t := core.GetBlockTime(chain)
+	if t+5*tMinute < uint64(time.Now().Unix())*1000 {
+		return
+	}
 	index := core.GetLastBlockIndex(chain)
 	index += 50
 	miner := core.GetMinerInfo(chain, index)
-	if c.CostOfRegMiner < miner.Cost[5] {
+	if c.CostOfRegMiner < miner.Cost[core.MinerNum-1] {
 		return
 	}
+
+	id := runtime.Encode(index)
+	stream := ldb.LGet(chain, ldbMiner, id)
+	if len(stream) > 0 {
+		return
+	}
+	ldb.LSet(chain, ldbMiner, id, runtime.Encode(c.CostOfRegMiner))
+
 	cAddr := core.Address{}
 	runtime.Decode(c.WalletAddr, &cAddr)
 	trans := core.NewTransaction(chain, cAddr)

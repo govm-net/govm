@@ -272,6 +272,7 @@ func processEvent(chain uint64) {
 		go processEvent(chain)
 		return
 	}
+	autoRegisterMiner(chain)
 
 	info := messages.BlockInfo{}
 	info.Chain = chain

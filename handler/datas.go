@@ -29,6 +29,7 @@ const (
 	ldbInputTrans   = "input_trans"    //receive transfer
 	ldbOutputTrans  = "output_trans"   //create by self
 	ldbBlacklist    = "user_blacklist" //blacklist of user,user:info
+	ldbMiner        = "miner_register" //chain:index
 )
 
 var ldb *database.LDB
@@ -46,6 +47,7 @@ func init() {
 	ldb.SetCache(ldbTransList)
 	ldb.SetCache(ldbTransInfo)
 	ldb.SetCache(ldbBlacklist)
+	ldb.SetCache(ldbMiner)
 }
 
 // SaveBlockRunStat save block stat
