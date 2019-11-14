@@ -2,12 +2,14 @@ package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
 
 import (
 	"encoding/hex"
+	"fmt"
 	"github.com/lengzhao/govm/conf"
 	"github.com/lengzhao/govm/database"
 	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/govm/wallet"
 	"log"
 	"os"
+	"runtime/debug"
 )
 
 // StBlock StBlock
@@ -44,6 +46,8 @@ func init() {
 		os.Exit(2)
 	}
 	ldb.SetCache(ldbReliability)
+	appName := runtime.GetAppName(dbStat{})
+	runtime.NewApp(1, appName[:], nil)
 }
 
 // NewBlock new block
@@ -68,7 +72,7 @@ func NewBlock(chain uint64, producer Address) *StBlock {
 	if hashPowerLimit < 10 {
 		hashPowerLimit = 10
 	}
-	out.HashpowerLimit = hashPowerLimit - 3
+	out.HashpowerLimit = hashPowerLimit * 8 / 10
 
 	if pStat.ID == 1 && chain > 1 {
 		pStat.Time = pStat.Time + blockSyncMax + blockSyncMin + maxBlockInterval
@@ -91,14 +95,18 @@ func NewBlock(chain uint64, producer Address) *StBlock {
 		getDataFormLog(chain/2, logBlockInfo{}, runtime.Encode(pStat.ParentID+1), &key)
 		getDataFormLog(chain/2, logBlockInfo{}, key[:], &tmp)
 		if out.Index != 2 && !key.Empty() && out.Time > tmp.Time && out.Time-tmp.Time > blockSyncMin {
-			out.Parent = key
+			var key2 Hash
+			getDataFormLog(chain/2, logBlockInfo{}, runtime.Encode(pStat.ParentID+2), &key2)
+			getDataFormLog(chain/2, logBlockInfo{}, key2[:], &tmp)
+			if !key2.Empty() && out.Time > tmp.Time && out.Time-tmp.Time > blockSyncMin {
+				out.Parent = key2
+			} else {
+				out.Parent = key
+			}
+			// assert(out.Time-tmp.Time <= blockSyncMax)
 		} else {
 			getDataFormLog(chain/2, logBlockInfo{}, runtime.Encode(pStat.ParentID), &key)
 			out.Parent = key
-		}
-		getDataFormDB(chain/2, dbStat{}, []byte{StatHashPower}, &hashPowerLimit)
-		if out.HashpowerLimit+8 < hashPowerLimit {
-			out.HashpowerLimit = hashPowerLimit - 8
 		}
 	}
 	if pStat.LeftChildID > 0 {
@@ -107,7 +115,15 @@ func NewBlock(chain uint64, producer Address) *StBlock {
 		getDataFormLog(2*chain, logBlockInfo{}, runtime.Encode(pStat.LeftChildID+1), &key)
 		getDataFormLog(2*chain, logBlockInfo{}, key[:], &tmp)
 		if !key.Empty() && out.Time > tmp.Time && out.Time-tmp.Time > blockSyncMin {
-			out.LeftChild = key
+			var key2 Hash
+			getDataFormLog(2*chain, logBlockInfo{}, runtime.Encode(pStat.LeftChildID+2), &key2)
+			getDataFormLog(2*chain, logBlockInfo{}, key2[:], &tmp)
+			if !key2.Empty() && out.Time > tmp.Time && out.Time-tmp.Time > blockSyncMin {
+				out.LeftChild = key2
+			} else {
+				out.LeftChild = key
+			}
+			// assert(out.Time-tmp.Time <= blockSyncMax)
 		} else if pStat.LeftChildID == 1 {
 			getDataFormLog(chain, logBlockInfo{}, runtime.Encode(pStat.LeftChildID), &key)
 			out.LeftChild = key
@@ -122,7 +138,15 @@ func NewBlock(chain uint64, producer Address) *StBlock {
 		getDataFormLog(2*chain+1, logBlockInfo{}, runtime.Encode(pStat.RightChildID+1), &key)
 		getDataFormLog(2*chain+1, logBlockInfo{}, key[:], &tmp)
 		if !key.Empty() && out.Time > tmp.Time && out.Time-tmp.Time > blockSyncMin {
-			out.RightChild = key
+			var key2 Hash
+			getDataFormLog(2*chain+1, logBlockInfo{}, runtime.Encode(pStat.RightChildID+2), &key2)
+			getDataFormLog(2*chain+1, logBlockInfo{}, key2[:], &tmp)
+			if !key2.Empty() && out.Time > tmp.Time && out.Time-tmp.Time > blockSyncMin {
+				out.RightChild = key2
+			} else {
+				out.RightChild = key
+			}
+			// assert(out.Time-tmp.Time <= blockSyncMax)
 		} else if pStat.RightChildID == 1 {
 			getDataFormLog(chain, logBlockInfo{}, runtime.Encode(pStat.RightChildID), &key)
 			out.RightChild = key
@@ -451,6 +475,13 @@ func GetMinerInfo(chain, index uint64) Miner {
 	return miner
 }
 
+// BlockOnTheChain return true if the block is on the chain
+func BlockOnTheChain(chain uint64, key []byte) bool {
+	var block BlockInfo
+	getDataFormLog(chain, logBlockInfo{}, key[:], &block)
+	return block.Index > 0
+}
+
 // CreateBiosTrans CreateBiosTrans
 func CreateBiosTrans(chain uint64) {
 	c := conf.GetConf()
@@ -460,14 +491,39 @@ func CreateBiosTrans(chain uint64) {
 		return
 	}
 	defer database.Cancel(chain, c.FirstTransName)
-	data, _ := runtime.DbGet(dbTransactionData{}, chain, c.FirstTransName)
-	trans := DecodeTrans(data)
+	runtime.NewApp(chain, c.CorePackName, nil)
+	// data, _ := runtime.DbGet(dbTransactionData{}, chain, c.FirstTransName)
+	// trans := DecodeTrans(data)
 
-	appCode := trans.Data
-	appName := runtime.GetHash(appCode)
-	log.Printf("first app: %x\n", appName)
-	appCode[6] = appCode[6] | AppFlagRun
-	runtime.NewApp(chain, appName, appCode)
+	// appCode := trans.Data
+	// appName := runtime.GetHash(appCode)
+	// log.Printf("first app: %x\n", appName)
+	// appCode[6] = appCode[6] | AppFlagRun
+	// runtime.NewApp(chain, appName, appCode)
+}
+
+// ProcessBlockOfChain process block
+func ProcessBlockOfChain(chain uint64, key []byte) (err error) {
+	defer func() {
+		e := recover()
+		if e != nil {
+			log.Printf("fail to process block,chain:%d,key:%x,err:%s\n", chain, key, e)
+			log.Println(string(debug.Stack()))
+			err = fmt.Errorf("recover:%s", e)
+		}
+	}()
+	err = database.OpenFlag(chain, key)
+	if err != nil {
+		log.Println("fail to open Flag,", err)
+		f := database.GetLastFlag(chain)
+		database.Cancel(chain, f)
+		return err
+	}
+	defer database.Cancel(chain, key)
+
+	run(chain, key)
+	database.Commit(chain, key)
+	return err
 }
 
 // SaveBlockReliability save block reliability

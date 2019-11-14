@@ -12,7 +12,6 @@ import (
 	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/libp2p"
 	"log"
-	"runtime/debug"
 	"time"
 )
 
@@ -228,32 +227,6 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 	}
 
 	return nil
-}
-
-func blockRun(chain uint64, key []byte) (err error) {
-	defer func() {
-		if e := recover(); e != nil {
-			err = fmt.Errorf("blockRun error,chain %d, key %x, err:%s", chain, key, e)
-			log.Println(string(debug.Stack()))
-		}
-	}()
-
-	c := conf.GetConf()
-	err = database.OpenFlag(chain, key)
-	if err != nil {
-		log.Println("fail to open Flag,", err)
-		f := database.GetLastFlag(chain)
-		database.Cancel(chain, f)
-		return
-	}
-	defer database.Cancel(chain, key)
-
-	param := runtime.Encode(chain)
-	param = append(param, key...)
-	runtime.RunApp(key, chain, c.CorePackName, nil, param, 2<<50, 0)
-	database.Commit(chain, key)
-
-	return
 }
 
 func processBlock(chain uint64, key, data []byte) (err error) {

@@ -2,14 +2,13 @@ package handler
 
 import (
 	"bytes"
+	"github.com/lengzhao/govm/conf"
+	core "github.com/lengzhao/govm/core"
+	"github.com/lengzhao/govm/messages"
 	"log"
 	"runtime/debug"
 	"sync"
 	"time"
-
-	"github.com/lengzhao/govm/conf"
-	core "github.com/lengzhao/govm/core"
-	"github.com/lengzhao/govm/messages"
 )
 
 // chain->index->blockKey->reliability
@@ -162,12 +161,17 @@ func processEvent(chain uint64) {
 	// check child chain
 	{
 		cInfo := core.GetChainInfo(chain)
-		if chain > 1 && index < 100 {
+		if chain > 1 && index > 0 && index < 100 {
 			// parent chain rollback,the block(new chain) is not exist
 			pk := core.GetParentBlockOfChain(chain)
-			k := core.GetTheBlockKey(chain/2, cInfo.ParentID)
-			if bytes.Compare(k, pk[:]) != 0 {
-				log.Printf("rollback chain:%d,index:%d,hope:%x,get:%x\n", chain, index, pk, k)
+			// k := core.GetTheBlockKey(chain/2, cInfo.ParentID)
+			if !pk.Empty() && !core.BlockOnTheChain(chain/2, pk[:]) {
+				log.Printf("rollback chain:%d,index:%d,hope:%x on parent chain\n", chain, index, pk)
+				var i uint64
+				ib := IDBlocks{}
+				for i = 2; i < index+1; i++ {
+					SaveIDBlocks(chain, i, ib)
+				}
 				lk := core.GetTheBlockKey(chain, 1)
 				dbRollBack(chain, 1, lk)
 				return
@@ -245,7 +249,7 @@ func processEvent(chain uint64) {
 	}
 	stat.RunTimes++
 	log.Printf("start to process block,chain:%d,index:%d,key:%x\n", chain, relia.Index, relia.Key)
-	err := blockRun(chain, relia.Key[:])
+	err := core.ProcessBlockOfChain(chain, relia.Key[:])
 	if err != nil {
 		log.Printf("fail to process block,chain:%d,index:%d,key:%x,error:%s\n", chain, index+1, relia.Key, err)
 		SaveBlockRunStat(chain, relia.Key[:], stat)

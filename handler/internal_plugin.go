@@ -125,7 +125,7 @@ func (p *InternalPlugin) event(m event.Message) error {
 		log.Println("do mine:", msg.Chain)
 		m := &messages.ReqBlockInfo{Chain: msg.Chain, Index: id}
 		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: m})
-		doMine(msg.Chain, true)
+		go doMine(msg.Chain, true)
 		return nil
 	case *messages.Rollback:
 		log.Println("rollback block")

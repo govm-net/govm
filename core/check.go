@@ -114,6 +114,19 @@ func CheckTransaction(chain uint64, key []byte) (l uint32, err error) {
 		if len(stream) >= 81920 {
 			return 0, errors.New("transaction length over 81920")
 		}
+		appCode := trans.Data
+		appName := runtime.GetHash(appCode)
+		ni := newAppInfo{}
+		runtime.Decode(appCode, &ni)
+		if ni.Flag&AppFlagPlublc == 0 {
+			appName = runtime.GetHash(append(appName, trans.User[:]...))
+		}
+		appInfo := AppInfo{}
+		getDataFormDB(chain, dbApp{}, appName, &appInfo)
+		if appInfo.Life > trans.Time {
+			return 0, fmt.Errorf("exist app:%x", appName)
+		}
+		runtime.NewApp(chain, appName, appCode)
 
 	case OpsRunApp:
 		if len(stream) >= 2048 {

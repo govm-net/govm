@@ -78,6 +78,8 @@ func doMine(chain uint64, force bool) {
 	addr := core.Address{}
 	runtime.Decode(c.WalletAddr, &addr)
 	block := core.NewBlock(chain, addr)
+	var transList []core.Hash
+	var size uint64
 
 	if !force {
 		if block.Time+tHour < uint64(time.Now().Unix())*1000 {
@@ -89,9 +91,9 @@ func doMine(chain uint64, force bool) {
 			return
 		}
 		SetMineCount(chain, block.Previous[:], count+1)
-	}
 
-	transList, size := getTransListForMine(chain)
+		transList, size = getTransListForMine(chain)
+	}
 
 	block.SetTransList(transList)
 	block.Size = uint32(size)
@@ -104,7 +106,12 @@ func doMine(chain uint64, force bool) {
 	for {
 		now := time.Now().Unix()
 		if timeout < now && block.Time < uint64(now)*1000 {
-			break
+			if !force {
+				break
+			}
+			if force && oldRel.HashPower != 0 {
+				break
+			}
 		}
 		signData := block.GetSignData()
 		sign := wallet.Sign(c.PrivateKey, signData)

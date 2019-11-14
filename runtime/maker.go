@@ -58,6 +58,37 @@ func NewApp(chain uint64, name []byte, code []byte) {
 	//2.添加代码统计
 	//3.如果可执行，添加执行代码
 
+	c := conf.GetConf()
+	if bytes.Compare(c.CorePackName, name) == 0 {
+		filePath := GetFullPathOfApp(chain, name)
+		dstFileName := path.Join(filePath, "core.go")
+		_, err := os.Stat(dstFileName)
+		if !os.IsNotExist(err) {
+			return
+		}
+		os.RemoveAll(filePath)
+		createDir(filePath)
+		s1, err := template.ParseFiles("./core/core.tmpl")
+		if err != nil {
+			log.Println("fail to ParseFiles run.tmpl:", err)
+			panic(err)
+		}
+		f, err := os.Create(dstFileName)
+		if err != nil {
+			log.Println("fail to create run file:", dstFileName, err)
+			panic(err)
+		}
+		info := TAppInfo{hexToPackageName(name), packPath, filePath, chain}
+		err = s1.Execute(f, info)
+		if err != nil {
+			log.Println("fail to execute run file:", dstFileName, err)
+			f.Close()
+			panic(err)
+		}
+		f.Close()
+		return
+	}
+
 	nInfo := TAppNewInfo{}
 	n := Decode(code, &nInfo.TAppNewHead)
 	assert(nInfo.Type == 0)
@@ -93,7 +124,6 @@ func NewApp(chain uint64, name []byte, code []byte) {
 	}
 
 	appName := hexToPackageName(name)
-	// srcFilePath := appName + ".go"
 	filePath := GetFullPathOfApp(chain, name)
 	dstFileName := path.Join(filePath, "app.go")
 
