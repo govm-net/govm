@@ -237,6 +237,7 @@ func DecodeOpsDataOfTrans(ops uint8, data []byte) map[string]interface{} {
 			out["enable_import"] = false
 		}
 		out["depend_num"] = ni.DependNum
+		out["line_num"] = ni.LineNum
 		return out
 	case OpsRunApp:
 		name := Hash{}

@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 )
@@ -51,7 +52,8 @@ func Encode(in interface{}) []byte {
 	err := binary.Write(buf, binary.BigEndian, in)
 	if err != nil {
 		log.Println("fail to encode interface:", reflect.TypeOf(in).String(), in)
-		return nil
+		panic(err)
+		// return nil
 	}
 	return buf.Bytes()
 }
@@ -161,4 +163,14 @@ func loadEventFilter() {
 		log.Println("fail to Unmarshal configure,event_filter.json")
 		return
 	}
+}
+
+// GetAppName 用app的私有结构体，获取app的Hash名字
+func GetAppName(owner interface{}) []byte {
+	structName := GetStructName(owner)
+	structName = structName[1:]
+	typeSplic := strings.Split(string(structName), ".")
+	appName, _ := hex.DecodeString(typeSplic[0])
+	//log.Printf("GetAppName:%x", appName)
+	return appName
 }

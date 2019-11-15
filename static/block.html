@@ -137,7 +137,7 @@
                 myDate.setTime(data.Time)
                 $("#time").html("<b>" + myDate.toString() + "</b>");
                 $("#previous").html("<b>"+ getLinkString("",data.Chain,data.Previous) + "</b>");
-                $("#parent").html("<b>" + getLinkString("",data.Chain/2,data.Parent) + "</b>");
+                $("#parent").html("<b>" + getLinkString("",Math.floor(data.Chain/2),data.Parent) + "</b>");
                 $("#left_child").html("<b>" + getLinkString("",data.Chain*2,data.LeftChild) + "</b>");
                 $("#right_child").html("<b>" + getLinkString("",data.Chain*2+1,data.RightChild) + "</b>");
                 $("#producer").html("<b>" + bytes2Str(data.Producer) + "</b>");

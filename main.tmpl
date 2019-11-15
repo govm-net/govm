@@ -2,9 +2,7 @@ package main
 
 import (
 	app "{{.PackPath}}"
-	core "{{.CorePath}}"
 	"github.com/lengzhao/govm/counter"
-	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/govm/database"
 	"encoding/gob"
 	"bytes"
@@ -58,10 +56,7 @@ func main() {
 		log.Println("decode error:", err)
 		panic("retry")
 	}
-	runt := new(runtime.TRuntime)
-	runt.SetInfo({{.ChainID}}, args.Flag)
 	counter.SetEnergy(args.Energy)
-	core.RegisterRuntime(runt)
 	app.GoVMRun(args.User, args.Data, args.Cost)
 
 	mem := sysr.MemStats{}

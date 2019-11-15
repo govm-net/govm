@@ -78,6 +78,8 @@ func doMine(chain uint64, force bool) {
 	addr := core.Address{}
 	runtime.Decode(c.WalletAddr, &addr)
 	block := core.NewBlock(chain, addr)
+	var transList []core.Hash
+	var size uint64
 
 	if !force {
 		if block.Time+tHour < uint64(time.Now().Unix())*1000 {
@@ -89,9 +91,9 @@ func doMine(chain uint64, force bool) {
 			return
 		}
 		SetMineCount(chain, block.Previous[:], count+1)
-	}
 
-	transList, size := getTransListForMine(chain)
+		transList, size = getTransListForMine(chain)
+	}
 
 	block.SetTransList(transList)
 	block.Size = uint32(size)
@@ -104,7 +106,12 @@ func doMine(chain uint64, force bool) {
 	for {
 		now := time.Now().Unix()
 		if timeout < now && block.Time < uint64(now)*1000 {
-			break
+			if !force {
+				break
+			}
+			if force && oldRel.HashPower != 0 {
+				break
+			}
 		}
 		signData := block.GetSignData()
 		sign := wallet.Sign(c.PrivateKey, signData)
@@ -138,8 +145,8 @@ func doMine(chain uint64, force bool) {
 			info.HashPower = rel.HashPower
 			info.PreKey = rel.Previous[:]
 			network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
-			log.Printf("mine one blok,chain:%d,index:%d,hashpower:%d,hp limit:%d,key:%x\n",
-				chain, rel.Index, rel.HashPower, block.HashpowerLimit, rel.Key)
+			log.Printf("mine one blok,chain:%d,index:%d,hashpower:%d,hp limit:%d,trans:%d,key:%x\n",
+				chain, rel.Index, rel.HashPower, block.HashpowerLimit, len(transList), rel.Key)
 		}
 	}
 
@@ -165,12 +172,24 @@ func autoRegisterMiner(chain uint64) {
 	if cost < c.CostOfRegMiner {
 		return
 	}
+	t := core.GetBlockTime(chain)
+	if t+5*tMinute < uint64(time.Now().Unix())*1000 {
+		return
+	}
 	index := core.GetLastBlockIndex(chain)
 	index += 50
 	miner := core.GetMinerInfo(chain, index)
-	if c.CostOfRegMiner < miner.Cost[5] {
+	if c.CostOfRegMiner < miner.Cost[core.MinerNum-1] {
 		return
 	}
+
+	id := runtime.Encode(index)
+	stream := ldb.LGet(chain, ldbMiner, id)
+	if len(stream) > 0 {
+		return
+	}
+	ldb.LSet(chain, ldbMiner, id, runtime.Encode(c.CostOfRegMiner))
+
 	cAddr := core.Address{}
 	runtime.Decode(c.WalletAddr, &cAddr)
 	trans := core.NewTransaction(chain, cAddr)

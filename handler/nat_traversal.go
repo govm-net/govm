@@ -4,6 +4,7 @@ import (
 	"github.com/lengzhao/govm/database"
 	"github.com/lengzhao/libp2p"
 	"github.com/lengzhao/libp2p/plugins"
+	"log"
 	"net/url"
 	"sync"
 	"time"
@@ -94,6 +95,7 @@ func (p *NATTPlugin) Receive(ctx libp2p.Event) error {
 		if info.count > p.info.count {
 			p.info = *info
 			p.myAddress = msg.ToAddr
+			log.Println("myAddress:", p.myAddress)
 		}
 	case plugins.NatTraversal:
 		if p.myAddress == "" {

@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/lengzhao/govm/counter"
@@ -272,12 +271,7 @@ func getNameOfLogDB(owner interface{}) []byte {
 
 // GetAppName 用app的私有结构体，获取app的Hash名字
 func (r *TRuntime) GetAppName(owner interface{}) []byte {
-	structName := GetStructName(owner)
-	structName = structName[1:]
-	typeSplic := strings.Split(string(structName), ".")
-	appName, _ := hex.DecodeString(typeSplic[0])
-	//log.Printf("GetAppName:%x", appName)
-	return appName
+	return GetAppName(owner)
 }
 
 // NewApp 新建app，返回可运行的代码行数
