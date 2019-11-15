@@ -189,6 +189,7 @@ func processEvent(chain uint64) {
 			t0 := core.GetBlockTime(chain / 2)
 			if t1 > t0+blockSyncTime {
 				log.Printf("wait chain:%d,index:%d. parent.Time:%d,self.Time:%d\n", chain, index, t0, t1)
+				go processEvent(chain / 2)
 				return
 			}
 		}
