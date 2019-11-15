@@ -1045,7 +1045,7 @@ func (p *processer) pNewChain(producer Address, t Transaction) {
 	if newChain > 3 {
 		avgSize := p.pDbStat.GetInt([]byte{StatAvgBlockSize})
 		scale := avgSize * 10 / blockSizeLimit
-		assert(scale > 2)
+		assert(scale > 1)
 		cost := 10000*guerdon + 10*maxGuerdon
 		cost = cost >> scale
 		assert(t.Cost >= cost)

@@ -233,12 +233,6 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 	if getHashPower(key) < 5 {
 		return errors.New("error hashpower")
 	}
-	if chain > 1 {
-		index := core.GetLastBlockIndex(chain)
-		if index == 0 {
-			return errors.New("not exist chain")
-		}
-	}
 
 	// 解析block
 	block := core.DecodeBlock(data)

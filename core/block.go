@@ -68,11 +68,11 @@ func NewBlock(chain uint64, producer Address) *StBlock {
 	getDataFormDB(chain, dbStat{}, []byte{StatHashPower}, &hashPowerLimit)
 	getDataFormDB(chain, dbStat{}, []byte{StatBlockInterval}, &blockInterval)
 
-	hashPowerLimit /= 1000
+	hashPowerLimit = hashPowerLimit*8/10000 + 1
 	if hashPowerLimit < 10 {
 		hashPowerLimit = 10
 	}
-	out.HashpowerLimit = hashPowerLimit * 8 / 10
+	out.HashpowerLimit = hashPowerLimit
 
 	if pStat.ID == 1 && chain > 1 {
 		pStat.Time = pStat.Time + blockSyncMax + blockSyncMin + maxBlockInterval

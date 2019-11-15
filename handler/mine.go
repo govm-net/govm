@@ -145,8 +145,8 @@ func doMine(chain uint64, force bool) {
 			info.HashPower = rel.HashPower
 			info.PreKey = rel.Previous[:]
 			network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
-			log.Printf("mine one blok,chain:%d,index:%d,hashpower:%d,hp limit:%d,key:%x\n",
-				chain, rel.Index, rel.HashPower, block.HashpowerLimit, rel.Key)
+			log.Printf("mine one blok,chain:%d,index:%d,hashpower:%d,hp limit:%d,trans:%d,key:%x\n",
+				chain, rel.Index, rel.HashPower, block.HashpowerLimit, len(transList), rel.Key)
 		}
 	}
 

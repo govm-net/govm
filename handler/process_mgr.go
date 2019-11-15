@@ -142,9 +142,9 @@ func processEvent(chain uint64) {
 	defer func() { <-wait }()
 
 	cl <- 1
-	log.Println("start processEvent")
+	log.Println("start processEvent:", chain)
 	defer func() {
-		log.Println("finish processEvent")
+		log.Println("finish processEvent:", chain)
 		<-cl
 	}()
 
@@ -196,6 +196,7 @@ func processEvent(chain uint64) {
 			t2 := core.GetBlockTime(chain * 2)
 			if t1 > t2+blockSyncTime {
 				log.Printf("wait chain:%d,index:%d. leftChild.Time:%d,self.Time:%d\n", chain, index, t2, t1)
+				go processEvent(chain * 2)
 				return
 			}
 		}
@@ -203,6 +204,7 @@ func processEvent(chain uint64) {
 			t3 := core.GetBlockTime(chain*2 + 1)
 			if t1 > t3+blockSyncTime {
 				log.Printf("wait chain:%d,index:%d. rightChild.Time:%d,self.Time:%d\n", chain, index, t3, t1)
+				go processEvent(chain*2 + 1)
 				return
 			}
 		}
