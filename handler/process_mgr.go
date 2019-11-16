@@ -240,6 +240,15 @@ func processEvent(chain uint64) {
 	stat.SelectedCount++
 	preKey := core.GetTheBlockKey(chain, index)
 	if bytes.Compare(relia.Previous[:], preKey) != 0 {
+		t := core.GetBlockTime(chain)
+		if t+tMinute*2 > now {
+			// Need rollback,it could not be the newest block. Prevention of attacks
+			return
+		}
+		if relia.Time < t+core.GetBlockInterval(chain)/2 {
+			setBlockToIDBlocks(chain, relia.Index, relia.Key, 0)
+			return
+		}
 		log.Printf("dbRollBack block. index:%d,key:%x,next block:%x\n", index, preKey, relia.Key)
 		ib := IDBlocks{}
 		it := ItemBlock{relia.Previous, core.BaseRelia}

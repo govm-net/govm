@@ -149,12 +149,37 @@ func (r *TRuntime) LogWrite(owner interface{}, key, value []byte, life uint64) {
 	// log.Printf("write log data.chain:%d,tb:%s,key:%x\n", r.Chain, tbName, key)
 }
 
+func getLogicDist(c1, c2 uint64) uint64 {
+	var dist uint64
+	for {
+		if c1 == c2 {
+			break
+		}
+		if c1 > c2 {
+			c1 /= 2
+		} else {
+			c2 /= 2
+		}
+		dist++
+	}
+	return dist
+}
+
 // LogRead The reading interface of the log
 func (r *TRuntime) LogRead(owner interface{}, chain uint64, key []byte) ([]byte, uint64) {
 	assert(r.Chain > 0)
 	tbName := getNameOfLogDB(owner)
 	if chain == 0 {
 		chain = r.Chain
+	}
+	if chain != r.Chain {
+		assert(r.Chain < 8*chain)
+		assert(8*r.Chain > chain)
+		dist := getLogicDist(r.Chain, chain)
+		if dist > 4 {
+			assert(r.Chain+3 > chain)
+			assert(r.Chain < chain+3)
+		}
 	}
 	data := database.Get(chain, tbName, key)
 	if len(data) == 0 {
