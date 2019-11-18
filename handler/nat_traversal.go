@@ -4,7 +4,6 @@ import (
 	"github.com/lengzhao/govm/database"
 	"github.com/lengzhao/libp2p"
 	"github.com/lengzhao/libp2p/plugins"
-	"log"
 	"net/url"
 	"sync"
 	"time"

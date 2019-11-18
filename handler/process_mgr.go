@@ -5,6 +5,7 @@ import (
 	"github.com/lengzhao/govm/conf"
 	core "github.com/lengzhao/govm/core"
 	"github.com/lengzhao/govm/messages"
+	"github.com/lengzhao/govm/runtime"
 	"log"
 	"runtime/debug"
 	"sync"
@@ -27,6 +28,7 @@ const (
 	blockAcceptTime = tMinute
 	transAcceptTime = 9 * tDay
 	blockSyncTime   = 5 * tMinute
+	hpAcceptRange   = 20
 )
 
 var procMgr tProcessMgr
@@ -250,10 +252,14 @@ func processEvent(chain uint64) {
 			return
 		}
 		log.Printf("dbRollBack block. index:%d,key:%x,next block:%x\n", index, preKey, relia.Key)
-		ib := IDBlocks{}
-		it := ItemBlock{relia.Previous, core.BaseRelia}
-		ib.Items = append(ib.Items, it)
-		SaveIDBlocks(chain, index, ib)
+		pk := core.Hash{}
+		runtime.Decode(preKey, &pk)
+		setBlockToIDBlocks(chain, relia.Index-1, pk, 0)
+		setBlockToIDBlocks(chain, relia.Index-1, relia.Previous, relia.HashPower)
+		// ib := IDBlocks{}
+		// it := ItemBlock{relia.Previous, core.BaseRelia}
+		// ib.Items = append(ib.Items, it)
+		// SaveIDBlocks(chain, index, ib)
 		SaveBlockRunStat(chain, relia.Key[:], stat)
 		dbRollBack(chain, index, preKey)
 		go processEvent(chain)
@@ -280,6 +286,7 @@ func processEvent(chain uint64) {
 
 	old := relia.HashPower
 	relia.Recalculation(chain)
+	ldb.LSet(chain, ldbHPLimit, runtime.Encode(relia.Index), runtime.Encode(relia.HashPower))
 	if old != relia.HashPower {
 		core.SaveBlockReliability(chain, relia.Key[:], relia)
 	}

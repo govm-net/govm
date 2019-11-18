@@ -97,7 +97,11 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 				p.downloadBlockDepend(ctx, msg.Chain, msg.Key)
 			} else {
 				rel.Recalculation(msg.Chain)
-				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
+				var hpLimit uint64
+				getData(msg.Chain, ldbHPLimit, runtime.Encode(rel.Index-1), &hpLimit)
+				if rel.HashPower+hpAcceptRange >= hpLimit {
+					setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
+				}
 			}
 			return nil
 		}
@@ -334,9 +338,14 @@ func (p *MsgPlugin) downloadBlockDepend(ctx libp2p.Event, chain uint64, key []by
 	rel.Recalculation(chain)
 	rel.Ready = true
 	core.SaveBlockReliability(chain, rel.Key[:], rel)
-	log.Printf("setBlockToIDBlocks,chain:%d,index:%d,key:%x,hp:%d\n", chain, rel.Index, rel.Key, rel.HashPower)
 	ctx.GetSession().SetEnv(getEnvKey(chain, transOwner), "")
-	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+
+	var hpLimit uint64
+	getData(chain, ldbHPLimit, runtime.Encode(rel.Index-1), &hpLimit)
+	if rel.HashPower+hpAcceptRange >= hpLimit {
+		log.Printf("setBlockToIDBlocks,chain:%d,index:%d,key:%x,hp:%d\n", chain, rel.Index, rel.Key, rel.HashPower)
+		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+	}
 
 	go processEvent(chain)
 	return

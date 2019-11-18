@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/lengzhao/govm/runtime"
 	"bytes"
 	"encoding/hex"
 	"fmt"
@@ -227,7 +228,11 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	core.SaveBlockReliability(chain, rel.Key[:], rel)
 
 	SetSyncBlock(chain, rel.Index, nil)
-	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+	var hpLimit uint64
+	getData(chain, ldbHPLimit, runtime.Encode(rel.Index-1), &hpLimit)
+	if rel.HashPower+hpAcceptRange >= hpLimit {
+		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+	}
 
 	newKey := GetSyncBlock(chain, rel.Index+1)
 	if len(newKey) > 0 {
