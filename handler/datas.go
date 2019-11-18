@@ -270,5 +270,5 @@ func getData(chain uint64, tb string, key []byte, value interface{}) {
 	if len(v) == 0 {
 		return
 	}
-	runtime.Decode(v, &value)
+	runtime.Decode(v, value)
 }
