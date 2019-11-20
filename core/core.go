@@ -580,6 +580,15 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 	info := BlockInfo{}
 	preB := p.getBlockLog(0, block.Previous)
 	assert(preB != nil)
+	if chain > 1 {
+		assert(p.getBlockLog(chain/2, preB.Parent) != nil)
+	}
+	if !preB.LeftChild.Empty() {
+		assert(p.getBlockLog(chain*2, preB.LeftChild) != nil)
+	}
+	if !preB.RightChild.Empty() {
+		assert(p.getBlockLog(chain*2+1, preB.RightChild) != nil)
+	}
 
 	info.Index = block.Index
 	info.Parent = block.Parent

@@ -31,6 +31,7 @@ const (
 	ldbBlacklist    = "user_blacklist"   //blacklist of user,user:info
 	ldbMiner        = "miner_register"   //chain:index
 	ldbHPLimit      = "hash_power_limit" //index:limit
+	ldbBlockLock    = "block_lock"       //key:1
 )
 
 var ldb *database.LDB

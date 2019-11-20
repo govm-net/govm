@@ -1,12 +1,12 @@
 package handler
 
 import (
-	"github.com/lengzhao/govm/runtime"
 	"bytes"
 	"encoding/hex"
 	"fmt"
 	core "github.com/lengzhao/govm/core"
 	"github.com/lengzhao/govm/messages"
+	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/libp2p"
 	"log"
 	"runtime/debug"
@@ -225,6 +225,10 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 
 	rel.Recalculation(chain)
 	rel.Ready = true
+	id := core.GetLastBlockIndex(chain)
+	if id > rel.Index+blockLockInterval {
+		rel.HashPower = core.BaseRelia
+	}
 	core.SaveBlockReliability(chain, rel.Key[:], rel)
 
 	SetSyncBlock(chain, rel.Index, nil)
