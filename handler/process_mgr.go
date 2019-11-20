@@ -64,6 +64,8 @@ func getBestBlock(chain, index uint64) core.TReliability {
 	var num int
 	ib := ReadIDBlocks(chain, index)
 	now := time.Now().Unix() * 1000
+	var hpLimit uint64
+	getData(chain, ldbHPLimit, runtime.Encode(index-1), &hpLimit)
 	for i, it := range ib.Items {
 		key := it.Key[:]
 		rel := core.ReadBlockReliability(chain, key)
@@ -89,6 +91,9 @@ func getBestBlock(chain, index uint64) core.TReliability {
 			SaveBlockRunStat(chain, it.Key[:], stat)
 			rel.HashPower = 0
 			core.SaveBlockReliability(chain, rel.Key[:], rel)
+			continue
+		}
+		if rel.Time+tHour > uint64(now) && rel.HashPower+hpAcceptRange < hpLimit {
 			continue
 		}
 
