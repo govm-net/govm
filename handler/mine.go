@@ -16,42 +16,44 @@ import (
 func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 	var preKey []byte
 	var size uint64
+	var trans transInfo
 	out := make([]core.Hash, 0)
 	limit := core.GetBlockSizeLimit(chain)
-	t := core.GetBlockTime(chain)
+	t := core.GetBlockInterval(chain)
+	start := time.Now().Unix()
 	c := conf.GetConf()
-	for {
-		trans := getNextTransInfo(chain, preKey)
-		if trans.Key.Empty() {
-			break
+	err := core.CheckTransList(chain, func(chain uint64) core.Hash {
+		if !trans.Key.Empty() {
+			out = append(out, trans.Key)
+			size += uint64(trans.Size)
 		}
-		log.Printf("mine.chain:%d,trans:%x\n", chain, trans.Key)
-		preKey = trans.Key[:]
-		if size+uint64(trans.Size) > limit {
-			log.Println("size > limit.break")
-			break
-		}
-		if trans.Time > t {
-			deleteTransInfo(chain, trans.Key[:])
-			continue
-		}
-		if trans.Time+transAcceptTime < t {
-			deleteTransInfo(chain, trans.Key[:])
-			continue
-		}
-		_, err := core.CheckTransaction(chain, trans.Key[:])
-		if err != nil {
-			deleteTransInfo(chain, trans.Key[:])
-			log.Printf("error trans.chain:%d,key:%x,err:%s\n", chain, trans.Key, err)
-			continue
-		}
-		if !believable(chain, trans.User[:]) && bytes.Compare(trans.User[:], c.WalletAddr) != 0 {
-			continue
-		}
+		for {
+			now := time.Now().Unix()
+			if uint64(now-start) > t/2000 {
+				return core.Hash{}
+			}
 
-		out = append(out, trans.Key)
-		size += uint64(trans.Size)
+			trans = getNextTransInfo(chain, preKey)
+			if trans.Key.Empty() {
+				preKey = nil
+				return trans.Key
+			}
+			preKey = trans.Key[:]
+			if size+uint64(trans.Size) > limit {
+				continue
+			}
+			if !believable(chain, trans.User[:]) && bytes.Compare(trans.User[:], c.WalletAddr) != 0 {
+				continue
+			}
+			break
+		}
+		return trans.Key
+	})
+	if err != nil {
+		saveBlackItem(chain, trans.User[:])
+		deleteTransInfo(chain, trans.Key[:])
 	}
+
 	return out, size
 }
 

@@ -247,9 +247,7 @@ func saveBlackItem(chain uint64, key []byte) {
 		runtime.Decode(v, &info)
 	}
 	info.Count++
-	if info.Count%5 == 0 {
-		info.Timeout = time.Now().Add(3 * time.Hour).Unix()
-	}
+	info.Timeout = time.Now().Add(3 * time.Hour).Unix()
 	ldb.LSet(chain, ldbBlacklist, key, runtime.Encode(info))
 }
 

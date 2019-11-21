@@ -515,11 +515,16 @@ func TransactionNewAppPost(w http.ResponseWriter, r *http.Request) {
 
 // RunApp run app
 type RunApp struct {
-	Cost       uint64 `json:"cost,omitempty"`
-	Energy     uint64 `json:"energy,omitempty"`
-	AppName    string `json:"app_name,omitempty"`
-	Param      string `json:"param,omitempty"`
-	SaveResult bool   `json:"save_result,omitempty"`
+	Cost    uint64 `json:"cost,omitempty"`
+	Energy  uint64 `json:"energy,omitempty"`
+	AppName string `json:"app_name,omitempty"`
+	Param   string `json:"param,omitempty"`
+}
+
+// RespOfNewTrans the response of New Transaction
+type RespOfNewTrans struct {
+	Chain uint64 `json:"chain,omitempty"`
+	Key   string `json:"key,omitempty"`
 }
 
 // TransactionRunAppPost run app
@@ -582,11 +587,7 @@ func TransactionRunAppPost(w http.ResponseWriter, r *http.Request) {
 	cAddr := core.Address{}
 	runtime.Decode(c.WalletAddr, &cAddr)
 	trans := core.NewTransaction(chain, cAddr)
-	if info.SaveResult {
-		trans.CreateRunApp(app, info.Cost, param)
-	} else {
-		trans.CreateRunApp(app, info.Cost, param)
-	}
+	trans.CreateRunApp(app, info.Cost, param)
 
 	if info.Energy > trans.Energy {
 		trans.Energy = info.Energy
@@ -612,10 +613,11 @@ func TransactionRunAppPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	resp := RespOfNewTrans{chain, hex.EncodeToString(trans.Key[:])}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 	enc := json.NewEncoder(w)
-	enc.Encode(trans)
+	enc.Encode(resp)
 }
 
 // AppLife app life

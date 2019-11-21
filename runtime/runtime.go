@@ -13,8 +13,11 @@ import (
 
 // TRuntime 执行机的结构体定义
 type TRuntime struct {
-	Chain uint64
-	Flag  []byte
+	Chain    uint64
+	Flag     []byte
+	testMode bool
+	dbData   map[string][]byte
+	logData  map[string][]byte
 }
 
 const (
@@ -32,6 +35,14 @@ func assert(cond bool) {
 func (r *TRuntime) SetInfo(chain uint64, flag []byte) {
 	r.Flag = flag
 	r.Chain = chain
+}
+
+// SetTestMode set test mode,it will not write data to database
+func (r *TRuntime) SetTestMode() {
+	assert(!r.testMode)
+	r.testMode = true
+	r.dbData = make(map[string][]byte)
+	r.logData = make(map[string][]byte)
 }
 
 // GetHash 计算hash值
@@ -109,6 +120,11 @@ func (r *TRuntime) DbSet(owner interface{}, key, value []byte, life uint64) {
 	assert(r.Flag != nil)
 	tbName := GetStructName(owner)
 	value = append(value, r.Encode(0, life)...)
+	if r.testMode {
+		k := fmt.Sprintf("%s_%x", tbName, key)
+		r.dbData[k] = value
+		return
+	}
 	err := database.SetWithFlag(r.Chain, r.Flag, tbName, key, value)
 	if err != nil {
 		panic(err)
@@ -118,8 +134,17 @@ func (r *TRuntime) DbSet(owner interface{}, key, value []byte, life uint64) {
 // DbGet 数据库读取数据
 func (r *TRuntime) DbGet(owner interface{}, key []byte) ([]byte, uint64) {
 	assert(r.Chain > 0)
+	var data []byte
+	var ok bool
 	tbName := GetStructName(owner)
-	data := database.Get(r.Chain, tbName, key)
+	if r.testMode {
+		k := fmt.Sprintf("%s_%x", tbName, key)
+		data, ok = r.dbData[k]
+	}
+	if !ok {
+		data = database.Get(r.Chain, tbName, key)
+	}
+
 	if len(data) == 0 {
 		return nil, 0
 	}
@@ -142,6 +167,11 @@ func (r *TRuntime) LogWrite(owner interface{}, key, value []byte, life uint64) {
 	assert(r.Flag != nil)
 	tbName := getNameOfLogDB(owner)
 	value = append(value, r.Encode(0, life)...)
+	if r.testMode {
+		k := fmt.Sprintf("%s_%x", tbName, key)
+		r.logData[k] = value
+		return
+	}
 	err := database.SetWithFlag(r.Chain, r.Flag, tbName, key, value)
 	if err != nil {
 		panic(err)
@@ -168,6 +198,8 @@ func getLogicDist(c1, c2 uint64) uint64 {
 // LogRead The reading interface of the log
 func (r *TRuntime) LogRead(owner interface{}, chain uint64, key []byte) ([]byte, uint64) {
 	assert(r.Chain > 0)
+	var data []byte
+	var ok bool
 	tbName := getNameOfLogDB(owner)
 	if chain == 0 {
 		chain = r.Chain
@@ -181,7 +213,14 @@ func (r *TRuntime) LogRead(owner interface{}, chain uint64, key []byte) ([]byte,
 			assert(r.Chain < chain+3)
 		}
 	}
-	data := database.Get(chain, tbName, key)
+	if chain == r.Chain {
+		k := fmt.Sprintf("%s_%x", tbName, key)
+		data, ok = r.logData[k]
+	}
+	if !ok {
+		data = database.Get(chain, tbName, key)
+	}
+
 	if len(data) == 0 {
 		// log.Printf("fail to read log data.self:%d,chain:%d,tb:%s,key:%x\n", r.Chain, chain, tbName, key)
 		return nil, 0
@@ -307,7 +346,12 @@ func (r *TRuntime) NewApp(name []byte, code []byte) {
 // RunApp 执行app，返回执行的指令数量
 func (r *TRuntime) RunApp(name, user, data []byte, energy, cost uint64) {
 	// log.Println("run app:", "a"+hex.EncodeToString(name))
-	RunApp(r.Flag, r.Chain, name, user, data, energy, cost)
+	if r.testMode {
+		RunApp(r.Flag, r.Chain, "test", name, user, data, energy, cost)
+	} else {
+		RunApp(r.Flag, r.Chain, "", name, user, data, energy, cost)
+	}
+
 }
 
 // Event event

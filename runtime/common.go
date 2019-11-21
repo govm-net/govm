@@ -97,13 +97,19 @@ type TRunParam struct {
 }
 
 // RunApp run app
-func RunApp(flag []byte, chain uint64, appName, user, data []byte, energy, cost uint64) {
+func RunApp(flag []byte, chain uint64, mode string, appName, user, data []byte, energy, cost uint64) {
 	args := TRunParam{chain, flag, user, data, cost, energy, ""}
 	var buf bytes.Buffer
+	var err error
 	enc := gob.NewEncoder(&buf)
 	enc.Encode(args)
-
-	err := database.Set(chain, []byte("app_run"), []byte("key"), buf.Bytes())
+	var paramKey []byte
+	if mode == "" {
+		paramKey = []byte(hexToPackageName(appName))
+	} else {
+		paramKey = []byte("test")
+	}
+	err = database.Set(chain, []byte("app_run"), paramKey, buf.Bytes())
 	if err != nil {
 		log.Println("[db]fail to write data.", err)
 		panic("retry")
@@ -114,7 +120,13 @@ func RunApp(flag []byte, chain uint64, appName, user, data []byte, energy, cost 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, appPath)
+	var cmd *exec.Cmd
+	if mode != "" {
+		cmd = exec.CommandContext(ctx, appPath, "-mode", mode)
+	} else {
+		cmd = exec.CommandContext(ctx, appPath)
+	}
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
@@ -122,8 +134,8 @@ func RunApp(flag []byte, chain uint64, appName, user, data []byte, energy, cost 
 		log.Println("fail to exec app.", err)
 		panic("retry")
 	}
-
-	d := database.Get(chain, []byte("app_run"), []byte("key"))
+	var d []byte
+	d = database.Get(chain, []byte("app_run"), paramKey)
 	if len(d) == 0 {
 		log.Println("[db]fail to get data.")
 		panic("retry")

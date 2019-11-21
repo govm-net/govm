@@ -178,10 +178,6 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			if err != nil {
 				return nil
 			}
-			_, err = core.CheckTransaction(msg.Chain, msg.Key)
-			if err != nil {
-				return nil
-			}
 			head := readTransInfo(msg.Chain, msg.Key)
 			if head.Size == 0 {
 				return nil
@@ -397,13 +393,19 @@ func processTransaction(chain uint64, key, data []byte) error {
 		ldb.LSet(chain, ldbInputTrans, trans.Key[:], []byte{1})
 	}
 
-	if (chain == c.ChainOfMine || c.ChainOfMine == 0) && trans.Energy > c.EnergyOfTrans &&
+	if (believable(chain, trans.User[:]) || bytes.Compare(trans.User[:], c.WalletAddr) == 0) &&
+		(chain == c.ChainOfMine || c.ChainOfMine == 0) &&
+		trans.Energy > c.EnergyOfTrans &&
 		trans.Time <= uint64(time.Now().Unix())*1000 {
-		info := transInfo{}
-		info.TransactionHead = trans.TransactionHead
-		runtime.Decode(trans.Key, &info.Key)
-		info.Size = uint32(len(data))
-		saveTransInfo(chain, trans.Key, info)
+
+		rst := core.CheckTransaction(chain, trans.Key)
+		if rst == nil {
+			info := transInfo{}
+			info.TransactionHead = trans.TransactionHead
+			runtime.Decode(trans.Key, &info.Key)
+			info.Size = uint32(len(data))
+			saveTransInfo(chain, trans.Key, info)
+		}
 	}
 
 	log.Printf("new transaction.chain%d, key:%x ,osp:%d\n", chain, key, trans.Ops)
