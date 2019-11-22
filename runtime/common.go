@@ -70,6 +70,50 @@ func Decode(in []byte, out interface{}) int {
 	return len(in) - buf.Len()
 }
 
+// JSONEncode encode json
+func JSONEncode(in interface{}) []byte {
+	d, err := json.Marshal(in)
+	if err != nil {
+		log.Println("fail to encode interface:", reflect.TypeOf(in).String(), err)
+		panic(err)
+	}
+	return d
+}
+
+// JSONDecode decode json
+func JSONDecode(in []byte, out interface{}) int {
+	err := json.Unmarshal(in, out)
+	if err != nil {
+		log.Println("fail to decode interface:", reflect.TypeOf(out).String())
+		panic(err)
+	}
+	return 0
+}
+
+// GobEncode gob encode
+func GobEncode(in interface{}) []byte {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err := enc.Encode(in)
+	if err != nil {
+		log.Println("fail to encode interface:", reflect.TypeOf(in).String(), err)
+		panic(err)
+	}
+	return buf.Bytes()
+}
+
+// GobDecode gob decode
+func GobDecode(in []byte, out interface{}) int {
+	buf := bytes.NewReader(in)
+	dec := gob.NewDecoder(buf)
+	err := dec.Decode(out)
+	if err != nil {
+		log.Println("fail to decode interface:", reflect.TypeOf(out).String())
+		panic(err)
+	}
+	return len(in) - buf.Len()
+}
+
 // GetPackPath get the package path on golang packages
 func GetPackPath(chain uint64, name []byte) string {
 	nameStr := hex.EncodeToString(name)

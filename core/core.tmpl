@@ -252,6 +252,13 @@ func GetHash(data []byte) Hash {
 	return hashKey
 }
 
+// encoding type
+const (
+	EncBinary = uint8(iota)
+	EncJSON
+	EncGob
+)
+
 // Encode Encoding data into data streams.
 func Encode(typ uint8, in interface{}) []byte {
 	return gBS.Encode(typ, in)

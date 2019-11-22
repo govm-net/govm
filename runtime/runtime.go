@@ -50,14 +50,43 @@ func (r *TRuntime) GetHash(in []byte) []byte {
 	return GetHash(in)
 }
 
+// encoding type
+const (
+	EncBinary = uint8(iota)
+	EncJSON
+	EncGob
+)
+
 // Encode 将interface{}转成字符流，不支持可变长度类型
 func (r *TRuntime) Encode(typ uint8, in interface{}) []byte {
-	return Encode(in)
+	var out []byte
+	switch typ {
+	case EncBinary:
+		out = Encode(in)
+	case EncJSON:
+		out = JSONEncode(in)
+	case EncGob:
+		out = GobEncode(in)
+	default:
+		panic("not support encode type")
+	}
+	return out
 }
 
 // Decode 将字符流填充到指定结构体
 func (r *TRuntime) Decode(typ uint8, in []byte, out interface{}) int {
-	return Decode(in, out)
+	var rst int
+	switch typ {
+	case EncBinary:
+		rst = Decode(in, out)
+	case EncJSON:
+		rst = JSONDecode(in, out)
+	case EncGob:
+		rst = GobDecode(in, out)
+	default:
+		panic("not support decode type")
+	}
+	return rst
 }
 
 // JSONEncode 将结构体转成json格式的字符串
