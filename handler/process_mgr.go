@@ -175,12 +175,13 @@ func beforeProcBlock(chain uint64, rel core.TReliability) error {
 		return nil
 	}
 	t := core.GetBlockTime(chain)
+	interval := core.GetBlockInterval(chain)
 	now := uint64(time.Now().Unix() * 1000)
-	if t+tMinute*2 > now {
+	if t+interval*3/2 > now {
 		// Need rollback,it could not be the newest block. Prevention of attacks
 		return errors.New("need rollback,but block too new")
 	}
-	if rel.Time < t+core.GetBlockInterval(chain)/2 {
+	if rel.Time < t+interval/2 {
 		setBlockToIDBlocks(chain, rel.Index, rel.Key, 0)
 		return errors.New("error block time")
 	}
