@@ -2,14 +2,17 @@ package main
 
 import (
 	app "{{.PackPath}}"
+	"bytes"
+	"encoding/gob"
+	"encoding/json"
+	"flag"
+	"fmt"
 	"github.com/lengzhao/govm/counter"
 	"github.com/lengzhao/govm/database"
-	"encoding/gob"
-	"bytes"
+	"io/ioutil"
 	"log"
 	sysr "runtime"
-	"fmt"
-    "runtime/debug"
+	"runtime/debug"
 )
 
 // TAppRPC rpc接口的对象定义
@@ -17,43 +20,76 @@ type TAppRPC struct{}
 
 // TRunParam Run接口的入参
 type TRunParam struct {
-	Chain     uint64
-	Flag      []byte
-	User      []byte
-	Data      []byte
-	Cost      uint64
-	Energy    uint64
-	CheckSum  byte
-	ErrorInfo string
+	Chain     uint64 `json:"chain,omitempty"`
+	Flag      []byte `json:"flag,omitempty"`
+	User      []byte `json:"user,omitempty"`
+	Data      []byte `json:"data,omitempty"`
+	Cost      uint64 `json:"cost,omitempty"`
+	Energy    uint64 `json:"energy,omitempty"`
+	CheckSum  byte   `json:"check_sum,omitempty"`
+	ErrorInfo string `json:"error_info,omitempty"`
 }
 
 func main() {
 	args := TRunParam{}
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
 	log.Println("[app]start. {{.PackPath}}")
-	defer func(){
+	fn := flag.String("file", "", "data file,if empty,read data from database(json)")
+	mode := flag.String("mode", "", "enable set 'test' mode,it will not write data to database")
+	flag.Parse()
+	var paramKey []byte
+	if *mode == "" {
+		paramKey = []byte("{{.AppName}}")
+	} else {
+		paramKey = []byte("test")
+	}
+	defer func() {
 		e := recover()
-		if e != nil{
-			log.Println("fail to run app:{{.PackPath}} ",e)
+		if e != nil {
+			log.Println("fail to run app:{{.PackPath}} ", e)
 			log.Println(string(debug.Stack()))
 			args.ErrorInfo = fmt.Sprintf("error message:%s", e)
 			args.Data = nil
 		}
+		if *fn != "" {
+			log.Printf("result:%x\n", args.ErrorInfo)
+			return
+		}
 		var buf bytes.Buffer
 		enc := gob.NewEncoder(&buf)
 		enc.Encode(args)
-		database.Set({{.ChainID}}, []byte("app_run"), []byte("key"), buf.Bytes())
+		database.Set({{.ChainID}}, []byte("app_run"), paramKey, buf.Bytes())
 	}()
-	d := database.Get({{.ChainID}}, []byte("app_run"), []byte("key"))
-	if len(d) == 0 {
-		log.Println("[db]fail to get data.")
-		panic("retry")
+	var d []byte
+	var err error
+	if *fn != "" {
+		d, err = ioutil.ReadFile(*fn)
+		if err != nil {
+			log.Println("fail to read data from", *fn)
+			return
+		}
+		err = json.Unmarshal(d, &args)
+		if err != nil {
+			log.Println("fail to Unmarshal parament from", *fn, err)
+			return
+		}
+	} else {
+		d = database.Get({{.ChainID}}, []byte("app_run"), paramKey)
+		if len(d) == 0 {
+			log.Println("[db]fail to get data.")
+			panic("retry")
+		}
+		rst := bytes.NewBuffer(d)
+		dec := gob.NewDecoder(rst)
+		err = dec.Decode(&args)
+		if err != nil {
+			log.Println("decode error:", err)
+			panic("retry")
+		}
 	}
-	rst := bytes.NewBuffer(d)
-	dec := gob.NewDecoder(rst)
-	err := dec.Decode(&args)
-	if err != nil {
-		log.Println("decode error:", err)
+
+	if len(args.User) == 0 {
+		log.Printf("fail to get parament,%x", d)
 		panic("retry")
 	}
 	counter.SetEnergy(args.Energy)
@@ -61,8 +97,13 @@ func main() {
 
 	mem := sysr.MemStats{}
 	sysr.ReadMemStats(&mem)
-	if mem.TotalAlloc > 4*1024*1024*1024 {
-		panic(fmt.Sprintf("used too much memory:%d, over 4G",mem.TotalAlloc))
+
+	var memLimit uint64 = 4 * 1024 * 1024 * 1024
+	if *mode != "" {
+		memLimit = 3 * 1024 * 1024 * 1024
+	}
+	if mem.TotalAlloc > memLimit {
+		panic(fmt.Sprintf("used too much memory:%d, over 4G", mem.TotalAlloc))
 	}
 	args.ErrorInfo = "ok"
 }

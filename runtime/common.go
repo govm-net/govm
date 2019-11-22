@@ -70,6 +70,50 @@ func Decode(in []byte, out interface{}) int {
 	return len(in) - buf.Len()
 }
 
+// JSONEncode encode json
+func JSONEncode(in interface{}) []byte {
+	d, err := json.Marshal(in)
+	if err != nil {
+		log.Println("fail to encode interface:", reflect.TypeOf(in).String(), err)
+		panic(err)
+	}
+	return d
+}
+
+// JSONDecode decode json
+func JSONDecode(in []byte, out interface{}) int {
+	err := json.Unmarshal(in, out)
+	if err != nil {
+		log.Println("fail to decode interface:", reflect.TypeOf(out).String())
+		panic(err)
+	}
+	return 0
+}
+
+// GobEncode gob encode
+func GobEncode(in interface{}) []byte {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err := enc.Encode(in)
+	if err != nil {
+		log.Println("fail to encode interface:", reflect.TypeOf(in).String(), err)
+		panic(err)
+	}
+	return buf.Bytes()
+}
+
+// GobDecode gob decode
+func GobDecode(in []byte, out interface{}) int {
+	buf := bytes.NewReader(in)
+	dec := gob.NewDecoder(buf)
+	err := dec.Decode(out)
+	if err != nil {
+		log.Println("fail to decode interface:", reflect.TypeOf(out).String())
+		panic(err)
+	}
+	return len(in) - buf.Len()
+}
+
 // GetPackPath get the package path on golang packages
 func GetPackPath(chain uint64, name []byte) string {
 	nameStr := hex.EncodeToString(name)
@@ -97,13 +141,19 @@ type TRunParam struct {
 }
 
 // RunApp run app
-func RunApp(flag []byte, chain uint64, appName, user, data []byte, energy, cost uint64) {
+func RunApp(flag []byte, chain uint64, mode string, appName, user, data []byte, energy, cost uint64) {
 	args := TRunParam{chain, flag, user, data, cost, energy, ""}
 	var buf bytes.Buffer
+	var err error
 	enc := gob.NewEncoder(&buf)
 	enc.Encode(args)
-
-	err := database.Set(chain, []byte("app_run"), []byte("key"), buf.Bytes())
+	var paramKey []byte
+	if mode == "" {
+		paramKey = []byte(hexToPackageName(appName))
+	} else {
+		paramKey = []byte("test")
+	}
+	err = database.Set(chain, []byte("app_run"), paramKey, buf.Bytes())
 	if err != nil {
 		log.Println("[db]fail to write data.", err)
 		panic("retry")
@@ -114,7 +164,13 @@ func RunApp(flag []byte, chain uint64, appName, user, data []byte, energy, cost 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, appPath)
+	var cmd *exec.Cmd
+	if mode != "" {
+		cmd = exec.CommandContext(ctx, appPath, "-mode", mode)
+	} else {
+		cmd = exec.CommandContext(ctx, appPath)
+	}
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
@@ -122,8 +178,8 @@ func RunApp(flag []byte, chain uint64, appName, user, data []byte, energy, cost 
 		log.Println("fail to exec app.", err)
 		panic("retry")
 	}
-
-	d := database.Get(chain, []byte("app_run"), []byte("key"))
+	var d []byte
+	d = database.Get(chain, []byte("app_run"), paramKey)
 	if len(d) == 0 {
 		log.Println("[db]fail to get data.")
 		panic("retry")

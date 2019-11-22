@@ -2,6 +2,7 @@ package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
 
 import (
 	"github.com/lengzhao/govm/runtime"
+	"os"
 )
 
 type dbBlockData struct{}
@@ -221,7 +222,13 @@ func init() {
 	gBS.pDbMining.free = true
 	gBS.pLogBlockInfo = GetLog(logBlockInfo{})
 	gBS.pLogSync = GetLog(logSync{})
+
 	runt := new(runtime.TRuntime)
+	for _,arg := range os.Args{
+		if arg == "-mode"{
+			runt.SetTestMode()
+		}
+	}
 	runt.SetInfo({{.ChainID}}, nil)
 	gBS.iRuntime = runt
 	stream, _ := gBS.DbGet(gBS.pDbStat.owner, []byte{StatBaseInfo})
@@ -244,6 +251,13 @@ func GetHash(data []byte) Hash {
 	assert(n == HashLen)
 	return hashKey
 }
+
+// encoding type
+const (
+	EncBinary = uint8(iota)
+	EncJSON
+	EncGob
+)
 
 // Encode Encoding data into data streams.
 func Encode(typ uint8, in interface{}) []byte {
@@ -414,6 +428,17 @@ func GetAppAccount(in interface{}) Address {
 	return info.Account
 }
 
+// GetAppInfo get app information
+func GetAppInfo(name Hash) *AppInfo {
+	out := AppInfo{}
+	val, _ := gBS.pDbApp.Get(name[:])
+	if val == nil {
+		return nil
+	}
+	Decode(0, val, &out)
+	return &out
+}
+
 /*-------------------------------------Coin------------------------*/
 
 // TransferAccounts pTransfer based on the app private object
@@ -469,7 +494,6 @@ func adminTransfer(payer, payee Address, value uint64) {
 	Event(dbCoin{}, "pTransfer", payer[:], payee[:], Encode(0, value), Encode(0, payeeV))
 }
 
-
 type tSyncInfo struct {
 	ToParentID       uint64
 	ToLeftChildID    uint64
@@ -497,6 +521,12 @@ func MoveCost(user interface{}, chain, cost uint64) {
 	adminTransfer(addr, Address{}, cost)
 	stru := syncMoveInfo{addr, cost}
 	addSyncInfo(chain, SyncOpsMoveCoin, Encode(0, stru))
+}
+
+// syncMoveInfo sync Information of move out
+type syncMoveInfo struct {
+	User  Address
+	Value uint64
 }
 
 /*------------------------------app--------------------------------------*/
@@ -772,6 +802,6 @@ func addSyncInfo(chain uint64, ops uint8, data []byte) {
 	d := Encode(0, head)
 	d = append(d, data...)
 	gBS.pLogSync.Write(key, d)
-	gBS.pDbStat.Set([]byte{StatSyncInfo}, Encode(0, *info), maxDbLife)
+	gBS.pDbStat.Set([]byte{StatSyncInfo}, Encode(0, info), maxDbLife)
 	Event(logSync{}, "addSyncInfo", []byte{ops}, data)
 }

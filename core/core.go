@@ -185,7 +185,6 @@ const (
 )
 
 var (
-	gBS processer
 	// gPublicAddr The address of a public account for the preservation of additional rewards.
 	gPublicAddr = Address{prefixOfPlublcAddr, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
 	author      = Address{2, 152, 64, 16, 49, 156, 211, 70, 89, 247, 252, 178, 11, 49, 214, 21, 216, 80, 171, 50, 202, 147, 6, 24}
@@ -581,6 +580,15 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 	info := BlockInfo{}
 	preB := p.getBlockLog(0, block.Previous)
 	assert(preB != nil)
+	if chain > 1 {
+		assert(p.getBlockLog(chain/2, preB.Parent) != nil)
+	}
+	if !preB.LeftChild.Empty() {
+		assert(p.getBlockLog(chain*2, preB.LeftChild) != nil)
+	}
+	if !preB.RightChild.Empty() {
+		assert(p.getBlockLog(chain*2+1, preB.RightChild) != nil)
+	}
 
 	info.Index = block.Index
 	info.Parent = block.Parent

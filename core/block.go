@@ -46,8 +46,21 @@ func init() {
 		os.Exit(2)
 	}
 	ldb.SetCache(ldbReliability)
+	lst := []uint64{1}
 	appName := runtime.GetAppName(dbStat{})
-	runtime.NewApp(1, appName[:], nil)
+	for len(lst) > 0 {
+		chain := lst[0]
+		lst = lst[1:]
+		filePath := runtime.GetFullPathOfApp(chain*2, appName)
+		if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+			lst = append(lst, chain*2)
+		}
+		filePath = runtime.GetFullPathOfApp(chain*2+1, appName)
+		if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+			lst = append(lst, chain*2+1)
+		}
+		runtime.NewApp(chain, appName, nil)
+	}
 }
 
 // NewBlock new block

@@ -4,7 +4,6 @@ import (
 	"github.com/lengzhao/govm/database"
 	"github.com/lengzhao/libp2p"
 	"github.com/lengzhao/libp2p/plugins"
-	"log"
 	"net/url"
 	"sync"
 	"time"
@@ -27,11 +26,15 @@ type addressInfo struct {
 	count   int
 }
 
+const keyMyAddr = "report_my_address"
+
 // Startup is called only once when the plugin is loaded
 func (p *NATTPlugin) Startup(n libp2p.Network) {
 	p.network = n
 	p.peers = make(map[string]int)
 	p.addrs = database.NewLRUCache(1000)
+	u, _ := url.Parse(n.GetAddress())
+	p.sid = u.User.Username()
 }
 
 // PeerConnect peer connect
@@ -72,6 +75,10 @@ func (p *NATTPlugin) Receive(ctx libp2p.Event) error {
 		if u.User.String() != p.sid {
 			return nil
 		}
+		if ctx.GetSession().GetEnv(keyMyAddr) == "true" {
+			return nil
+		}
+		ctx.GetSession().SetEnv(keyMyAddr, "true")
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		var info *addressInfo
@@ -83,19 +90,20 @@ func (p *NATTPlugin) Receive(ctx libp2p.Event) error {
 			p.addrs.Set(msg.ToAddr, info)
 		}
 		now := time.Now().Unix()
-		if p.info.timeout+36000 < now {
+		if p.info.timeout+3600 < now {
 			p.info.timeout = now
 			p.info.count /= 2
 		}
-		if info.timeout+36000 < now {
+		if info.timeout+3600 < now {
 			info.count /= 2
 			info.timeout = now
 		}
 		info.count++
 		if info.count > p.info.count {
 			p.info = *info
+			p.info.count++
 			p.myAddress = msg.ToAddr
-			log.Println("myAddress:", p.myAddress)
+			// log.Println("myAddress:", p.myAddress, info.count)
 		}
 	case plugins.NatTraversal:
 		if p.myAddress == "" {

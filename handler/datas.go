@@ -20,16 +20,18 @@ type BlockRunStat struct {
 }
 
 const (
-	ldbBlockRunStat = "block_run_stat" //blockKey:stat
-	ldbIDBlocks     = "id_blocks"      //index:blocks
-	ldbMineHistory  = "mine_history"   //blockKey:count
-	ldbSyncBlocks   = "sync_blocks"    //index:blockKey
-	ldbTransList    = "trans_list"     //blockKey:transList
-	ldbTransInfo    = "trans_info"     //transKey:info
-	ldbInputTrans   = "input_trans"    //receive transfer
-	ldbOutputTrans  = "output_trans"   //create by self
-	ldbBlacklist    = "user_blacklist" //blacklist of user,user:info
-	ldbMiner        = "miner_register" //chain:index
+	ldbBlockRunStat = "block_run_stat"   //blockKey:stat
+	ldbIDBlocks     = "id_blocks"        //index:blocks
+	ldbMineHistory  = "mine_history"     //blockKey:count
+	ldbSyncBlocks   = "sync_blocks"      //index:blockKey
+	ldbTransList    = "trans_list"       //blockKey:transList
+	ldbTransInfo    = "trans_info"       //transKey:info
+	ldbInputTrans   = "input_trans"      //receive transfer
+	ldbOutputTrans  = "output_trans"     //create by self
+	ldbBlacklist    = "user_blacklist"   //blacklist of user,user:info
+	ldbMiner        = "miner_register"   //chain:index
+	ldbHPLimit      = "hash_power_limit" //index:limit
+	ldbBlockLock    = "block_lock"       //key:1
 )
 
 var ldb *database.LDB
@@ -48,6 +50,7 @@ func init() {
 	ldb.SetCache(ldbTransInfo)
 	ldb.SetCache(ldbBlacklist)
 	ldb.SetCache(ldbMiner)
+	ldb.SetCache(ldbHPLimit)
 }
 
 // SaveBlockRunStat save block stat
@@ -244,9 +247,7 @@ func saveBlackItem(chain uint64, key []byte) {
 		runtime.Decode(v, &info)
 	}
 	info.Count++
-	if info.Count%5 == 0 {
-		info.Timeout = time.Now().Add(3 * time.Hour).Unix()
-	}
+	info.Timeout = time.Now().Add(3 * time.Hour).Unix()
 	ldb.LSet(chain, ldbBlacklist, key, runtime.Encode(info))
 }
 
@@ -261,4 +262,12 @@ func believable(chain uint64, key []byte) bool {
 		return true
 	}
 	return false
+}
+
+func getData(chain uint64, tb string, key []byte, value interface{}) {
+	v := ldb.LGet(chain, tb, key)
+	if len(v) == 0 {
+		return
+	}
+	runtime.Decode(v, value)
 }

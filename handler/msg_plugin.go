@@ -97,7 +97,11 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 				p.downloadBlockDepend(ctx, msg.Chain, msg.Key)
 			} else {
 				rel.Recalculation(msg.Chain)
-				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
+				var hpLimit uint64
+				getData(msg.Chain, ldbHPLimit, runtime.Encode(rel.Index-1), &hpLimit)
+				if rel.HashPower+hpAcceptRange >= hpLimit {
+					setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
+				}
 			}
 			return nil
 		}
@@ -171,10 +175,6 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		if e == k {
 			ctx.GetSession().SetEnv(getEnvKey(msg.Chain, reqTrans), "")
 			err := processTransaction(msg.Chain, msg.Key, msg.Data)
-			if err != nil {
-				return nil
-			}
-			_, err = core.CheckTransaction(msg.Chain, msg.Key)
 			if err != nil {
 				return nil
 			}
@@ -334,9 +334,14 @@ func (p *MsgPlugin) downloadBlockDepend(ctx libp2p.Event, chain uint64, key []by
 	rel.Recalculation(chain)
 	rel.Ready = true
 	core.SaveBlockReliability(chain, rel.Key[:], rel)
-	log.Printf("setBlockToIDBlocks,chain:%d,index:%d,key:%x,hp:%d\n", chain, rel.Index, rel.Key, rel.HashPower)
 	ctx.GetSession().SetEnv(getEnvKey(chain, transOwner), "")
-	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+
+	var hpLimit uint64
+	getData(chain, ldbHPLimit, runtime.Encode(rel.Index-1), &hpLimit)
+	if rel.HashPower+hpAcceptRange >= hpLimit {
+		log.Printf("setBlockToIDBlocks,chain:%d,index:%d,key:%x,hp:%d\n", chain, rel.Index, rel.Key, rel.HashPower)
+		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+	}
 
 	go processEvent(chain)
 	return
@@ -388,13 +393,19 @@ func processTransaction(chain uint64, key, data []byte) error {
 		ldb.LSet(chain, ldbInputTrans, trans.Key[:], []byte{1})
 	}
 
-	if (chain == c.ChainOfMine || c.ChainOfMine == 0) && trans.Energy > c.EnergyOfTrans &&
+	if (believable(chain, trans.User[:]) || bytes.Compare(trans.User[:], c.WalletAddr) == 0) &&
+		(chain == c.ChainOfMine || c.ChainOfMine == 0) &&
+		trans.Energy > c.EnergyOfTrans &&
 		trans.Time <= uint64(time.Now().Unix())*1000 {
-		info := transInfo{}
-		info.TransactionHead = trans.TransactionHead
-		runtime.Decode(trans.Key, &info.Key)
-		info.Size = uint32(len(data))
-		saveTransInfo(chain, trans.Key, info)
+
+		rst := core.CheckTransaction(chain, trans.Key)
+		if rst == nil {
+			info := transInfo{}
+			info.TransactionHead = trans.TransactionHead
+			runtime.Decode(trans.Key, &info.Key)
+			info.Size = uint32(len(data))
+			saveTransInfo(chain, trans.Key, info)
+		}
 	}
 
 	log.Printf("new transaction.chain%d, key:%x ,osp:%d\n", chain, key, trans.Ops)

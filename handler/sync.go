@@ -6,6 +6,7 @@ import (
 	"fmt"
 	core "github.com/lengzhao/govm/core"
 	"github.com/lengzhao/govm/messages"
+	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/libp2p"
 	"log"
 	"runtime/debug"
@@ -167,6 +168,20 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		return
 	}
 	rel := core.ReadBlockReliability(chain, key)
+	id := core.GetLastBlockIndex(chain)
+	if id > rel.Index+blockLockInterval {
+		newKey := GetSyncBlock(chain, rel.Index+1)
+		if len(newKey) > 0 {
+			// log.Printf("start next SyncBlock,chain:%d,key:%x,next:%x\n", chain, key, newKey)
+			go p.syncDepend(ctx, chain, newKey)
+		} else {
+			// log.Printf("stop sync,not next SyncBlock,chain:%d,key:%x,next:%d\n", chain, key, rel.Index+1)
+			ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), "")
+			ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncing), "")
+			go processEvent(chain)
+		}
+		return
+	}
 	SetSyncBlock(chain, rel.Index, key)
 	if !rel.Previous.Empty() {
 		pRel := core.ReadBlockReliability(chain, rel.Previous[:])
@@ -227,7 +242,11 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	core.SaveBlockReliability(chain, rel.Key[:], rel)
 
 	SetSyncBlock(chain, rel.Index, nil)
-	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+	var hpLimit uint64
+	getData(chain, ldbHPLimit, runtime.Encode(rel.Index-1), &hpLimit)
+	if rel.HashPower+hpAcceptRange >= hpLimit {
+		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+	}
 
 	newKey := GetSyncBlock(chain, rel.Index+1)
 	if len(newKey) > 0 {

@@ -97,7 +97,7 @@
                 success: function (data) {
                     console.log(data);
                     $("#result").html("<span class=\"label label-success\">transaction:<a href=\"transaction.html?key=" 
-                        + bytes2Str(data.Key) + "\">" + bytes2Str(data.Key) + "</a></span>");
+                        + data.key + "\">" + data.key + "</a></span>");
                 },
                 error: function (XMLHttpRequest, textStatus, errorThrown) {
                     // 状态码

@@ -62,10 +62,6 @@ func NewApp(chain uint64, name []byte, code []byte) {
 	if bytes.Compare(c.CorePackName, name) == 0 {
 		filePath := GetFullPathOfApp(chain, name)
 		dstFileName := path.Join(filePath, "core.go")
-		_, err := os.Stat(dstFileName)
-		if !os.IsNotExist(err) {
-			return
-		}
 		os.RemoveAll(filePath)
 		createDir(filePath)
 		s1, err := template.ParseFiles("./core/core.tmpl")
