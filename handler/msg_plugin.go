@@ -377,8 +377,9 @@ func processTransaction(chain uint64, key, data []byte) error {
 		}
 	}
 
+	now := uint64(time.Now().Unix()) * 1000
 	// future trans
-	if trans.Time > uint64(time.Now().Unix())*1000+blockAcceptTime {
+	if trans.Time > now+blockAcceptTime {
 		return errors.New("error time")
 	}
 
@@ -400,7 +401,7 @@ func processTransaction(chain uint64, key, data []byte) error {
 	if (believable(chain, trans.User[:]) || bytes.Compare(trans.User[:], c.WalletAddr) == 0) &&
 		(chain == c.ChainOfMine || c.ChainOfMine == 0) &&
 		trans.Energy > c.EnergyOfTrans &&
-		trans.Time <= uint64(time.Now().Unix())*1000 {
+		trans.Time <= now && trans.Time+transAcceptTime > now {
 
 		rst := core.CheckTransaction(chain, trans.Key)
 		if rst == nil {
