@@ -22,6 +22,7 @@ func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 	t := core.GetBlockInterval(chain)
 	start := time.Now().Unix()
 	c := conf.GetConf()
+	lastID := core.GetLastBlockIndex(chain)
 	err := core.CheckTransList(chain, func(chain uint64) core.Hash {
 		if !trans.Key.Empty() {
 			out = append(out, trans.Key)
@@ -38,6 +39,14 @@ func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 				preKey = nil
 				return trans.Key
 			}
+			info := core.GetTransInfo(chain, trans.Key[:])
+			if info.BlockID > 0 {
+				if info.BlockID+6 < lastID {
+					deleteTransInfo(chain, trans.Key[:])
+				}
+				continue
+			}
+
 			preKey = trans.Key[:]
 			if size+uint64(trans.Size) > limit {
 				continue

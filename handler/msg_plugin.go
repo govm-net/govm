@@ -388,9 +388,13 @@ func processTransaction(chain uint64, key, data []byte) error {
 	}
 
 	if bytes.Compare(trans.User[:], c.WalletAddr) == 0 {
-		ldb.LSet(chain, ldbOutputTrans, trans.Key[:], []byte{1})
+		k := runtime.Encode(^uint64(0) - trans.Time)
+		k = append(k, trans.Key[:16]...)
+		ldb.LSet(chain, ldbOutputTrans, k, trans.Key[:])
 	} else if trans.Ops == core.OpsTransfer && bytes.Compare(trans.Data[:core.AddressLen], c.WalletAddr) == 0 {
-		ldb.LSet(chain, ldbInputTrans, trans.Key[:], []byte{1})
+		k := runtime.Encode(^uint64(0) - trans.Time)
+		k = append(k, trans.Key[:16]...)
+		ldb.LSet(chain, ldbInputTrans, k, trans.Key[:])
 	}
 
 	if (believable(chain, trans.User[:]) || bytes.Compare(trans.User[:], c.WalletAddr) == 0) &&
@@ -440,6 +444,11 @@ func dbRollBack(chain, index uint64, key []byte) error {
 		stat.RollbackCount++
 		SaveBlockRunStat(chain, lKey, stat)
 		// core.DeleteBlockReliability(chain, lKey)
+		transList := GetTransList(chain, lKey)
+		for _, trans := range transList {
+			v := ldb.LGet(chain, ldbAllTransInfo, trans[:])
+			ldb.LSet(chain, ldbTransInfo, trans[:], v)
+		}
 		nIndex--
 	}
 
