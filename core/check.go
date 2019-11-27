@@ -57,7 +57,7 @@ func CheckTransList(chain uint64, factory func(uint64) Hash) (err error) {
 		e := recover()
 		if e != nil {
 			log.Println("CheckTransList error:", e)
-			err = fmt.Errorf("fail:%s", e)
+			err = fmt.Errorf("recover:%s", e)
 		}
 		// log.Printf("CheckTransList input:%d,out:%d", len(keys), len(out))
 	}()

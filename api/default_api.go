@@ -515,10 +515,11 @@ func TransactionNewAppPost(w http.ResponseWriter, r *http.Request) {
 
 // RunApp run app
 type RunApp struct {
-	Cost    uint64 `json:"cost,omitempty"`
-	Energy  uint64 `json:"energy,omitempty"`
-	AppName string `json:"app_name,omitempty"`
-	Param   string `json:"param,omitempty"`
+	Cost      uint64 `json:"cost,omitempty"`
+	Energy    uint64 `json:"energy,omitempty"`
+	AppName   string `json:"app_name,omitempty"`
+	Param     string `json:"param,omitempty"`
+	ParamType string `json:"param_type,omitempty"`
 }
 
 // RespOfNewTrans the response of New Transaction
@@ -553,11 +554,18 @@ func TransactionRunAppPost(w http.ResponseWriter, r *http.Request) {
 	log.Println("run app:", info)
 	var param []byte
 	if len(info.Param) > 0 {
-		param, err = hex.DecodeString(info.Param)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintln(w, "error param, hope hex string,", err)
-			return
+		switch info.ParamType {
+		case "json":
+			param = []byte(info.Param)
+		case "string":
+			param = []byte(info.Param)
+		default:
+			param, err = hex.DecodeString(info.Param)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintln(w, "error param, hope hex string,", err)
+				return
+			}
 		}
 	}
 	app := core.Hash{}

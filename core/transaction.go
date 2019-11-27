@@ -31,7 +31,7 @@ func NewTransaction(chain uint64, user Address) *StTrans {
 	out := StTrans{}
 	out.Chain = chain
 	out.User = user
-	out.Time = uint64(time.Now().Unix()*1000) - maxBlockInterval
+	out.Time = uint64(time.Now().Unix()*1000) - blockSyncMax
 	out.Energy = 10000
 	return &out
 }

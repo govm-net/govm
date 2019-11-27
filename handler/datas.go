@@ -26,8 +26,10 @@ const (
 	ldbSyncBlocks   = "sync_blocks"      //index:blockKey
 	ldbTransList    = "trans_list"       //blockKey:transList
 	ldbTransInfo    = "trans_info"       //transKey:info
-	ldbInputTrans   = "input_trans"      //receive transfer
-	ldbOutputTrans  = "output_trans"     //create by self
+	ldbAllTransInfo = "all_trans_info"   //transKey:info
+	ldbNewerTrans   = "newer_trans"      //timeKey:transKey
+	ldbInputTrans   = "input_trans"      //receive transfer,timeKey:transKey
+	ldbOutputTrans  = "output_trans"     //create by self,timeKey:transKey
 	ldbBlacklist    = "user_blacklist"   //blacklist of user,user:info
 	ldbMiner        = "miner_register"   //chain:index
 	ldbHPLimit      = "hash_power_limit" //index:limit
@@ -174,7 +176,9 @@ type transInfo struct {
 }
 
 func saveTransInfo(chain uint64, key []byte, info transInfo) {
-	ldb.LSet(chain, ldbTransInfo, key, runtime.Encode(info))
+	value := runtime.Encode(info)
+	ldb.LSet(chain, ldbTransInfo, key, value)
+	ldb.LSet(chain, ldbAllTransInfo, key, value)
 }
 
 func readTransInfo(chain uint64, key []byte) transInfo {
@@ -203,11 +207,19 @@ func deleteTransInfo(chain uint64, key []byte) {
 func GetOutputTrans(chain uint64, preKey []byte) []core.Hash {
 	out := make([]core.Hash, 0)
 	for i := 0; i < 10; i++ {
-		key, _ := ldb.LGetNext(chain, ldbOutputTrans, preKey)
+		k, key := ldb.LGetNext(chain, ldbOutputTrans, preKey)
 		if len(key) == 0 {
 			break
 		}
-		preKey = key
+		preKey = k
+		if len(key) == 1 {
+			key = k
+			ldb.LSet(chain, ldbOutputTrans, key, nil)
+			var t uint64 = ^uint64(0)
+			k = runtime.Encode(t)
+			k = append(k, key[:16]...)
+			ldb.LSet(chain, ldbOutputTrans, k, key)
+		}
 		it := core.Hash{}
 		runtime.Decode(key, &it)
 		out = append(out, it)
@@ -220,11 +232,19 @@ func GetOutputTrans(chain uint64, preKey []byte) []core.Hash {
 func GetInputTrans(chain uint64, preKey []byte) []core.Hash {
 	out := make([]core.Hash, 0)
 	for i := 0; i < 10; i++ {
-		key, _ := ldb.LGetNext(chain, ldbInputTrans, preKey)
+		k, key := ldb.LGetNext(chain, ldbInputTrans, preKey)
 		if len(key) == 0 {
 			break
 		}
-		preKey = key
+		preKey = k
+		if len(key) == 1 {
+			key = k
+			ldb.LSet(chain, ldbInputTrans, key, nil)
+			var t uint64 = ^uint64(0)
+			k = runtime.Encode(t)
+			k = append(k, key[:16]...)
+			ldb.LSet(chain, ldbInputTrans, k, key)
+		}
 		it := core.Hash{}
 		runtime.Decode(key, &it)
 		out = append(out, it)
