@@ -205,6 +205,11 @@ func assert(cond bool) {
 		panic("error")
 	}
 }
+func assertMsg(cond bool, msg interface{}) {
+	if !cond {
+		panic(msg)
+	}
+}
 
 func (p *processer) initEnv(chain uint64, flag []byte) {
 	bit := 32 << (^uint(0) >> 63)
@@ -898,7 +903,7 @@ func (p *processer) processTransaction(block BlockInfo, key Hash) uint64 {
 
 	assert(p.Recover(trans.User[:], sign, signData))
 
-	assert(trans.Time <= block.Time)
+	assertMsg(trans.Time <= block.Time, "newer")
 	assert(trans.Time+acceptTransTime > block.Time)
 	assert(trans.User[0] != prefixOfPlublcAddr)
 	if block.Index == 1 {

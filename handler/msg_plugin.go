@@ -403,13 +403,19 @@ func processTransaction(chain uint64, key, data []byte) error {
 		trans.Energy > c.EnergyOfTrans &&
 		trans.Time <= now && trans.Time+transAcceptTime > now {
 
+		info := transInfo{}
+		info.TransactionHead = trans.TransactionHead
+		runtime.Decode(trans.Key, &info.Key)
+		info.Size = uint32(len(data))
 		rst := core.CheckTransaction(chain, trans.Key)
 		if rst == nil {
-			info := transInfo{}
-			info.TransactionHead = trans.TransactionHead
-			runtime.Decode(trans.Key, &info.Key)
-			info.Size = uint32(len(data))
 			saveTransInfo(chain, trans.Key, info)
+		} else if rst.Error() == "recover:newer" {
+			// newer transaction
+			t := uint64(time.Now().Unix()) + blockSyncTime
+			k := runtime.Encode(t)
+			k = append(k, trans.Key[:]...)
+			ldb.LSet(chain, ldbNewerTrans, k, runtime.Encode(info))
 		}
 	}
 

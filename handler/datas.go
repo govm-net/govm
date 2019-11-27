@@ -27,6 +27,7 @@ const (
 	ldbTransList    = "trans_list"       //blockKey:transList
 	ldbTransInfo    = "trans_info"       //transKey:info
 	ldbAllTransInfo = "all_trans_info"   //transKey:info
+	ldbNewerTrans   = "newer_trans"      //timeKey:transKey
 	ldbInputTrans   = "input_trans"      //receive transfer,timeKey:transKey
 	ldbOutputTrans  = "output_trans"     //create by self,timeKey:transKey
 	ldbBlacklist    = "user_blacklist"   //blacklist of user,user:info
