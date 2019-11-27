@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"errors"
 	core "github.com/lengzhao/govm/core"
 	"github.com/lengzhao/govm/event"
@@ -105,8 +104,11 @@ func (p *InternalPlugin) event(m event.Message) error {
 		}
 		head := readTransInfo(msg.Chain, msg.Key)
 		if head.Size == 0 {
-			log.Printf("something wrong,transInfo is not exist.chain:%d,key:%x\n", msg.Chain, msg.Key)
-			return fmt.Errorf("error transaction,chain:%d,key:%x", msg.Chain, msg.Key)
+			err := core.CheckTransaction(msg.Chain, msg.Key)
+			if err != nil {
+				log.Printf("fail to new transaction.chain:%d,key:%x,error:%s\n", msg.Chain, msg.Key, err)
+				return err
+			}
 		}
 
 		m := &messages.TransactionInfo{}
