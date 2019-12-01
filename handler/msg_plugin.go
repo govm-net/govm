@@ -410,7 +410,7 @@ func processTransaction(chain uint64, key, data []byte) error {
 		rst := core.CheckTransaction(chain, trans.Key)
 		if rst == nil {
 			saveTransInfo(chain, trans.Key, info)
-		} else if rst.Error() == "recover:newer" {
+		} else if rst.Error() == "recover:trans_newer" {
 			// newer transaction
 			t := uint64(time.Now().Unix()) + blockSyncTime
 			k := runtime.Encode(t)

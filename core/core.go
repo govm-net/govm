@@ -903,7 +903,7 @@ func (p *processer) processTransaction(block BlockInfo, key Hash) uint64 {
 
 	assert(p.Recover(trans.User[:], sign, signData))
 
-	assertMsg(trans.Time <= block.Time, "newer")
+	assertMsg(trans.Time <= block.Time, "trans_newer")
 	assert(trans.Time+acceptTransTime > block.Time)
 	assert(trans.User[0] != prefixOfPlublcAddr)
 	if block.Index == 1 {

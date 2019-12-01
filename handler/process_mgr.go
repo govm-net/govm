@@ -298,9 +298,6 @@ func processEvent(chain uint64) {
 
 	index := core.GetLastBlockIndex(chain)
 	if index == 0 {
-		if chain > 1 {
-			return
-		}
 		// first block
 		c := conf.GetConf()
 		if !core.IsExistTransaction(chain, c.FirstTransName) {
