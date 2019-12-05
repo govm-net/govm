@@ -113,6 +113,36 @@ func AccountGet(w http.ResponseWriter, r *http.Request) {
 	enc.Encode(out)
 }
 
+// TransactionNew new transaction
+func TransactionNew(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chainStr := vars["chain"]
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "fail to read body of request,", err, chainStr)
+		return
+	}
+	chain, err := strconv.ParseUint(chainStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("error chain"))
+		return
+	}
+	key := runtime.GetHash(data)
+	msg := new(messages.NewTransaction)
+	msg.Chain = chain
+	msg.Key = key
+	msg.Data = data
+	err = event.Send(msg)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "error:%s", err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
 // TransMoveInfo move info
 type TransMoveInfo struct {
 	DstChain uint64 `json:"dst_chain,omitempty"`
@@ -1359,6 +1389,18 @@ func CryptoCheck(w http.ResponseWriter, r *http.Request) {
 	rst := wallet.Recover([]byte(info.Owner), sign, msg)
 	if !rst {
 		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+// OSExit exit
+func OSExit(w http.ResponseWriter, r *http.Request) {
+	info := messages.OSExit{}
+	err := event.Send(&info)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "error:%s", err)
 		return
 	}
 	w.WriteHeader(http.StatusOK)

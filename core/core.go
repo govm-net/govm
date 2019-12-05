@@ -994,26 +994,6 @@ func (p *processer) pMove(t Transaction) {
 	p.addSyncInfo(chain, SyncOpsMoveCoin, p.Encode(0, stru))
 }
 
-// MoveCost move app cost to other chain(child chain or parent chain)
-func (p *processer) MoveCost(user interface{}, chain, cost uint64) {
-	assert(chain > 0)
-	if p.Chain > chain {
-		assert(p.Chain/2 == chain)
-	} else {
-		assert(p.Chain == chain/2)
-		if chain%2 == 0 {
-			assert(p.LeftChildID > 0)
-		} else {
-			assert(p.RightChildID > 0)
-		}
-	}
-	// p.ConsumeEnergy(1000 * p.BaseOpsEnergy)
-	addr := p.GetAppAccount(user)
-	p.adminTransfer(addr, Address{}, cost)
-	stru := syncMoveInfo{addr, cost}
-	p.addSyncInfo(chain, SyncOpsMoveCoin, p.Encode(0, stru))
-}
-
 /*********************** chain ****************************/
 
 type syncNewChain struct {
@@ -1316,38 +1296,6 @@ type AdminInfo struct {
 	App   Hash
 	Cost  uint64
 	Index uint8
-}
-
-// RegisterAdmin app register as a admin
-func (p *processer) RegisterAdmin(app interface{}, index uint8, cost uint64) {
-	info := AdminInfo{}
-	guerdon := p.pDbStat.GetInt([]byte{StatGuerdon})
-
-	c := (adminLife/TimeDay)*guerdon + maxGuerdon
-	assert(cost > c)
-
-	owner := p.GetAppAccount(app)
-	assert(owner[0] == prefixOfPlublcAddr)
-
-	p.adminTransfer(owner, gPublicAddr, cost)
-	info.App = p.getAppName(app)
-	info.Index = index
-	info.Cost = cost
-	stream, _ := p.pDbAdmin.Get([]byte{index})
-	if len(stream) > 0 {
-		older := AdminInfo{}
-		p.Decode(0, stream, &older)
-		if older.App != info.App {
-			assert(info.Cost > older.Cost+guerdon)
-			p.pDbAdmin.Set(older.App[:], nil, 0)
-		} else {
-			info.Cost += older.Cost / 2
-		}
-	}
-
-	p.pDbAdmin.Set([]byte{index}, p.Encode(0, info), adminLife)
-	p.pDbAdmin.SetInt(info.App[:], 1, adminLife)
-	p.Event(dbAdmin{}, "new_admin", info.App[:])
 }
 
 // pDisableAdmin disable admin

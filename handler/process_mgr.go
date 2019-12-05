@@ -18,6 +18,7 @@ type tProcessMgr struct {
 	mu       sync.Mutex
 	wait     map[uint64]chan int
 	Chains   map[uint64]chan int
+	procTime map[uint64]uint64
 	mineLock chan int
 }
 
@@ -40,6 +41,7 @@ func init() {
 	procMgr.wait = make(map[uint64]chan int)
 	procMgr.Chains = make(map[uint64]chan int)
 	procMgr.mineLock = make(chan int, 5)
+	procMgr.procTime = make(map[uint64]uint64)
 
 	time.AfterFunc(time.Second*5, timeoutFunc)
 }
@@ -333,6 +335,18 @@ func processEvent(chain uint64) {
 		if t+core.GetBlockInterval(chain) >= now {
 			return
 		}
+		procMgr.mu.Lock()
+		procTime := procMgr.procTime[chain]
+		procMgr.mu.Unlock()
+		if procTime+blockSyncTime < now {
+			// not next block long time,rollback
+			procMgr.mu.Lock()
+			procMgr.procTime[chain] = now - blockSyncTime + tMinute
+			procMgr.mu.Unlock()
+			dbRollBack(chain, index, nowKey)
+			go processEvent(chain)
+			return
+		}
 
 		info := messages.ReqBlockInfo{Chain: chain, Index: index + 1}
 		network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
@@ -357,6 +371,9 @@ func processEvent(chain uint64) {
 		saveBlackItem(chain, relia.Producer[:])
 		return
 	}
+	procMgr.mu.Lock()
+	procMgr.procTime[chain] = now
+	procMgr.mu.Unlock()
 	stat.RunSuccessCount++
 	SaveBlockRunStat(chain, relia.Key[:], stat)
 	// delete older block,relia.Index-6

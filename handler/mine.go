@@ -39,6 +39,8 @@ func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 				preKey = nil
 				return trans.Key
 			}
+
+			preKey = trans.Key[:]
 			info := core.GetTransInfo(chain, trans.Key[:])
 			if info.BlockID > 0 {
 				if info.BlockID+6 < lastID {
@@ -46,8 +48,6 @@ func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 				}
 				continue
 			}
-
-			preKey = trans.Key[:]
 			if size+uint64(trans.Size) > limit {
 				continue
 			}
@@ -60,7 +60,7 @@ func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 	})
 	if err != nil {
 		deleteTransInfo(chain, trans.Key[:])
-		if err.Error() == "recover:newer" {
+		if err.Error() == "recover:trans_newer" {
 			t := uint64(time.Now().Unix()) + blockSyncTime
 			k := runtime.Encode(t)
 			k = append(k, trans.Key[:]...)
@@ -91,6 +91,10 @@ func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 			if info.Key.Empty() {
 				continue
 			}
+			if info.Stat > 10 {
+				continue
+			}
+			info.Stat++
 			saveTransInfo(chain, info.Key[:], info)
 		}
 	}()

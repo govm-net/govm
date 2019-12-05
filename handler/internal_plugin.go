@@ -97,25 +97,25 @@ func (p *InternalPlugin) event(m event.Message) error {
 			return nil
 		}
 		log.Printf("create new trans:%x,\n", msg.Key[:])
-		err := processTransaction(msg.Chain, msg.Key, msg.Data)
+		core.WriteTransaction(msg.Chain, msg.Data)
+		err := core.CheckTransaction(msg.Chain, msg.Key)
+		if err != nil {
+			log.Printf("fail to new transaction.chain:%d,key:%x,error:%s\n", msg.Chain, msg.Key, err)
+			core.DeleteTransaction(msg.Chain, msg.Key)
+			return err
+		}
+		err = processTransaction(msg.Chain, msg.Key, msg.Data)
 		if err != nil {
 			log.Printf("new trans error.chain:%d,key:%x,err:%s\n", msg.Chain, msg.Key, err)
 			return err
 		}
-		head := readTransInfo(msg.Chain, msg.Key)
-		if head.Size == 0 {
-			err := core.CheckTransaction(msg.Chain, msg.Key)
-			if err != nil {
-				log.Printf("fail to new transaction.chain:%d,key:%x,error:%s\n", msg.Chain, msg.Key, err)
-				return err
-			}
-		}
+		trans := core.DecodeTrans(msg.Data)
 
 		m := &messages.TransactionInfo{}
 		m.Chain = msg.Chain
 		m.Key = msg.Key
-		m.Time = head.Time
-		m.User = head.User[:]
+		m.Time = trans.Time
+		m.User = trans.User[:]
 		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: m})
 		return nil
 	case *messages.Mine:
@@ -153,6 +153,9 @@ func (p *InternalPlugin) event(m event.Message) error {
 			return err
 		}
 		return session.Send(plugins.Ping{IsServer: session.GetSelfAddr().IsServer()})
+	case *messages.OSExit:
+		log.Println("exit by user:", msg.Msg)
+		p.network.Close()
 	}
 	return nil
 }

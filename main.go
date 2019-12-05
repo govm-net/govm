@@ -105,8 +105,9 @@ func main() {
 	if err != nil {
 		log.Fatal("fail to listen:", c.ServerHost, err)
 	}
-
 	n.Close()
+	log.Println("wait to exit(5s)")
+	time.Sleep(5 * time.Second)
 }
 
 func loadNodeKey() []byte {
