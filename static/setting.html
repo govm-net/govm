@@ -30,8 +30,8 @@
                         <span class="input-group-addon">Default Chain:</span>
                         <input class="form-control" id="chain">
                         <div class="input-group-btn">
-                        <button type="button" class="btn btn-success" onclick="changeDfChain()">Change
-                        </button></div>
+                            <button type="button" class="btn btn-success" onclick="changeDfChain()">Change
+                            </button></div>
                     </div>
                     <br>
                     <div class="input-group">
@@ -73,6 +73,14 @@
                         <span class="form-control" id="git_head"></span>
                     </div>
 
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon">Message:</span>
+                        <span class="form-control" id="check">Send event to close govm.</span>
+                        <div class="input-group-btn">
+                            <button type="button" class="btn btn-warning" onclick="closeGOVM()">Close
+                            </button></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -93,7 +101,7 @@
             setCookie("cost_base", gCostBase);
             $("#cost_base").html(name);
         }
-        function changeDfChain(){
+        function changeDfChain() {
             nc = parseInt($("#chain").val())
             gChainID = nc;
             setCookie("chain_id", gChainID)
@@ -108,6 +116,19 @@
                 $("#git_head").html("<b>" + data.GitHead + "</b>");
             }
         });
+
+        function closeGOVM() {
+            $.ajax({
+                type: "DELETE", url: "/api/v1/os/exit",
+                success: function (data) {
+                    alert("success to close govm.");
+                    window.opener = null;
+                    window.location.href="about:blank";
+                    window.open('', '_self');
+                    window.close()
+                }
+            });
+        }
     </script>
 
 </body>

@@ -76,6 +76,13 @@ var routes = Routes{
 	},
 
 	Route{
+		"TransactionNew",
+		strings.ToUpper("Post"),
+		"/api/v1/{chain}/transaction/new",
+		TransactionNew,
+	},
+
+	Route{
 		"TransactionMovePost",
 		strings.ToUpper("Post"),
 		"/api/v1/{chain}/transaction/move",
@@ -230,5 +237,11 @@ var routes = Routes{
 		strings.ToUpper("Post"),
 		"/api/v1/crypto/check",
 		CryptoCheck,
+	},
+	Route{
+		"OSExit",
+		strings.ToUpper("Delete"),
+		"/api/v1/os/exit",
+		OSExit,
 	},
 }

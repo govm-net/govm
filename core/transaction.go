@@ -32,7 +32,7 @@ func NewTransaction(chain uint64, user Address) *StTrans {
 	out.Chain = chain
 	out.User = user
 	out.Time = uint64(time.Now().Unix()*1000) - blockSyncMax
-	out.Energy = 10000
+	out.Energy = 10000000
 	return &out
 }
 
@@ -65,7 +65,6 @@ func (t *StTrans) CreateTransfer(payee Address, value uint64) {
 	t.Cost = value
 	t.Ops = OpsTransfer
 	t.Data = payee[:]
-	t.Energy = 10000000
 }
 
 // CreateMove 转出货币到其他相邻链
@@ -73,7 +72,6 @@ func (t *StTrans) CreateMove(dstChain, value uint64) {
 	t.Cost = value
 	t.Ops = OpsMove
 	t.Data = runtime.Encode(dstChain)
-	t.Energy = 100000000
 }
 
 // CreateNewChain 创建新链
@@ -81,7 +79,6 @@ func (t *StTrans) CreateNewChain(chain, value uint64) {
 	t.Cost = value
 	t.Ops = OpsNewChain
 	t.Data = runtime.Encode(chain)
-	t.Energy = 10000000
 }
 
 // CreateNewApp new app
@@ -100,7 +97,10 @@ func (t *StTrans) CreateRunApp(app Hash, cost uint64, data []byte) {
 	if data != nil {
 		t.Data = append(t.Data, data...)
 	}
-	t.Energy = 20*uint64(len(t.Data)) + 10000
+	energy := 20*uint64(len(t.Data)) + 10000
+	if energy > t.Energy {
+		t.Energy = energy
+	}
 }
 
 // CreateUpdateAppLife update app life
@@ -111,7 +111,6 @@ func (t *StTrans) CreateUpdateAppLife(app Hash, life uint64) {
 	info.Name = app
 	info.Life = life
 	t.Data = runtime.Encode(info)
-	t.Energy = 10000000
 }
 
 const (
@@ -185,6 +184,11 @@ func WriteTransaction(chain uint64, data []byte) error {
 	}
 
 	return runtime.AdminDbSet(dbTransactionData{}, chain, key, data, 2<<50)
+}
+
+// DeleteTransaction delete Transaction
+func DeleteTransaction(chain uint64, key []byte) error {
+	return runtime.AdminDbSet(dbTransactionData{}, chain, key, nil, 0)
 }
 
 // ReadTransactionData read transaction data

@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -171,6 +172,7 @@ func RunApp(flag []byte, chain uint64, mode string, appName, user, data []byte, 
 		cmd = exec.CommandContext(ctx, appPath)
 	}
 
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()

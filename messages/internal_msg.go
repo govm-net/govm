@@ -58,6 +58,12 @@ type NewNode struct {
 	Peer string
 }
 
+// OSExit exit
+type OSExit struct {
+	BaseMsg
+	Msg string
+}
+
 // Internal msg keys
 const (
 	BroadcastMsg = "broadcast"

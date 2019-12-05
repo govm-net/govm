@@ -192,7 +192,8 @@ func (f *File) Visit(node ast.Node) ast.Visitor {
 func unquote(s string) string {
 	t, err := strconv.Unquote(s)
 	if err != nil {
-		log.Fatalf("cover: improperly quoted string %q\n", s)
+		log.Printf("cover: improperly quoted string %q,err:%s\n", s, err)
+		panic(err)
 	}
 	return t
 }
@@ -204,11 +205,13 @@ func Annotate(name, output string) uint64 {
 	fset := token.NewFileSet()
 	content, err := ioutil.ReadFile(name)
 	if err != nil {
-		log.Fatalf("cover: %s: %s", name, err)
+		log.Printf("cover: %s: %s\n", name, err)
+		panic(err)
 	}
 	parsedFile, err := parser.ParseFile(fset, name, content, parser.ParseComments)
 	if err != nil {
-		log.Fatalf("cover: %s: %s", name, err)
+		log.Printf("cover: %s: %s\n", name, err)
+		panic(err)
 	}
 
 	file := &File{
@@ -236,7 +239,8 @@ func Annotate(name, output string) uint64 {
 	createDir(path.Dir(output))
 	fd, err := os.Create(output)
 	if err != nil {
-		log.Fatalf("cover: file:%s, error:%s", output, err)
+		log.Printf("cover: file:%s, error:%s", output, err)
+		panic(err)
 	}
 	defer fd.Close()
 
