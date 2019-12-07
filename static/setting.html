@@ -23,23 +23,23 @@
         <div class="col-md-12 column">
             <div class="panel panel-default">
                 <div class="panel-heading">
-                    <h3 class="panel-title">Setting</h3>
+                    <h3 class="panel-title" data-localize="setting">Setting</h3>
                 </div>
                 <div class="panel-body">
                     <div class="input-group">
-                        <span class="input-group-addon">Default Chain:</span>
+                        <span class="input-group-addon" data-localize="def_chain">Default Chain:</span>
                         <input class="form-control" id="chain">
                         <div class="input-group-btn">
-                            <button type="button" class="btn btn-success" onclick="changeDfChain()">Change
+                            <button type="button" class="btn btn-success" onclick="changeDfChain()" data-localize="change">Change
                             </button></div>
                     </div>
                     <br>
                     <div class="input-group">
-                        <span class="input-group-addon">Currency Unit:</span>
+                        <span class="input-group-addon" data-localize="unit">Currency Unit:</span>
                         <span class="form-control" id="cost_base"></span>
                         <div class="input-group-btn">
                             <button type="button" class="btn btn-default 
-                                dropdown-toggle" data-toggle="dropdown" id="base">Change
+                                dropdown-toggle" data-toggle="dropdown" data-localize="change">Change
                                 <span class="caret"></span>
                             </button>
                             <ul class="dropdown-menu pull-right">
@@ -59,26 +59,48 @@
                         </div>
                     </div>
                     <br>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="language">Language:</span>
+                        <span class="form-control" id="language" data-localize="lg_set">English</span>
+                        <div class="input-group-btn">
+                            <button type="button" class="btn btn-default 
+                                dropdown-toggle" data-toggle="dropdown" data-localize="change">Change
+                                <span class="caret"></span>
+                            </button>
+                            <ul class="dropdown-menu pull-right">
+                                <li>
+                                    <a onclick="changeLang('zh')" data-localize="zh">中文</a>
+                                </li>
+                                <li>
+                                    <a onclick="changeLang('en')" data-localize="en">English</a>
+                                </li>
+                                <li>
+                                    <a onclick="changeLang('')" data-localize="local">LocalLanguage</a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <br>
 
                     <div class="input-group">
-                        <span class="input-group-addon">Software Version:</span>
+                        <span class="input-group-addon" data-localize="version">Software Version:</span>
                         <span class="form-control" id="version"></span>
                     </div>
                     <div class="input-group">
-                        <span class="input-group-addon">Software Build Time:</span>
+                        <span class="input-group-addon" data-localize="build_time">Software Build Time:</span>
                         <span class="form-control" id="build_time"></span>
                     </div>
                     <div class="input-group">
-                        <span class="input-group-addon">Git Head:</span>
+                        <span class="input-group-addon" data-localize="git_head">Git Head:</span>
                         <span class="form-control" id="git_head"></span>
                     </div>
 
                     <br>
                     <div class="input-group">
-                        <span class="input-group-addon">Message:</span>
-                        <span class="form-control" id="check">Send event to close govm.</span>
+                        <span class="input-group-addon" data-localize="message">Message:</span>
+                        <span class="form-control" id="check" data-localize="describe">Send event to close govm.</span>
                         <div class="input-group-btn">
-                            <button type="button" class="btn btn-warning" onclick="closeGOVM()">Close
+                            <button type="button" class="btn btn-warning" onclick="closeGOVM()" data-localize="close">Close
                             </button></div>
                     </div>
                 </div>
@@ -91,11 +113,13 @@
     <!-- 包括所有已编译的插件 -->
     <script src="js/bootstrap.min.js"></script>
     <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
-    <script src="js/load.js"></script>
+    <script src="js/jquery.localize.min.js"></script>
+    <script src="js/load.js?v=1"></script>
 
     <script type="text/javascript">
         $("#cost_base").html(gCostBase);
         $("#chain").val(gChainID);
+        
         function changeBase(name) {
             gCostBase = name;
             setCookie("cost_base", gCostBase);
@@ -128,6 +152,12 @@
                     window.close()
                 }
             });
+        }
+
+        function changeLang(lg){
+            gLanguage = lg;
+            setCookie("language", lg);
+            window.location.reload()
         }
     </script>
 

@@ -63,7 +63,6 @@ func processChains(chain uint64) {
 
 func getBestBlock(chain, index uint64) core.TReliability {
 	var relia core.TReliability
-	var num int
 	ib := ReadIDBlocks(chain, index)
 	now := time.Now().Unix() * 1000
 	var hpLimit uint64
@@ -113,7 +112,8 @@ func getBestBlock(chain, index uint64) core.TReliability {
 			relia = rel
 		}
 	}
-	log.Printf("getBestBlock rst,num:%d,chain:%d,index:%d,hp:%d,key:%x\n", num, chain, index, relia.HashPower, relia.Key)
+	log.Printf("getBestBlock rst,num:%d,chain:%d,index:%d,hp:%d,key:%x\n", len(ib.Items),
+		chain, index, relia.HashPower, relia.Key)
 	return relia
 }
 

@@ -102,6 +102,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 				if rel.HashPower+hpAcceptRange >= hpLimit {
 					setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
 				}
+				go processEvent(msg.Chain)
 			}
 			return nil
 		}
