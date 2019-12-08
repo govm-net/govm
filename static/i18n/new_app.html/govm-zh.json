@@ -1,0 +1,17 @@
+{
+    "new_app":"创建合约",
+    "chain":"链",
+    "code_path":"合约路径",
+    "app_name":"合约名字",
+    "cost":"合约费用",
+    "private":"私有的",
+    "enb_import":"可被引用",
+    "enb_run":"可执行",
+    "search":"查询",
+    "go":"查询",
+    "app_info":"合约信息",
+    "key":"合约名字",
+    "flag":"标签",
+    "account":"账户地址",
+    "life":"过期时间"
+}

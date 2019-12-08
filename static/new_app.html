@@ -16,98 +16,99 @@
         <div id="navbar"></div>
         <div class="panel panel-default">
             <div class="panel-heading">
-                <h3 class="panel-title">
+                <h3 class="panel-title" data-localize="new_app">
                     New APP
                 </h3>
             </div>
             <div class="panel-body">
                 <form class="bs-example bs-example-form" role="form">
                     <div class="input-group">
-                        <span class="input-group-addon">Chain:</span>
+                        <span class="input-group-addon" data-localize="chain">Chain:</span>
                         <input type="number" min="1" class="form-control" name="chain" value="1">
                         <span class="input-group-addon label-success">*</span>
                     </div>
                     <br>
                     <div class="input-group">
-                        <span class="input-group-addon">Code Path</span>
+                        <span class="input-group-addon" data-localize="code_path">Code Path</span>
                         <input type="text" class="form-control" name="code_path" placeholder="./app_code.go">
                         <span class="input-group-addon label-success">*</span>
                     </div>
                     <br>
                     <div class="input-group">
-                        <span class="input-group-addon">Energy</span>
+                        <span class="input-group-addon" data-localize="energy">Energy</span>
                         <input type="number" class="form-control" value="1" name="energy">
                         <span class="input-group-addon" id="base_energy"></span>
                     </div>
 
                     <br>
                     <div class="input-group">
-                        <span class="input-group-addon"><input type="checkbox" name="is_private">Private</span>
+                        <span class="input-group-addon">
+                            <input type="checkbox" name="is_private" data-localize="private">Private</span>
                         <span class="input-group-addon"></span>
                         <span class="input-group-addon">
-                            <input type="checkbox" checked="checked" name="enable_import">Enable Import</span>
+                            <input type="checkbox" checked="checked" name="enable_import" data-localize="enb_import">Enable Import</span>
                         <span class="input-group-addon"></span>
                         <span class="input-group-addon">
-                            <input type="checkbox" checked="checked" name="enable_run">Enable Run</span>
+                            <input type="checkbox" checked="checked" name="enable_run" data-localize="enb_run">Enable Run</span>
                         <span class="form-control"></span>
                     </div>
 
                     <br>
-                    <button type="button" class="btn btn-success pull-right" id="submit">Submit</button>
+                    <button type="button" class="btn btn-success pull-right" id="submit" data-localize="submit">Submit</button>
                     <br>
                 </form>
             </div>
         </div>
         <div class="panel panel-default">
             <div class="panel-heading">
-                <h3 class="panel-title">
+                <h3 class="panel-title" data-localize="search">
                     Search
                 </h3>
             </div>
             <div class="panel-body">
                 <div class="input-group">
-                    <span class="input-group-addon">Chain:</span>
+                    <span class="input-group-addon" data-localize="chain">Chain:</span>
                     <input type="number" min="1" class="form-control" id="search_chain" value="1">
                     <span class="input-group-addon label-success">*</span>
                 </div>
                 <div class="input-group">
-                    <span class="input-group-addon">App Name:</span>
+                    <span class="input-group-addon" data-localize="app_name">App Name:</span>
                     <input type="text" class="form-control" id="search_key" value="e4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c">
                     <span class="input-group-btn">
-                        <button class="btn btn-default" type="button" id="btn_key">Go!</button>
+                        <button class="btn btn-default" type="button" id="btn_key" data-localize="go">Go!</button>
                     </span>
                 </div>
             </div>
         </div>
         <div class="panel panel-default">
             <div class="panel-heading">
-                <h3 class="panel-title">
+                <h3 class="panel-title" data-localize="app_info">
                     APP Info
                 </h3>
             </div>
             <div class="panel-body">
                 <div class="input-group">
-                    <span class="input-group-addon">Chain:</span>
+                    <span class="input-group-addon" data-localize="chain">Chain:</span>
                     <span class="form-control" id="chain"></span>
                 </div>
                 <br>
                 <div class="input-group">
-                    <span class="input-group-addon">Key:</span>
+                    <span class="input-group-addon" data-localize="key">Key:</span>
                     <span class="form-control" id="key"></span>
                 </div>
                 <br>
                 <div class="input-group">
-                    <span class="input-group-addon">Flag:</span>
+                    <span class="input-group-addon" data-localize="flag">Flag:</span>
                     <span class="form-control" id="flag"></span>
                 </div>
                 <br>
                 <div class="input-group">
-                    <span class="input-group-addon">Account:</span>
+                    <span class="input-group-addon" data-localize="account">Account:</span>
                     <span class="form-control" id="account"></span>
                 </div>
                 <br>
                 <div class="input-group">
-                    <span class="input-group-addon">Life:</span>
+                    <span class="input-group-addon" data-localize="life">Life:</span>
                     <span class="form-control" id="life"></span>
                 </div>
             </div>
@@ -124,7 +125,8 @@
     <!-- 包括所有已编译的插件 -->
     <script src="js/bootstrap.min.js"></script>
     <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
-    <script src="js/load.js"></script>
+    <script src="js/jquery.localize.min.js"></script>
+    <script src="js/load.js?v=1"></script>
 
     <script type="text/javascript">
         $("#base_energy").html(gCostBase);

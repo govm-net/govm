@@ -81,6 +81,9 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 
 		preKey := core.GetTheBlockKey(msg.Chain, msg.Index-1)
 		if bytes.Compare(preKey, msg.PreKey) != 0 {
+			if msg.Index > index+1 {
+				ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + 1})
+			}
 			return nil
 		}
 
@@ -102,6 +105,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 				if rel.HashPower+hpAcceptRange >= hpLimit {
 					setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
 				}
+				go processEvent(msg.Chain)
 			}
 			return nil
 		}
@@ -451,6 +455,9 @@ func dbRollBack(chain, index uint64, key []byte) error {
 		stat.RollbackCount++
 		SaveBlockRunStat(chain, lKey, stat)
 		// core.DeleteBlockReliability(chain, lKey)
+		var lk core.Hash
+		runtime.Decode(lKey,&lk)
+		setBlockToIDBlocks(chain, nIndex, lk, 0)
 		transList := GetTransList(chain, lKey)
 		for _, trans := range transList {
 			v := ldb.LGet(chain, ldbAllTransInfo, trans[:])
