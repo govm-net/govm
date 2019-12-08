@@ -81,6 +81,9 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 
 		preKey := core.GetTheBlockKey(msg.Chain, msg.Index-1)
 		if bytes.Compare(preKey, msg.PreKey) != 0 {
+			if msg.Index > index+1 {
+				ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + 1})
+			}
 			return nil
 		}
 
