@@ -455,6 +455,9 @@ func dbRollBack(chain, index uint64, key []byte) error {
 		stat.RollbackCount++
 		SaveBlockRunStat(chain, lKey, stat)
 		// core.DeleteBlockReliability(chain, lKey)
+		var lk core.Hash
+		runtime.Decode(lKey,&lk)
+		setBlockToIDBlocks(chain, nIndex, lk, 0)
 		transList := GetTransList(chain, lKey)
 		for _, trans := range transList {
 			v := ldb.LGet(chain, ldbAllTransInfo, trans[:])

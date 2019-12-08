@@ -466,7 +466,7 @@ func setBlockToIDBlocks(chain, index uint64, key core.Hash, hp uint64) {
 	if len(newIB.Items) > core.MinerNum {
 		newIB.Items = newIB.Items[:core.MinerNum]
 	}
-	newIB.MaxHeight = ib.MaxHeight
+	// newIB.MaxHeight = ib.MaxHeight
 	SaveIDBlocks(chain, index, newIB)
 }
 
