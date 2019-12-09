@@ -27,9 +27,9 @@ const (
 	eSyncTrans
 	eSyncTransOwner
 	eSyncLastBlock
-	sTimeout      = 60
+	sTimeout      = 40
 	acceptBlockID = 20
-	maxSyncNum    = 1000
+	maxSyncNum    = 300
 )
 
 func getSyncEnvKey(chain uint64, typ byte) string {
@@ -271,6 +271,9 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		// log.Printf("stop sync,not next SyncBlock,chain:%d,key:%x,next:%d\n", chain, key, rel.Index+1)
 		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), "")
 		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncing), "")
+		if p.syncCID == cid {
+			p.timeout = 0
+		}
 		go processEvent(chain)
 	}
 }
