@@ -71,6 +71,9 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 		if index >= msg.Index {
 			return nil
 		}
+		if index == 0 && msg.Chain > 1 {
+			return nil
+		}
 		preKey := core.GetTheBlockKey(msg.Chain, msg.Index-1)
 		if bytes.Compare(preKey, msg.PreKey) == 0 {
 			return nil
