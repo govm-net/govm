@@ -299,19 +299,12 @@ func processEvent(chain uint64) {
 	}()
 
 	index := core.GetLastBlockIndex(chain)
-	if index == 0 {
-		// first block
-		c := conf.GetConf()
-		if !core.IsExistTransaction(chain, c.FirstTransName) {
-			return
-		}
-		core.CreateBiosTrans(chain)
-	}
-
 	// check child chain
 	err := checkOtherChain(chain)
 	if err != nil {
-		log.Printf("checkOtherChain,chain:%d,err:%s\n", chain, err)
+		log.Printf("checkOtherChain,rollback,chain:%d,err:%s\n", chain, err)
+		lk := core.GetTheBlockKey(chain, index)
+		dbRollBack(chain, index, lk)
 		return
 	}
 

@@ -143,7 +143,7 @@ func Rollback(chain uint64, flag []byte) error {
 	return err
 }
 
-// Set 存储数据，不携带标签，不会被回滚,tbName的put一值不用flag，否则可能导致数据混乱
+// Set 存储数据，不携带标签，不会被回滚,tbName中的数据都别用SetWithFlag写，否则可能导致数据混乱
 func Set(chain uint64, tbName, key, value []byte) error {
 	var err error
 	id := <-lock

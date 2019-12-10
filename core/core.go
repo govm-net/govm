@@ -213,7 +213,7 @@ func assertMsg(cond bool, msg interface{}) {
 
 func (p *processer) initEnv(chain uint64, flag []byte) {
 	bit := 32 << (^uint(0) >> 63)
-	assert(bit == 64)
+	assertMsg(bit == 64, "only support 64bit system")
 	p.pDbBlockData = p.GetDB(dbBlockData{})
 	p.pDbTransactionData = p.GetDB(dbTransactionData{})
 	p.pDbTransInfo = p.GetDB(dbTransInfo{})
@@ -258,16 +258,16 @@ func (p *processer) getHash(data []byte) Hash {
 
 // Set Storage data. the record will be deleted when life=0 or value=nil
 func (d *DB) Set(key, value []byte, life uint64) {
-	assert(life <= maxDbLife)
-	assert(len(key) > 0)
-	assert(len(value) < 40960)
+	assertMsg(life <= maxDbLife, "too long of life")
+	assertMsg(len(key) > 0, "empty key")
+	assertMsg(len(value) < 40960, "value size over limit")
 	size := uint64(len(key) + len(value))
 	if d.free {
 	} else if life == 0 || len(value) == 0 {
 		value = nil
 		life = 0
 	} else if size > 100 {
-		assert(life <= 100*TimeYear)
+		assertMsg(life <= 100*TimeYear, "too long of life")
 	}
 	life += d.p.Time
 	d.p.DbSet(d.owner, key, value, life)
@@ -281,7 +281,7 @@ func (d *DB) SetInt(key []byte, value uint64, life uint64) {
 
 // Get Read data from database
 func (d *DB) Get(key []byte) ([]byte, uint64) {
-	assert(len(key) > 0)
+	assertMsg(len(key) > 0, "empty key")
 	out, life := d.p.DbGet(d.owner, key)
 	if life <= d.p.Time {
 		return nil, 0
@@ -297,7 +297,7 @@ func (d *DB) GetInt(key []byte) uint64 {
 	}
 	var val uint64
 	n := d.p.Decode(0, v, &val)
-	assert(n == len(v))
+	assertMsg(n == len(v), "data length != 8")
 	return val
 }
 
@@ -312,9 +312,9 @@ func (p *processer) GetDB(owner interface{}) *DB {
 
 // Write Write log,if exist the key,return false.the key and value can't be nil.
 func (l *Log) Write(key, value []byte) bool {
-	assert(len(key) > 0)
-	assert(len(value) > 0)
-	assert(len(value) < 1024)
+	assertMsg(len(key) > 0, "empty key")
+	assertMsg(len(value) > 0, "empty value")
+	assertMsg(len(value) < 1024, "value size >= 1k")
 
 	life := l.p.LogReadLife(l.owner, key)
 	if life+logLockTime >= l.p.Time {
@@ -331,7 +331,7 @@ func (l *Log) Write(key, value []byte) bool {
 
 // Read Read log
 func (l *Log) Read(chain uint64, key []byte) []byte {
-	assert(len(key) > 0)
+	assertMsg(len(key) > 0, "empty key")
 	if chain == 0 {
 		chain = l.p.Chain
 	}
@@ -1096,25 +1096,25 @@ func (p *processer) pNewApp(t Transaction) {
 		code = code[n:]
 
 		itemInfo := p.GetAppInfo(item.AppName)
-		assert(itemInfo != nil)
+		assertMsg(itemInfo != nil, "not found importation app")
 		if life > itemInfo.Life {
 			life = itemInfo.Life
 		}
 		if ni.Flag&AppFlagPlublc != 0 {
-			assert(itemInfo.Flag&AppFlagPlublc != 0)
+			assertMsg(itemInfo.Flag&AppFlagPlublc != 0, "import private app")
 		}
 		count += itemInfo.LineSum
 		assert(count > itemInfo.LineSum)
-		assert(itemInfo.Flag&AppFlagImport != 0)
+		assertMsg(itemInfo.Flag&AppFlagImport != 0, "the importation unable import")
 		deps = append(deps, item.AppName[:]...)
 	}
-	assert(life > TimeMonth+p.Time)
+	assertMsg(life > TimeMonth+p.Time, "the importation not enough life")
 
 	appName = p.getHash(t.data)
 	if ni.Flag&AppFlagPlublc == 0 {
 		appName = p.getHash(append(appName[:], t.User[:]...))
 	}
-	assert(p.GetAppInfo(appName) == nil)
+	assertMsg(p.GetAppInfo(appName) == nil, "the app is exist")
 
 	if ni.Flag&AppFlagImport != 0 {
 		eng += uint64(len(code)) * 20
@@ -1143,7 +1143,7 @@ func (p *processer) pNewApp(t Transaction) {
 	saveInfo.Life = life
 	life -= p.Time
 	eng += count * p.BaseOpsEnergy
-	assert(t.Energy >= eng)
+	assertMsg(t.Energy >= eng, "not enough energy")
 
 	stream, _ := p.pDbApp.Get(appName[:])
 	assert(len(stream) == 0)
