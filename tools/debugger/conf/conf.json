@@ -1,0 +1,4 @@
+{
+    "db_addr_type":"tcp",
+    "db_server_addr": "127.0.0.1:12345"
+}
