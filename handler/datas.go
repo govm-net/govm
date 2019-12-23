@@ -55,6 +55,12 @@ func init() {
 	ldb.SetCache(ldbHPLimit)
 }
 
+// Exit os exit
+func Exit(){
+	ldb.Close()
+	core.Exit()
+}
+
 // SaveBlockRunStat save block stat
 func SaveBlockRunStat(chain uint64, key []byte, rb BlockRunStat) {
 	if chain == 0 {

@@ -42,7 +42,7 @@ var ldb *database.LDB
 func init() {
 	ldb = database.NewLDB("reliability.db", 2000)
 	if ldb == nil {
-		log.Println("fail to open ldb,local.db")
+		log.Println("fail to open ldb,reliability.db")
 		os.Exit(2)
 	}
 	ldb.SetCache(ldbReliability)
@@ -61,6 +61,11 @@ func init() {
 		}
 		runtime.NewApp(chain, appName, nil)
 	}
+}
+
+// Exit os exit
+func Exit() {
+	ldb.Close()
 }
 
 // NewBlock new block
@@ -368,12 +373,15 @@ func (r *TReliability) Recalculation(chain uint64) {
 	}
 
 	power += hp
-	power += (parent.HashPower / 4)
-	power += preRel.HashPower
-	power -= (preRel.HashPower >> 40)
-	if r.Producer == preRel.Producer {
-		power -= 7
+	if r.Index > 1 {
+		power += (parent.HashPower / 4)
+		power += preRel.HashPower
+		power -= (preRel.HashPower >> 40)
+		if r.Producer == preRel.Producer {
+			power -= 7
+		}
 	}
+
 	r.HashPower = power
 }
 

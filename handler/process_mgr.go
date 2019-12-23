@@ -91,7 +91,7 @@ func getBestBlock(chain, index uint64) core.TReliability {
 			stat = BlockRunStat{}
 			SaveBlockRunStat(chain, it.Key[:], stat)
 			rel.HashPower = 0
-			core.SaveBlockReliability(chain, rel.Key[:], rel)
+			core.SaveBlockReliability(chain, it.Key[:], rel)
 			continue
 		}
 		if rel.Time+tHour > uint64(now) && rel.HashPower+hpAcceptRange < hpLimit {
@@ -195,18 +195,17 @@ func beforeProcBlock(chain uint64, rel core.TReliability) error {
 			SaveIDBlocks(chain, i, ib)
 		}
 		// lock by other chain,rst is block id
-		if len(rst) > 1 {
-			rel := core.ReadBlockReliability(chain, rel.Previous[:])
-			rel.HashPower = core.BaseRelia
-			rel.Previous = core.Hash{}
-			core.SaveBlockReliability(chain, rel.Key[:], rel)
-			core.DeleteBlock(chain, rel.Previous[:])
-			core.DeleteBlock(chain, rel.Key[:])
-			return errors.New("the block is locked by other chain")
-		}
+		// if len(rst) > 1 {
+		// 	rel := core.ReadBlockReliability(chain, rel.Previous[:])
+		// 	rel.HashPower = core.BaseRelia
+		// 	rel.Previous = core.Hash{}
+		// 	core.SaveBlockReliability(chain, rel.Key[:], rel)
+		// 	core.DeleteBlock(chain, rel.Previous[:])
+		// 	core.DeleteBlock(chain, rel.Key[:])
+		// 	return errors.New("the block is locked by other chain")
+		// }
 		ldb.LSet(chain, ldbBlockLock, preKey, nil)
 		info := messages.ReqBlockInfo{Chain: chain, Index: rel.Index}
-		network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
 		network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
 		return errors.New("locked,ReqBlockInfo")
 	}
@@ -223,19 +222,19 @@ func beforeProcBlock(chain uint64, rel core.TReliability) error {
 }
 
 func successToProcBlock(chain uint64, rel core.TReliability) error {
-	ib := ReadIDBlocks(chain, rel.Index-blockLockInterval)
-	for _, it := range ib.Items {
-		if !core.BlockOnTheChain(chain, it.Key[:]) {
-			// log.Printf("delete block,chain:%d,key:%x\n", chain, it.Key)
-			core.DeleteBlock(chain, it.Key[:])
-			core.DeleteBlockReliability(chain, it.Key[:])
-		} else {
-			rst := ldb.LGet(chain, ldbBlockLock, it.Key[:])
-			if len(rst) == 0 {
-				ldb.LSet(chain, ldbBlockLock, it.Key[:], []byte{lockBySelfChain})
-			}
-		}
-	}
+	// ib := ReadIDBlocks(chain, rel.Index-blockLockInterval)
+	// for _, it := range ib.Items {
+	// 	if !core.BlockOnTheChain(chain, it.Key[:]) {
+	// 		// log.Printf("delete block,chain:%d,key:%x\n", chain, it.Key)
+	// 		core.DeleteBlock(chain, it.Key[:])
+	// 		core.DeleteBlockReliability(chain, it.Key[:])
+	// 	} else {
+	// 		rst := ldb.LGet(chain, ldbBlockLock, it.Key[:])
+	// 		if len(rst) == 0 {
+	// 			ldb.LSet(chain, ldbBlockLock, it.Key[:], []byte{lockBySelfChain})
+	// 		}
+	// 	}
+	// }
 	if rel.Index > 2 && !rel.Parent.Empty() {
 		ldb.LSet(chain/2, ldbBlockLock, rel.Parent[:], rel.Key[:])
 	}
@@ -297,6 +296,16 @@ func processEvent(chain uint64) {
 		log.Println("finish processEvent:", chain)
 		<-cl
 	}()
+
+	// index := core.GetLastBlockIndex(chain)
+	// if index == 0 {
+	// 	// first block
+	// 	c := conf.GetConf()
+	// 	if !core.IsExistTransaction(chain, c.FirstTransName) {
+	// 		return
+	// 	}
+	// 	core.CreateBiosTrans(chain)
+	// }
 
 	index := core.GetLastBlockIndex(chain)
 	// check child chain

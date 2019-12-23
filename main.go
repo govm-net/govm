@@ -108,6 +108,7 @@ func main() {
 	n.Close()
 	log.Println("wait to exit(5s)")
 	time.Sleep(5 * time.Second)
+	handler.Exit()
 }
 
 func loadNodeKey() []byte {

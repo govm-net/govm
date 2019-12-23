@@ -456,7 +456,7 @@ func (p *processer) adminTransfer(payer, payee Address, value uint64) {
 	}
 	if !payer.Empty() {
 		v := p.pDbCoin.GetInt(payer[:])
-		assert(v >= value)
+		assertMsg(v >= value,"not enough cost")
 		v -= value
 		if v == 0 {
 			p.pDbCoin.SetInt(payer[:], 0, 0)
