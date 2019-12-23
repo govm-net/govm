@@ -482,22 +482,30 @@ func reliaRecalculation(chain uint64) {
 			break
 		}
 		rel := core.ReadBlockReliability(chain, key)
-		if rel.Index != index {
-			rel.Index = index
+		if rel.Index != index || rel.Key.Empty() {
+			log.Printf("error BlockReliability index,chain:%d,index:%d,hope:%d\n",
+				chain, rel.Index, index)
+			data := core.ReadBlockData(chain, key)
+			processBlock(chain, key, data)
+			preKey = key
+			continue
 		}
 		if index > 1 && bytes.Compare(rel.Previous[:], preKey) != 0 {
 			log.Printf("error Previous of Recalculation,chain:%d,index:%d,hope:%x,get:%x\n",
 				chain, index, preKey, rel.Previous)
 			data := core.ReadBlockData(chain, key)
 			processBlock(chain, key, data)
+			preKey = key
 			continue
 		}
 		preKey = key
 		old := rel.HashPower
 		rel.Recalculation(chain)
 		if rel.HashPower != old {
-			log.Printf("rel.Recalculation chain:%d,index:%d,new hp:%d,old hp:%d\n", chain, index, rel.HashPower, old)
 			core.SaveBlockReliability(chain, key, rel)
+		}
+		if rel.Index%10000 == 0 {
+			log.Printf("rel.Recalculation chain:%d,index:%d,new hp:%d,old hp:%d\n", chain, index, rel.HashPower, old)
 		}
 	}
 	if index == 1 {

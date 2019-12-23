@@ -347,17 +347,19 @@ func (r TReliability) Cmp(y TReliability) int {
 func (r *TReliability) Recalculation(chain uint64) {
 	var power uint64
 	var miner Miner
+	var parent, preRel TReliability
 
-	preRel := ReadBlockReliability(chain, r.Previous[:])
-	parent := ReadBlockReliability(chain/2, r.Parent[:])
+	if r.Index > 1 {
+		preRel = ReadBlockReliability(chain, r.Previous[:])
+	}
+	if chain > 1 {
+		parent = ReadBlockReliability(chain/2, r.Parent[:])
+	}
+
 	getDataFormDB(chain, dbMining{}, runtime.Encode(r.Index), &miner)
 
 	if r.Index == 1 {
 		power = BaseRelia
-		preRel.HashPower = 0
-		if chain == 1 {
-			parent.HashPower = 0
-		}
 	}
 
 	hp := getHashPower(r.Key)
@@ -373,13 +375,11 @@ func (r *TReliability) Recalculation(chain uint64) {
 	}
 
 	power += hp
-	if r.Index > 1 {
-		power += (parent.HashPower / 4)
-		power += preRel.HashPower
-		power -= (preRel.HashPower >> 40)
-		if r.Producer == preRel.Producer {
-			power -= 7
-		}
+	power += (parent.HashPower / 4)
+	power += preRel.HashPower
+	power -= (preRel.HashPower >> 40)
+	if r.Producer == preRel.Producer {
+		power -= 7
 	}
 
 	r.HashPower = power
