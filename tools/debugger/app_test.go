@@ -77,15 +77,15 @@ type SubData struct {
 // TestImitateData imitate data to database
 func TestImitateData(t *testing.T) {
 	datas := []SubData{
-		SubData{"2.set cost of app account",
+		{"2.set cost of app account",
 			chain, "ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c",
 			"dbCoin", hexToBytes("ff0000000000000000000000000000000000000000000000"),
 			intToBytes(1000000000000000), 100},
-		SubData{"3.set app info",
+		{"3.set app info",
 			chain, "ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c",
 			"dbApp", hexToBytes("1000000000000000000000000000000000000000000000000000000000000000"),
 			appInfo(), 100},
-		SubData{"4.set block info",
+		{"4.set block info",
 			chain, "ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c",
 			"dbStat", []byte{0}, blockInfo(), 100},
 	}
@@ -125,4 +125,3 @@ func Test_run(t *testing.T) {
 
 	run(hexToBytes("02984010319cd34659f7fcb20b31d615d850ab32ca930618"), []byte("parament"), 10)
 }
-

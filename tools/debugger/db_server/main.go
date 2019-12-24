@@ -1,23 +1,23 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/lengzhao/govm/database"
 	"net/http"
 	"net/rpc"
 	"os"
 	"time"
-	"flag"
 )
 
 func main() {
-	reset := flag.Bool("reset",true,"reset database")
-	address := flag.String("l","127.0.0.1:12345","listen address of db server")
+	reset := flag.Bool("reset", true, "reset database")
+	address := flag.String("l", "127.0.0.1:12345", "listen address of db server")
 	flag.Parse()
-	if *reset{
+	if *reset {
 		os.RemoveAll("db_dir")
 	}
-	
+
 	db := database.TDb{}
 	db.Init()
 	defer db.Close()

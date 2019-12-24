@@ -56,7 +56,7 @@ func init() {
 }
 
 // Exit os exit
-func Exit(){
+func Exit() {
 	ldb.Close()
 	core.Exit()
 }

@@ -190,20 +190,8 @@ func beforeProcBlock(chain uint64, rel core.TReliability) error {
 	rst := ldb.LGet(chain, ldbBlockLock, preKey)
 	if len(rst) > 0 {
 		log.Printf("the pre_block is locked,unable rollback,chain:%d,pre key:%x,key:%x\n", chain, preKey, rel.Key)
-		ib := IDBlocks{}
-		for i := rel.Index; i < rel.Index+30; i++ {
-			SaveIDBlocks(chain, i, ib)
-		}
-		// lock by other chain,rst is block id
-		// if len(rst) > 1 {
-		// 	rel := core.ReadBlockReliability(chain, rel.Previous[:])
-		// 	rel.HashPower = core.BaseRelia
-		// 	rel.Previous = core.Hash{}
-		// 	core.SaveBlockReliability(chain, rel.Key[:], rel)
-		// 	core.DeleteBlock(chain, rel.Previous[:])
-		// 	core.DeleteBlock(chain, rel.Key[:])
-		// 	return errors.New("the block is locked by other chain")
-		// }
+		cleanBlock(chain, rel.Index)
+
 		ldb.LSet(chain, ldbBlockLock, preKey, nil)
 		info := messages.ReqBlockInfo{Chain: chain, Index: rel.Index}
 		network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
@@ -216,25 +204,11 @@ func beforeProcBlock(chain uint64, rel core.TReliability) error {
 	SaveIDBlocks(chain, rel.Index-1, ib)
 	dbRollBack(chain, rel.Index-1, preKey)
 	go processEvent(chain)
-	// return
 
 	return errors.New("rollback")
 }
 
 func successToProcBlock(chain uint64, rel core.TReliability) error {
-	// ib := ReadIDBlocks(chain, rel.Index-blockLockInterval)
-	// for _, it := range ib.Items {
-	// 	if !core.BlockOnTheChain(chain, it.Key[:]) {
-	// 		// log.Printf("delete block,chain:%d,key:%x\n", chain, it.Key)
-	// 		core.DeleteBlock(chain, it.Key[:])
-	// 		core.DeleteBlockReliability(chain, it.Key[:])
-	// 	} else {
-	// 		rst := ldb.LGet(chain, ldbBlockLock, it.Key[:])
-	// 		if len(rst) == 0 {
-	// 			ldb.LSet(chain, ldbBlockLock, it.Key[:], []byte{lockBySelfChain})
-	// 		}
-	// 	}
-	// }
 	if rel.Index > 2 && !rel.Parent.Empty() {
 		ldb.LSet(chain/2, ldbBlockLock, rel.Parent[:], rel.Key[:])
 	}
@@ -296,16 +270,6 @@ func processEvent(chain uint64) {
 		log.Println("finish processEvent:", chain)
 		<-cl
 	}()
-
-	// index := core.GetLastBlockIndex(chain)
-	// if index == 0 {
-	// 	// first block
-	// 	c := conf.GetConf()
-	// 	if !core.IsExistTransaction(chain, c.FirstTransName) {
-	// 		return
-	// 	}
-	// 	core.CreateBiosTrans(chain)
-	// }
 
 	index := core.GetLastBlockIndex(chain)
 	// check child chain
@@ -383,6 +347,14 @@ func processEvent(chain uint64) {
 
 	if relia.Time+blockSyncTime < now {
 		go processEvent(chain)
+		// long time to process same block,clean next 10 blocks
+		if stat.RunSuccessCount < 3 {
+			return
+		}
+		if relia.Time+tMinute*10 < now {
+			return
+		}
+		cleanBlock(chain, relia.Index)
 		return
 	}
 	autoRegisterMiner(chain)
@@ -396,6 +368,29 @@ func processEvent(chain uint64) {
 	network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 
 	go processEvent(chain)
+}
+
+// something wrong,the chain is blocked,clean 10 blocks
+func cleanBlock(chain, index uint64) {
+	var ib IDBlocks
+	for i := index + 15; i > index; i-- {
+		var newIB IDBlocks
+		if len(ib.Items) == 0 {
+			ib = ReadIDBlocks(chain, i+1)
+			if len(ib.Items) == 0 {
+				continue
+			}
+		}
+		for _, it := range ib.Items {
+			r := core.ReadBlockReliability(chain, it.Key[:])
+			if r.Key.Empty() {
+				continue
+			}
+			newIB.Items = append(newIB.Items, ItemBlock{r.Key, r.HashPower})
+		}
+		ib = newIB
+		SaveIDBlocks(chain, i, ib)
+	}
 }
 
 func writeFirstBlockToChain(chain uint64) {

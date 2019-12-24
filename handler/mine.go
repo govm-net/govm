@@ -113,13 +113,13 @@ func doMine(chain uint64, force bool) {
 
 	select {
 	case procMgr.mineLock <- 1:
-		log.Println("start to doMine:", chain)
+		// log.Println("start to doMine:", chain)
 	default:
 		return
 	}
 	defer func() {
 		<-procMgr.mineLock
-		log.Println("finish doMine:", chain)
+		// log.Println("finish doMine:", chain)
 	}()
 
 	addr := core.Address{}
