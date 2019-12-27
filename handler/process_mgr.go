@@ -19,7 +19,7 @@ type tProcessMgr struct {
 	wait     map[uint64]chan int
 	Chains   map[uint64]chan int
 	procTime map[uint64]uint64
-	mineLock chan int
+	mineLock map[uint64]chan int
 }
 
 const (
@@ -40,7 +40,7 @@ var procMgr tProcessMgr
 func init() {
 	procMgr.wait = make(map[uint64]chan int)
 	procMgr.Chains = make(map[uint64]chan int)
-	procMgr.mineLock = make(chan int, 5)
+	procMgr.mineLock = make(map[uint64]chan int)
 	procMgr.procTime = make(map[uint64]uint64)
 
 	time.AfterFunc(time.Second*5, timeoutFunc)

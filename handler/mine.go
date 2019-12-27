@@ -111,16 +111,20 @@ func doMine(chain uint64, force bool) {
 		return
 	}
 
+	procMgr.mu.Lock()
+	cl, ok := procMgr.mineLock[chain]
+	if !ok {
+		procMgr.mineLock[chain] = make(chan int, 1)
+		cl = procMgr.mineLock[chain]
+	}
+	procMgr.mu.Unlock()
+
 	select {
-	case procMgr.mineLock <- 1:
-		// log.Println("start to doMine:", chain)
+	case cl <- 1:
 	default:
 		return
 	}
-	defer func() {
-		<-procMgr.mineLock
-		// log.Println("finish doMine:", chain)
-	}()
+	defer func() { <-cl }()
 
 	addr := core.Address{}
 	runtime.Decode(c.WalletAddr, &addr)
