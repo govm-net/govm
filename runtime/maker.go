@@ -13,6 +13,7 @@ import (
 	"path"
 	"regexp"
 	"text/template"
+	"time"
 
 	"github.com/lengzhao/govm/conf"
 	"github.com/lengzhao/govm/counter"
@@ -51,6 +52,10 @@ const (
 
 // var envItems = []string{"GO111MODULE=on"}
 var envItems = []string{}
+
+func init() {
+	os.RemoveAll(path.Join(projectRoot, "app_main"))
+}
 
 // NewApp 创建app
 func NewApp(chain uint64, name []byte, code []byte) {
@@ -251,9 +256,11 @@ func makeAppExe(chain uint64, name []byte) {
 	}
 	f.Close()
 	// log.Println("create fun file:", runFile)
-	fn := path.Join(projectRoot, "app_main", fmt.Sprintf("chain%d", chain), "main.go")
-	exeFile := path.Join(projectRoot, "app_main", fmt.Sprintf("chain%d", chain), "app.exe")
-	createDir(path.Dir(fn))
+	fn := path.Join(projectRoot, "app_main", fmt.Sprintf("chain%d_%d", chain, time.Now().UnixNano()), "main.go")
+	dir := path.Dir(fn)
+	exeFile := path.Join(dir, "app.exe")
+	createDir(dir)
+	defer os.RemoveAll(dir)
 
 	fm, _ := os.Create(fn)
 	defer fm.Close()
@@ -274,7 +281,6 @@ func makeAppExe(chain uint64, name []byte) {
 		log.Println("fail to build source file:", fn, err)
 		panic(err)
 	}
-	defer os.Remove(exeFile)
 	//os.Chmod("app.exe", os.ModePerm)
 	binFile := path.Join(realPath, "app.exe")
 	os.Remove(binFile)

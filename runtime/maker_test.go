@@ -4,13 +4,11 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
-
-	"github.com/lengzhao/govm/conf"
 )
 
 func TestNewApp(t *testing.T) {
-	c := conf.GetConf()
-	realPath := GetFullPathOfApp(1, c.CorePackName)
+	appName := []byte("app001")
+	realPath := GetFullPathOfApp(1, appName)
 	defer os.RemoveAll(realPath)
 	code, _ := ioutil.ReadFile("./code_for_test.txt")
 	nInfo := TAppNewInfo{}
@@ -19,6 +17,6 @@ func TestNewApp(t *testing.T) {
 	nInfo.Flag = AppFlagRun | AppFlagImport
 	head := Encode(nInfo.TAppNewHead)
 	code = append(head, code...)
-	NewApp(1, c.CorePackName, code)
-	RunApp(nil, 1, c.CorePackName, []byte("user1"), []byte("data1"), 1<<50, 1)
+	NewApp(1, appName, code)
+	RunApp(nil, 1, "", appName, []byte("user1"), []byte("data1"), 1<<50, 1)
 }
