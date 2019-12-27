@@ -42,7 +42,7 @@ var ldb *database.LDB
 func init() {
 	ldb = database.NewLDB("reliability.db", 2000)
 	if ldb == nil {
-		log.Println("fail to open ldb,local.db")
+		log.Println("fail to open ldb,reliability.db")
 		os.Exit(2)
 	}
 	ldb.SetCache(ldbReliability)
@@ -61,6 +61,11 @@ func init() {
 		}
 		runtime.NewApp(chain, appName, nil)
 	}
+}
+
+// Exit os exit
+func Exit() {
+	ldb.Close()
 }
 
 // NewBlock new block
@@ -342,17 +347,19 @@ func (r TReliability) Cmp(y TReliability) int {
 func (r *TReliability) Recalculation(chain uint64) {
 	var power uint64
 	var miner Miner
+	var parent, preRel TReliability
 
-	preRel := ReadBlockReliability(chain, r.Previous[:])
-	parent := ReadBlockReliability(chain/2, r.Parent[:])
+	if r.Index > 1 {
+		preRel = ReadBlockReliability(chain, r.Previous[:])
+	}
+	if chain > 1 {
+		parent = ReadBlockReliability(chain/2, r.Parent[:])
+	}
+
 	getDataFormDB(chain, dbMining{}, runtime.Encode(r.Index), &miner)
 
 	if r.Index == 1 {
 		power = BaseRelia
-		preRel.HashPower = 0
-		if chain == 1 {
-			parent.HashPower = 0
-		}
 	}
 
 	hp := getHashPower(r.Key)
@@ -374,6 +381,7 @@ func (r *TReliability) Recalculation(chain uint64) {
 	if r.Producer == preRel.Producer {
 		power -= 7
 	}
+
 	r.HashPower = power
 }
 

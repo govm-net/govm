@@ -184,7 +184,9 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	}
 	rel := core.ReadBlockReliability(chain, key)
 	id := core.GetLastBlockIndex(chain)
-	if id > rel.Index+blockLockInterval {
+	if id > rel.Index+1000 {
+		rel.Ready = true
+		core.SaveBlockReliability(chain, rel.Key[:], rel)
 		newKey := GetSyncBlock(chain, rel.Index+1)
 		if len(newKey) > 0 {
 			// log.Printf("start next SyncBlock,chain:%d,key:%x,next:%x\n", chain, key, newKey)

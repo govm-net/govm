@@ -11,7 +11,9 @@ import (
 	"github.com/lengzhao/govm/messages"
 	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/libp2p"
+	"io/ioutil"
 	"log"
+	"os"
 	"time"
 )
 
@@ -227,7 +229,9 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 				ctx.Reply(&messages.ReqBlockInfo{Chain: 1, Index: index})
 			}
 			c := conf.GetConf()
-			if c.ReliaRecalculation {
+			_, err := os.Stat("./db_dir/recalculation")
+			if c.ReliaRecalculation || os.IsNotExist(err) {
+				ioutil.WriteFile("./db_dir/recalculation", []byte("111"), 0666)
 				go reliaRecalculation(1)
 			}
 		}
@@ -459,7 +463,7 @@ func dbRollBack(chain, index uint64, key []byte) error {
 		SaveBlockRunStat(chain, lKey, stat)
 		// core.DeleteBlockReliability(chain, lKey)
 		var lk core.Hash
-		runtime.Decode(lKey,&lk)
+		runtime.Decode(lKey, &lk)
 		setBlockToIDBlocks(chain, nIndex, lk, 0)
 		transList := GetTransList(chain, lKey)
 		for _, trans := range transList {

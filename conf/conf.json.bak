@@ -3,7 +3,6 @@
     "http_port":9090,
     "db_addr_type":"tcp",
     "db_server_addr": "127.0.0.1:17777",
-    "db_server_port": 17777,
     "chain_of_mine":0,
     "energy_of_trans":1000000,
     "wallet_file":"./conf/wallet.key",
@@ -11,5 +10,4 @@
     "do_mine":true,
     "save_log":true,
     "password":"govm_pwd@2019"
-
 }

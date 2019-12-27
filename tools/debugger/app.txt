@@ -8,6 +8,6 @@ type tApp struct {
 func run(user, in []byte, cost uint64) {
 	core.Event(tApp{}, "start_app", user, in)
 	u := core.Address{}
-	core.Decode(0,user,&u)
-	core.TransferAccounts(tApp{},u,cost) 
+	core.Decode(0, user, &u)
+	core.TransferAccounts(tApp{}, u, cost)
 }

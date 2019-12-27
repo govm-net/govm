@@ -41,6 +41,8 @@ func NewLDB(name string, cacheCap int) *LDB {
 
 // Close close ldb
 func (d *LDB) Close() {
+	d.cmu.Lock()
+	defer d.cmu.Unlock()
 	d.ldb.Close()
 }
 

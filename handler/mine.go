@@ -111,16 +111,20 @@ func doMine(chain uint64, force bool) {
 		return
 	}
 
+	procMgr.mu.Lock()
+	cl, ok := procMgr.mineLock[chain]
+	if !ok {
+		procMgr.mineLock[chain] = make(chan int, 1)
+		cl = procMgr.mineLock[chain]
+	}
+	procMgr.mu.Unlock()
+
 	select {
-	case procMgr.mineLock <- 1:
-		log.Println("start to doMine:", chain)
+	case cl <- 1:
 	default:
 		return
 	}
-	defer func() {
-		<-procMgr.mineLock
-		log.Println("finish doMine:", chain)
-	}()
+	defer func() { <-cl }()
 
 	addr := core.Address{}
 	runtime.Decode(c.WalletAddr, &addr)
@@ -132,13 +136,6 @@ func doMine(chain uint64, force bool) {
 		if block.Time+tHour < uint64(time.Now().Unix())*1000 {
 			return
 		}
-
-		count := GetMineCount(chain, block.Previous[:])
-		if count > 1 {
-			return
-		}
-		SetMineCount(chain, block.Previous[:], count+1)
-
 		transList, size = getTransListForMine(chain)
 	}
 
@@ -199,10 +196,7 @@ func doMine(chain uint64, force bool) {
 
 	if oldRel.HashPower == 0 {
 		log.Printf("fail to doMine,error oldHP,limit:%d\n", block.HashpowerLimit)
-		count := GetMineCount(chain, block.Previous[:])
-		if count > 0 {
-			SetMineCount(chain, block.Previous[:], count-1)
-		}
+		go doMine(chain, false)
 		return
 	}
 }
