@@ -75,6 +75,11 @@ func getBestBlock(chain, index uint64) core.TReliability {
 		if rel.Time > uint64(now) {
 			continue
 		}
+		if index != rel.Index {
+			core.DeleteBlockReliability(chain, key)
+			setBlockToIDBlocks(chain, index, it.Key, 0)
+			continue
+		}
 		if it.HashPower > rel.HashPower {
 			rel.Recalculation(chain)
 			core.SaveBlockReliability(chain, rel.Key[:], rel)
@@ -172,7 +177,8 @@ func checkOtherChain(chain uint64) error {
 }
 
 func beforeProcBlock(chain uint64, rel core.TReliability) error {
-	preKey := core.GetTheBlockKey(chain, rel.Index-1)
+	id := core.GetLastBlockIndex(chain)
+	preKey := core.GetTheBlockKey(chain, id)
 	if bytes.Compare(rel.Previous[:], preKey) == 0 {
 		return nil
 	}
@@ -201,8 +207,8 @@ func beforeProcBlock(chain uint64, rel core.TReliability) error {
 	ib := IDBlocks{}
 	it := ItemBlock{rel.Previous, core.BaseRelia}
 	ib.Items = append(ib.Items, it)
-	SaveIDBlocks(chain, rel.Index-1, ib)
-	dbRollBack(chain, rel.Index-1, preKey)
+	SaveIDBlocks(chain, id, ib)
+	dbRollBack(chain, id, preKey)
 	go processEvent(chain)
 
 	return errors.New("rollback")
