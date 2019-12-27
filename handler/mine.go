@@ -136,13 +136,6 @@ func doMine(chain uint64, force bool) {
 		if block.Time+tHour < uint64(time.Now().Unix())*1000 {
 			return
 		}
-
-		count := GetMineCount(chain, block.Previous[:])
-		if count > 1 {
-			return
-		}
-		SetMineCount(chain, block.Previous[:], count+1)
-
 		transList, size = getTransListForMine(chain)
 	}
 
@@ -203,10 +196,7 @@ func doMine(chain uint64, force bool) {
 
 	if oldRel.HashPower == 0 {
 		log.Printf("fail to doMine,error oldHP,limit:%d\n", block.HashpowerLimit)
-		count := GetMineCount(chain, block.Previous[:])
-		if count > 0 {
-			SetMineCount(chain, block.Previous[:], count-1)
-		}
+		go doMine(chain, false)
 		return
 	}
 }
