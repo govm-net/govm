@@ -263,6 +263,12 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	getData(chain, ldbHPLimit, runtime.Encode(rel.Index-1), &hpLimit)
 	if rel.HashPower+hpAcceptRange >= hpLimit {
 		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+	} else {
+		t := core.GetBlockTime(chain)
+		now := uint64(time.Now().Unix() * 1000)
+		if t+blockSyncTime < now {
+			setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+		}
 	}
 
 	newKey := GetSyncBlock(chain, rel.Index+1)
