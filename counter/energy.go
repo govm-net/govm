@@ -1,6 +1,7 @@
 package counter
 
 import (
+	"log"
 	"sync"
 )
 
@@ -34,6 +35,7 @@ func ConsumeEnergy(n uint64) {
 	used += used / 100000
 	used += n
 	if used > energy {
+		log.Printf("energy.hope:%d,have:%d\n", used, energy)
 		panic("not enough energy")
 	}
 }

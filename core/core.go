@@ -1160,12 +1160,13 @@ func (p *processer) pRunApp(t Transaction) {
 	var name Hash
 	n := p.Decode(0, t.data, &name)
 	info := p.GetAppInfo(name)
-	assert(info != nil)
-	assert(info.Flag&AppFlagRun != 0)
-	assert(info.Life >= p.Time)
-
-	p.adminTransfer(t.User, info.Account, t.Cost)
+	assertMsg(info != nil, "app not exist")
+	assertMsg(info.Flag&AppFlagRun != 0, "app unable run")
+	assertMsg(info.Life >= p.Time, "app expire")
+	val, _ := p.getAccount(t.User)
+	assertMsg(t.Cost >= val, "not enough cost")
 	p.RunApp(name[:], t.User[:], t.data[n:], t.Energy, t.Cost)
+	p.adminTransfer(t.User, info.Account, t.Cost)
 }
 
 // UpdateInfo Information of update app life
