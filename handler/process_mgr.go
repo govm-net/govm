@@ -78,15 +78,23 @@ func getBestBlock(chain, index uint64) core.TReliability {
 		if index != rel.Index {
 			core.DeleteBlockReliability(chain, key)
 			setBlockToIDBlocks(chain, index, it.Key, 0)
+			core.DeleteBlock(chain, key)
 			continue
 		}
-		if it.HashPower > rel.HashPower {
+		hp := rel.HashPower
+		if it.HashPower != rel.HashPower || rel.HashPower+hpAcceptRange < hpLimit {
 			rel.Recalculation(chain)
-			core.SaveBlockReliability(chain, rel.Key[:], rel)
+			if hp != rel.HashPower {
+				core.SaveBlockReliability(chain, rel.Key[:], rel)
+				setBlockToIDBlocks(chain, index, it.Key, rel.HashPower)
+				hp = rel.HashPower
+			}
 		}
 
 		stat := ReadBlockRunStat(chain, key)
-		hp := rel.HashPower
+		if rel.Time+tHour > uint64(now) && rel.HashPower+hpAcceptRange < hpLimit {
+			continue
+		}
 		hp -= stat.SelectedCount / 5
 		hp -= uint64(stat.RunTimes) / 10
 		hp -= uint64(stat.RunTimes - stat.RunSuccessCount)
@@ -95,16 +103,8 @@ func getBestBlock(chain, index uint64) core.TReliability {
 			core.DeleteBlock(chain, it.Key[:])
 			stat = BlockRunStat{}
 			SaveBlockRunStat(chain, it.Key[:], stat)
-			rel.HashPower = 0
-			core.SaveBlockReliability(chain, it.Key[:], rel)
+			core.DeleteBlockReliability(chain, key)
 			continue
-		}
-		if rel.Time+tHour > uint64(now) && rel.HashPower+hpAcceptRange < hpLimit {
-			continue
-		}
-
-		if rel.HashPower > it.HashPower {
-			setBlockToIDBlocks(chain, index, it.Key, rel.HashPower)
 		}
 
 		log.Printf("getBestBlock,chain:%d,index:%d,key:%x,i:%d,hp:%d,"+
