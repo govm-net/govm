@@ -5,15 +5,16 @@ do
     echo start govm. you can use "Ctrl + c" to exit
     date
     ./govm
-    if [ "$?" -eq "127" ]
+    rst=$?
+    if [ "$rst" -eq "127" ]
     then
         echo "stop by user(Ctrl + c)"
-        exit $?
+        exit $rst
     fi
-    if [ "$?" -eq "0" ]
+    if [ "$rst" -eq "0" ]
     then
         echo "normal exit by user"
-        exit $?
+        exit $rst
     fi
-    echo something wrong, govm exit. $?
+    echo something wrong, govm exit. $rst
 done
