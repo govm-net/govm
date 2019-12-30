@@ -1,13 +1,13 @@
 {
-    "server_host":"s2s://0.0.0.0:17778,tcp://0.0.0.0:17778",
-    "http_port":9090,
+    "server_host":"s2s://0.0.0.0:47778",
+    "http_port":47778,
     "db_addr_type":"tcp",
-    "db_server_addr": "127.0.0.1:17777",
+    "db_server_addr": "127.0.0.1:47777",
     "chain_of_mine":0,
-    "energy_of_trans":1000000,
+    "energy_of_trans":10000,
     "wallet_file":"./conf/wallet.key",
     "cost_of_reg_miner":0,
     "do_mine":true,
     "save_log":true,
-    "password":"govm_pwd@2019"
+    "password":"govm_pwd@2020"
 }

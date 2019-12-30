@@ -187,7 +187,7 @@ const (
 var (
 	// gPublicAddr The address of a public account for the preservation of additional rewards.
 	gPublicAddr = Address{prefixOfPlublcAddr, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
-	author      = Address{2, 152, 64, 16, 49, 156, 211, 70, 89, 247, 252, 178, 11, 49, 214, 21, 216, 80, 171, 50, 202, 147, 6, 24}
+	author      = Address{1,226,48,105,104,65,250,123,233,225,207,202,64,32,183,34,128,203,98,120,138,153,110,249}
 )
 
 // Empty Check whether Hash is empty
@@ -524,6 +524,7 @@ type Block struct {
 	LeftChild     Hash
 	RightChild    Hash
 	TransListHash Hash
+	Version       uint64
 	Producer      Address
 	Chain         uint64
 	Index         uint64
@@ -742,7 +743,7 @@ func (p *processer) processFirstBlock(block Block, transList []byte) {
 	blockInfo.Producer = block.Producer
 
 	//Used to create the first app
-	p.adminTransfer(Address{}, author, maxGuerdon)
+	p.adminTransfer(Address{}, author, maxGuerdon*1000000)
 	p.adminTransfer(Address{}, gPublicAddr, maxGuerdon)
 
 	//save block info
@@ -864,12 +865,13 @@ func (p *processer) processTransList(block BlockInfo, key Hash, data []byte) uin
 type TransactionHead struct {
 	//signLen uint8
 	//sing  []byte
-	Time   uint64
-	User   Address
-	Chain  uint64
-	Energy uint64
-	Cost   uint64
-	Ops    uint8
+	Time    uint64
+	Version uint64
+	User    Address
+	Chain   uint64
+	Energy  uint64
+	Cost    uint64
+	Ops     uint8
 }
 
 // Transaction the transaction data
