@@ -1164,7 +1164,7 @@ func (p *processer) pRunApp(t Transaction) {
 	assertMsg(info.Flag&AppFlagRun != 0, "app unable run")
 	assertMsg(info.Life >= p.Time, "app expire")
 	val, _ := p.getAccount(t.User)
-	assertMsg(t.Cost >= val, "not enough cost")
+	assertMsg(t.Cost <= val, "not enough cost")
 	p.RunApp(name[:], t.User[:], t.data[n:], t.Energy, t.Cost)
 	p.adminTransfer(t.User, info.Account, t.Cost)
 }
