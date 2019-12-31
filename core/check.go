@@ -31,10 +31,9 @@ func CheckTransaction(chain uint64, tKey []byte) (err error) {
 	proc.initEnv(chain, []byte("testmode"))
 	runt := proc.iRuntime.(*runtime.TRuntime)
 	runt.SetTestMode()
-	key := proc.pLogBlockInfo.read(chain, proc.Encode(0, proc.ID))
-	stream := proc.pLogBlockInfo.read(chain, key[:])
+	stream := proc.pLogBlockInfo.read(chain, proc.Key[:])
 	if len(stream) == 0 {
-		return nil
+		return fmt.Errorf("fail to read block info:%x", proc.Key)
 	}
 	block := BlockInfo{}
 	proc.Decode(0, stream, &block)

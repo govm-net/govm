@@ -187,7 +187,7 @@ const (
 var (
 	// gPublicAddr The address of a public account for the preservation of additional rewards.
 	gPublicAddr = Address{prefixOfPlublcAddr, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
-	author      = Address{1,226,48,105,104,65,250,123,233,225,207,202,64,32,183,34,128,203,98,120,138,153,110,249}
+	author      = Address{1, 226, 48, 105, 104, 65, 250, 123, 233, 225, 207, 202, 64, 32, 183, 34, 128, 203, 98, 120, 138, 153, 110, 249}
 )
 
 // Empty Check whether Hash is empty
@@ -1166,7 +1166,7 @@ func (p *processer) pRunApp(t Transaction) {
 	assertMsg(info.Flag&AppFlagRun != 0, "app unable run")
 	assertMsg(info.Life >= p.Time, "app expire")
 	val, _ := p.getAccount(t.User)
-	assertMsg(t.Cost >= val, "not enough cost")
+	assertMsg(t.Cost <= val, "not enough cost")
 	p.RunApp(name[:], t.User[:], t.data[n:], t.Energy, t.Cost)
 	p.adminTransfer(t.User, info.Account, t.Cost)
 }
