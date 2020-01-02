@@ -96,14 +96,21 @@ func getBestBlock(chain, index uint64) core.TReliability {
 				hp = rel.HashPower
 			}
 		}
-		if t+10*tMinute < now {
-			hp += getBlockLockNum(chain, key)
-		}
 
 		stat := ReadBlockRunStat(chain, key)
+		if t+10*tMinute < now {
+			bln := getBlockLockNum(chain, key)
+			hp += bln
+			log.Printf("[warn]getBestBlock,chain:%d,index:%d,key:%x,i:%d,hp:%d,bln:%d\n",
+				chain, index, key, i, rel.HashPower, bln)
+			if bln < 5 {
+				continue
+			}
+		}
 		if t+blockSyncTime > now && hp+hpAcceptRange < hpLimit {
 			continue
 		}
+
 		hp -= stat.SelectedCount / 5
 		hp -= uint64(stat.RunTimes) / 10
 		hp -= uint64(stat.RunTimes - stat.RunSuccessCount)
@@ -232,13 +239,7 @@ func successToProcBlock(chain uint64, rel core.TReliability, rn int) error {
 		return nil
 	}
 	now := uint64(time.Now().Unix() * 1000)
-	if rel.Time+tMinute*10 < now {
-		return nil
-	}
-	ln := getBlockLockNum(chain, rel.Key[:])
-	if ln > 100 && rn%5 != 0 {
-		log.Printf("[warning]long time blocked,chain:%d,index:%d,block lock num:%d,success run time:%d\n",
-			chain, rel.Index, ln, rn)
+	if rel.Time+tMinute*10 > now {
 		return nil
 	}
 
@@ -251,35 +252,50 @@ func successToProcBlock(chain uint64, rel core.TReliability, rn int) error {
 	}
 	log.Printf("[warning]long time blocked,update IDBlocks,chain:%d,index:%d,update num:%d\n",
 		chain, rel.Index, rng)
-	var ib IDBlocks
-	for i := index; i > rel.Index-1; i-- {
-		var newIB IDBlocks
+
+	var limitBLN uint64
+	for i := index; i > rel.Index-2; i-- {
+		var ib IDBlocks
+		ib = ReadIDBlocks(chain, i)
 		if len(ib.Items) == 0 {
-			ib = ReadIDBlocks(chain, i+1)
-			if len(ib.Items) == 0 {
+			continue
+		}
+
+		for _, it := range ib.Items {
+			if it.Key.Empty() {
 				continue
 			}
-		}
-		for _, it := range ib.Items {
 			r := core.ReadBlockReliability(chain, it.Key[:])
 			if r.Key.Empty() {
 				continue
 			}
+			if r.Index != i {
+				log.Printf("[warning]chain:%d,error index:%d,hope:%d,key:%x\n", chain, r.Index, i, r.Key)
+				setBlockToIDBlocks(chain, i, r.Key, 0)
+				setBlockToIDBlocks(chain, r.Index, r.Key, r.HashPower)
+			}
 			ln := getBlockLockNum(chain, r.Key[:])
+			if ln+5 < limitBLN {
+				setBlockToIDBlocks(chain, r.Index, r.Key, 0)
+				continue
+			}
+			if ln > limitBLN {
+				limitBLN = ln
+			}
+
 			setBlockLockNum(chain, r.Previous[:], ln+1)
+			setBlockToIDBlocks(chain, r.Index-1, r.Previous, r.HashPower+ln)
 			if !r.LeftChild.Empty() {
 				setBlockLockNum(chain*2, r.LeftChild[:], 2*ln+10)
+				cr := core.ReadBlockReliability(chain*2, r.LeftChild[:])
+				setBlockToIDBlocks(chain*2, cr.Index, cr.Key, cr.HashPower+2*ln)
 			}
 			if !r.RightChild.Empty() {
 				setBlockLockNum(chain*2+1, r.RightChild[:], 2*ln+10)
-			}
-			newIB.Items = append(newIB.Items, ItemBlock{r.Key, r.HashPower})
-			if i%10 == 0 {
-				log.Printf("BlockLockNum,chain:%d,index:%d,update num:%d,key:%x\n", chain, i, ln, r.Key)
+				cr := core.ReadBlockReliability(chain*2, r.RightChild[:])
+				setBlockToIDBlocks(chain*2, cr.Index, cr.Key, cr.HashPower+2*ln)
 			}
 		}
-		ib = newIB
-		SaveIDBlocks(chain, i, ib)
 	}
 	return nil
 }
@@ -373,8 +389,11 @@ func processEvent(chain uint64) {
 			go processEvent(chain)
 			return
 		}
-
 		info := messages.ReqBlockInfo{Chain: chain, Index: index + 1}
+		if t+10*tMinute < now {
+			info = messages.ReqBlockInfo{Chain: chain, Index: index + 10}
+			successToProcBlock(chain, relia, 10)
+		}
 		network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
 		return
 	}
