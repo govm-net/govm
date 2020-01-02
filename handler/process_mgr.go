@@ -273,6 +273,15 @@ func successToProcBlock(chain uint64, rel core.TReliability, rn int) error {
 			if r.Key.Empty() {
 				continue
 			}
+			if r.Index == 0 {
+				log.Printf("[warning]chain:%d,error index:%d,hope:%d,key:%x\n", chain, r.Index, i, r.Key)
+				setBlockToIDBlocks(chain, i, it.Key, 0)
+				core.DeleteBlock(chain, it.Key[:])
+				core.DeleteBlockReliability(chain, it.Key[:])
+				info := messages.ReqBlockInfo{Chain: chain, Index: i}
+				network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
+				continue
+			}
 			if r.Index != i {
 				log.Printf("[warning]chain:%d,error index:%d,hope:%d,key:%x\n", chain, r.Index, i, r.Key)
 				setBlockToIDBlocks(chain, i, r.Key, 0)
