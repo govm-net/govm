@@ -245,8 +245,8 @@ func successToProcBlock(chain uint64, rel core.TReliability, rn int) error {
 
 	index := rel.Index
 	rng := (now-rel.Time)/tMinute - 3
-	if rng > 300 {
-		index += 300
+	if rng > 350 {
+		index += 350
 	} else {
 		index += rng
 	}
