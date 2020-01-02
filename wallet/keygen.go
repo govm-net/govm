@@ -2,10 +2,14 @@ package wallet
 
 // EcdsaKey ecdsa key
 type EcdsaKey struct {
+	Type string
 }
 
 // GetType get type
 func (k *EcdsaKey) GetType() string {
+	if k.Type != "" {
+		return k.Type
+	}
 	return "ecdsa"
 }
 

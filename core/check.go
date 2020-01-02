@@ -31,10 +31,10 @@ func CheckTransaction(chain uint64, tKey []byte) (err error) {
 	proc.initEnv(chain, []byte("testmode"))
 	runt := proc.iRuntime.(*runtime.TRuntime)
 	runt.SetTestMode()
-	key := proc.pLogBlockInfo.read(chain, proc.Encode(0, proc.ID))
+	key := proc.pLogBlockInfo.read(chain, proc.Encode(0, proc.ID-1))
 	stream := proc.pLogBlockInfo.read(chain, key[:])
 	if len(stream) == 0 {
-		return nil
+		return fmt.Errorf("fail to read block info:%x", key)
 	}
 	block := BlockInfo{}
 	proc.Decode(0, stream, &block)
@@ -65,7 +65,7 @@ func CheckTransList(chain uint64, factory func(uint64) Hash) (err error) {
 	proc.initEnv(chain, []byte("testmode"))
 	runt := proc.iRuntime.(*runtime.TRuntime)
 	runt.SetTestMode()
-	key := proc.pLogBlockInfo.read(chain, proc.Encode(0, proc.ID))
+	key := proc.pLogBlockInfo.read(chain, proc.Encode(0, proc.ID-1))
 	stream := proc.pLogBlockInfo.read(chain, key[:])
 	if len(stream) == 0 {
 		return nil

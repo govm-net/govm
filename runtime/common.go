@@ -172,7 +172,7 @@ func RunApp(flag []byte, chain uint64, mode string, appName, user, data []byte, 
 	}
 
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = os.Stdout
 	err = cmd.Run()
 	if err != nil {
 		log.Println("fail to exec app.", err)

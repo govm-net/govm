@@ -133,10 +133,13 @@ func doMine(chain uint64, force bool) {
 	var size uint64
 
 	if !force {
-		if block.Time+tHour < uint64(time.Now().Unix())*1000 {
+		now := uint64(time.Now().Unix()) * 1000
+		if block.Time+blockSyncTime < now {
 			return
 		}
-		transList, size = getTransListForMine(chain)
+		if block.Time+blockSyncTime/2 > now {
+			transList, size = getTransListForMine(chain)
+		}
 	}
 
 	block.SetTransList(transList)

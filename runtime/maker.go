@@ -146,7 +146,7 @@ func NewApp(chain uint64, name []byte, code []byte) {
 	cmd := exec.Command("go", "build", srcFilePath)
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = os.Stdout
 	cmd.Env = os.Environ()
 	for _, item := range envItems {
 		cmd.Env = append(cmd.Env, item)
@@ -169,7 +169,7 @@ func NewApp(chain uint64, name []byte, code []byte) {
 	cmd = exec.Command("go", "build", dstFileName)
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = os.Stdout
 	cmd.Env = os.Environ()
 	for _, item := range envItems {
 		cmd.Env = append(cmd.Env, item)
@@ -271,7 +271,7 @@ func makeAppExe(chain uint64, name []byte) {
 	cmd := exec.Command("go", "build", "-o", exeFile, fn)
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = os.Stdout
 	cmd.Env = os.Environ()
 	for _, item := range envItems {
 		cmd.Env = append(cmd.Env, item)
