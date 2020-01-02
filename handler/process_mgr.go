@@ -244,9 +244,13 @@ func successToProcBlock(chain uint64, rel core.TReliability, rn int) error {
 	}
 
 	index := rel.Index
+	start := core.GetLastBlockIndex(chain)
+	if index < start {
+		index = start
+	}
 	rng := (now-rel.Time)/tMinute - 3
-	if rng > 300 {
-		index += 300
+	if rng > 350 {
+		index += 350
 	} else {
 		index += rng
 	}
@@ -254,7 +258,7 @@ func successToProcBlock(chain uint64, rel core.TReliability, rn int) error {
 		chain, rel.Index, rng)
 
 	var limitBLN uint64
-	for i := index; i > rel.Index-2; i-- {
+	for i := index; i >= start; i-- {
 		var ib IDBlocks
 		ib = ReadIDBlocks(chain, i)
 		if len(ib.Items) == 0 {
