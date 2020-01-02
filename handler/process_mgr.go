@@ -106,6 +106,9 @@ func getBestBlock(chain, index uint64) core.TReliability {
 			if bln < 5 {
 				continue
 			}
+			if t+tHour < now && bln < 40 {
+				continue
+			}
 		}
 		if t+blockSyncTime > now && hp+hpAcceptRange < hpLimit {
 			continue
@@ -220,7 +223,7 @@ func beforeProcBlock(chain uint64, rel core.TReliability) error {
 	return errors.New("rollback")
 }
 
-func successToProcBlock(chain uint64, rel core.TReliability, rn int) error {
+func finishProcBlock(chain uint64, rel core.TReliability, rn int) error {
 	if !rel.LeftChild.Empty() {
 		setBlockLockNum(chain*2, rel.LeftChild[:], 10)
 	}
@@ -405,7 +408,7 @@ func processEvent(chain uint64) {
 		info := messages.ReqBlockInfo{Chain: chain, Index: index + 1}
 		if t+10*tMinute < now {
 			info = messages.ReqBlockInfo{Chain: chain, Index: index + 10}
-			successToProcBlock(chain, relia, 10)
+			finishProcBlock(chain, relia, 10)
 		}
 		network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
 		return
@@ -435,7 +438,7 @@ func processEvent(chain uint64) {
 	stat.RunSuccessCount++
 	SaveBlockRunStat(chain, relia.Key[:], stat)
 
-	successToProcBlock(chain, relia, stat.RunSuccessCount)
+	finishProcBlock(chain, relia, stat.RunSuccessCount)
 
 	if relia.Time+blockSyncTime < now {
 		go processEvent(chain)
