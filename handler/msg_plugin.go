@@ -38,6 +38,11 @@ func (p *MsgPlugin) Startup(n libp2p.Network) {
 	network = n
 }
 
+// Cleanup is called only once when the plugin is unload
+func (p *MsgPlugin) Cleanup(n libp2p.Network) {
+	procMgr.stop = true
+}
+
 var first = true
 
 func getEnvKey(chain uint64, typ byte) string {
@@ -450,6 +455,8 @@ func dbRollBack(chain, index uint64, key []byte) error {
 		log.Printf("dbRollBack error.different key of chain:%d,hope:%x,get:%x\n", chain, key, lKey)
 		return errors.New("error block key of the index")
 	}
+	lKey = core.GetTheBlockKey(chain, nIndex)
+	bln := getBlockLockNum(chain, lKey)
 	for nIndex >= index {
 		lKey = core.GetTheBlockKey(chain, nIndex)
 		err = database.Rollback(chain, lKey)
@@ -458,6 +465,7 @@ func dbRollBack(chain, index uint64, key []byte) error {
 			log.Println("fail to Rollback.", nIndex, err)
 			return err
 		}
+		setBlockLockNum(chain, lKey, bln)
 		stat := ReadBlockRunStat(chain, lKey)
 		stat.RollbackCount++
 		SaveBlockRunStat(chain, lKey, stat)
@@ -471,6 +479,7 @@ func dbRollBack(chain, index uint64, key []byte) error {
 			ldb.LSet(chain, ldbTransInfo, trans[:], v)
 		}
 		nIndex--
+		bln++
 	}
 
 	return nil

@@ -103,7 +103,7 @@ func main() {
 
 	err := n.Listen(c.ServerHost)
 	if err != nil {
-		log.Fatal("fail to listen:", c.ServerHost, err)
+		log.Println("fail to listen:", c.ServerHost, err)
 	}
 	n.Close()
 	log.Println("wait to exit(5s)")
@@ -154,7 +154,7 @@ func (l *logWriter) Write(data []byte) (int, error) {
 		}
 		l.f = file
 		os.Stdout = file
-		os.Stderr = file
+		// os.Stderr = file
 	}
 	if l.f == nil {
 		return 0, nil

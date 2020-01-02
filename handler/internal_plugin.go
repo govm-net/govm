@@ -104,19 +104,17 @@ func (p *InternalPlugin) event(m event.Message) error {
 			core.DeleteTransaction(msg.Chain, msg.Key)
 			return err
 		}
-		err = processTransaction(msg.Chain, msg.Key, msg.Data)
-		if err != nil {
-			log.Printf("new trans error.chain:%d,key:%x,err:%s\n", msg.Chain, msg.Key, err)
-			return err
-		}
-		trans := core.DecodeTrans(msg.Data)
-
-		m := &messages.TransactionInfo{}
-		m.Chain = msg.Chain
-		m.Key = msg.Key
-		m.Time = trans.Time
-		m.User = trans.User[:]
-		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: m})
+		go func() {
+			defer recover()
+			trans := core.DecodeTrans(msg.Data)
+			m := &messages.TransactionInfo{}
+			m.Chain = msg.Chain
+			m.Key = msg.Key
+			m.Time = trans.Time
+			m.User = trans.User[:]
+			p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: m})
+			processTransaction(msg.Chain, msg.Key, msg.Data)
+		}()
 		return nil
 	case *messages.Mine:
 		id := core.GetLastBlockIndex(msg.Chain)
