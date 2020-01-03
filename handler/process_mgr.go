@@ -422,8 +422,7 @@ func processEvent(chain uint64) {
 		nowKey := core.GetTheBlockKey(chain, index)
 		if !relia.Key.Empty() && bytes.Compare(relia.Key[:], nowKey) != 0 {
 			log.Printf("dbRollBack block. index:%d,key:%x,next block:%x\n", index, nowKey, relia.Key)
-			dbRollBack(chain, index, nowKey)
-			go processEvent(chain)
+			checkAndRollback(chain, index, nowKey)
 			return
 		}
 		t := core.GetBlockTime(chain)
