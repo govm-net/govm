@@ -232,6 +232,8 @@ func beforeProcBlock(chain uint64, rel core.TReliability) error {
 	if bytes.Compare(rel.Previous[:], preKey) == 0 {
 		return nil
 	}
+	bln := getBlockLockNum(chain, rel.Key[:])
+	setBlockLockNum(chain, rel.Previous[:], bln+1)
 	t := core.GetBlockTime(chain)
 	interval := core.GetBlockInterval(chain)
 	now := uint64(time.Now().Unix() * 1000)
