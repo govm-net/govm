@@ -33,7 +33,7 @@ const (
 	ldbBlacklist    = "user_blacklist"   //blacklist of user,user:info
 	ldbMiner        = "miner_register"   //chain:index
 	ldbHPLimit      = "hash_power_limit" //index:limit
-	ldbBlockLock    = "block_lock"       //key:1
+	ldbBlockLocked  = "block_locked"     //key:n
 )
 
 var ldb *database.LDB
@@ -53,6 +53,7 @@ func init() {
 	ldb.SetCache(ldbBlacklist)
 	ldb.SetCache(ldbMiner)
 	ldb.SetCache(ldbHPLimit)
+	ldb.SetCache(ldbBlockLocked)
 }
 
 // Exit os exit
@@ -296,4 +297,24 @@ func getData(chain uint64, tb string, key []byte, value interface{}) {
 		return
 	}
 	runtime.Decode(v, value)
+}
+
+func getBlockLockNum(chain uint64, key []byte) uint64 {
+	var out uint64
+	rst := ldb.LGet(chain, ldbBlockLocked, key)
+	if len(rst) >= 8 {
+		runtime.Decode(rst, &out)
+	}
+	return out
+}
+
+func setBlockLockNum(chain uint64, key []byte, val uint64) {
+	var old uint64
+	rst := ldb.LGet(chain, ldbBlockLocked, key)
+	if len(rst) >= 8 {
+		runtime.Decode(rst, &old)
+	}
+	if val > old {
+		ldb.LSet(chain, ldbBlockLocked, key, runtime.Encode(val))
+	}
 }

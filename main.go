@@ -96,7 +96,7 @@ func main() {
 	rk := wallet.EcdsaKey{Type: "test"}
 	cp.Register(&rk)
 	cp.Register(new(wallet.EcdsaKey))
-	cp.SetPrivKey("ecdsa", key)
+	cp.SetPrivKey(rk.GetType(), key)
 	n.SetKeyMgr(cp)
 	n.RegistPlugin(new(handler.MsgPlugin))
 	n.RegistPlugin(new(handler.InternalPlugin))
@@ -105,7 +105,7 @@ func main() {
 
 	err := n.Listen(c.ServerHost)
 	if err != nil {
-		log.Fatal("fail to listen:", c.ServerHost, err)
+		log.Println("fail to listen:", c.ServerHost, err)
 	}
 	n.Close()
 	log.Println("wait to exit(5s)")

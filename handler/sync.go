@@ -102,7 +102,7 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 		}
 		if core.IsExistBlock(msg.Chain, msg.Key) {
 			rel := core.ReadBlockReliability(msg.Chain, msg.Key)
-			if !rel.Ready {
+			if !rel.Ready || rel.Index == 0 {
 				log.Printf("start sync,chain:%d,index:%d,block:%x\n", msg.Chain, msg.Index, msg.Key)
 				//start sync
 				ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncing), "true")
@@ -183,6 +183,13 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		return
 	}
 	rel := core.ReadBlockReliability(chain, key)
+	if rel.Index == 0 {
+		core.DeleteBlock(chain, key)
+		core.DeleteBlockReliability(chain, key)
+		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), hex.EncodeToString(key))
+		ctx.Reply(&messages.ReqBlock{Chain: chain, Key: key})
+		return
+	}
 	id := core.GetLastBlockIndex(chain)
 	if id > rel.Index+1000 {
 		rel.Ready = true
@@ -195,6 +202,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 			// log.Printf("stop sync,not next SyncBlock,chain:%d,key:%x,next:%d\n", chain, key, rel.Index+1)
 			ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), "")
 			ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncing), "")
+			updateBLN(chain, key)
 			go processEvent(chain)
 		}
 		return
@@ -282,6 +290,31 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		if p.syncCID == cid {
 			p.timeout = 0
 		}
+		updateBLN(chain, key)
 		go processEvent(chain)
+	}
+}
+
+func updateBLN(chain uint64, key []byte) {
+	if len(key) == 0 {
+		return
+	}
+	rel := core.ReadBlockReliability(chain, key)
+	bln := getBlockLockNum(chain, key)
+	index := core.GetLastBlockIndex(chain)
+	for rel.Index > index {
+		old := getBlockLockNum(chain, rel.Previous[:])
+		if old > bln {
+			break
+		}
+		bln++
+		setBlockLockNum(chain, rel.Previous[:], bln)
+		if !rel.LeftChild.Empty() {
+			setBlockLockNum(chain*2, rel.LeftChild[:], 2*bln)
+		}
+		if !rel.RightChild.Empty() {
+			setBlockLockNum(chain*2, rel.RightChild[:], 2*bln)
+		}
+		rel = core.ReadBlockReliability(chain, rel.Previous[:])
 	}
 }

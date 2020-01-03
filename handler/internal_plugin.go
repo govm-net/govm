@@ -1,13 +1,10 @@
 package handler
 
 import (
-	"bytes"
 	"errors"
-	"github.com/lengzhao/govm/conf"
 	core "github.com/lengzhao/govm/core"
 	"github.com/lengzhao/govm/event"
 	"github.com/lengzhao/govm/messages"
-	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/libp2p"
 	"github.com/lengzhao/libp2p/plugins"
 	"log"
@@ -115,13 +112,8 @@ func (p *InternalPlugin) event(m event.Message) error {
 			m.Key = msg.Key
 			m.Time = trans.Time
 			m.User = trans.User[:]
-			c := conf.GetConf()
-			if bytes.Compare(trans.User[:], c.WalletAddr) == 0 {
-				k := runtime.Encode(^uint64(0) - trans.Time)
-				k = append(k, trans.Key[:16]...)
-				ldb.LSet(msg.Chain, ldbOutputTrans, k, trans.Key[:])
-			}
 			p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: m})
+			processTransaction(msg.Chain, msg.Key, msg.Data)
 		}()
 		return nil
 	case *messages.Mine:
