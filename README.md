@@ -3,15 +3,16 @@
 this is a blockchain system based multi-chain.
 Theoretical TPS can exceed 2^64.
 
-cn: ÕâÊÇÒ»¸ö»ùÓÚÍ¬¹¹¶àÁ´µÄÇø¿éÁ´ÏµÍ³¡£ËüµÄÀíÂÛÐÔÄÜ¿ÉÒÔ³¬¹ý2^64¡£
+cn: è¿™æ˜¯ä¸€ä¸ªåŸºäºŽåŒæž„å¤šé“¾çš„åŒºå—é“¾ç³»ç»Ÿã€‚å®ƒçš„ç†è®ºæ€§èƒ½å¯ä»¥è¶…è¿‡2^64ã€‚
 
 ## Building the source
 
 1. install golang(>v1.20),git
 2. download code
 3. build: go build
-4. start software: ./start.sh
-5. browser open http://localhost:9090
+4. init config:./upgrade.sh  or cp conf/conf.json.bak conf/conf.json
+5. start software: ./start.sh
+6. browser open http://localhost:9090
 
 ## plan
 
