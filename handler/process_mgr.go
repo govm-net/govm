@@ -97,7 +97,7 @@ func getBestBlock(chain, index uint64) core.TReliability {
 		}
 
 		stat := ReadBlockRunStat(chain, key)
-		if t+10*tMinute < now {
+		if index > 1 && t+10*tMinute < now {
 			bln := getBlockLockNum(chain, key)
 			hp += bln
 			log.Printf("[warn]getBestBlock,chain:%d,index:%d,key:%x,i:%d,hp:%d,bln:%d\n",
@@ -227,7 +227,7 @@ func checkOtherChain(chain uint64) error {
 
 func beforeProcBlock(chain uint64, rel core.TReliability) error {
 	id := core.GetLastBlockIndex(chain)
-	preKey := core.GetTheBlockKey(chain, id)
+	preKey := core.GetTheBlockKey(chain, 0)
 	if bytes.Compare(rel.Previous[:], preKey) == 0 {
 		return nil
 	}
@@ -301,7 +301,7 @@ func finishProcBlock(chain uint64, rel core.TReliability, rn int) error {
 		chain, rel.Index, rng)
 
 	var limitBLN uint64
-	for i := index; i >= start; i-- {
+	for i := index; i >= start && i > 0; i-- {
 		var ib IDBlocks
 		ib = ReadIDBlocks(chain, i)
 		if len(ib.Items) == 0 {

@@ -222,7 +222,7 @@ func autoRegisterMiner(chain uint64) {
 		return
 	}
 	index := core.GetLastBlockIndex(chain)
-	index += 50
+	index += 35
 	miner := core.GetMinerInfo(chain, index)
 	if c.CostOfRegMiner < miner.Cost[core.MinerNum-1] {
 		return
@@ -238,7 +238,6 @@ func autoRegisterMiner(chain uint64) {
 	cAddr := core.Address{}
 	runtime.Decode(c.WalletAddr, &cAddr)
 	trans := core.NewTransaction(chain, cAddr)
-	trans.Time = core.GetBlockTime(chain)
 	trans.CreateRegisterMiner(0, index, c.CostOfRegMiner)
 	trans.Energy = c.EnergyOfTrans
 	td := trans.GetSignData()

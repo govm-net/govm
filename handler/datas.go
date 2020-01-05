@@ -22,7 +22,6 @@ type BlockRunStat struct {
 const (
 	ldbBlockRunStat = "block_run_stat"   //blockKey:stat
 	ldbIDBlocks     = "id_blocks"        //index:blocks
-	ldbMineHistory  = "mine_history"     //blockKey:count
 	ldbSyncBlocks   = "sync_blocks"      //index:blockKey
 	ldbTransList    = "trans_list"       //blockKey:transList
 	ldbTransInfo    = "trans_info"       //transKey:info
@@ -44,16 +43,15 @@ func init() {
 		log.Println("fail to open ldb,local.db")
 		os.Exit(2)
 	}
-	ldb.SetCache(ldbBlockRunStat)
-	ldb.SetCache(ldbIDBlocks)
-	ldb.SetCache(ldbMineHistory)
-	ldb.SetCache(ldbSyncBlocks)
+	ldb.SetNotDisk(ldbBlockRunStat, 10000)
+	ldb.SetNotDisk(ldbIDBlocks, 10000)
+	ldb.SetNotDisk(ldbSyncBlocks, 10000)
 	ldb.SetCache(ldbTransList)
 	ldb.SetCache(ldbTransInfo)
 	ldb.SetCache(ldbBlacklist)
 	ldb.SetCache(ldbMiner)
-	ldb.SetCache(ldbHPLimit)
-	ldb.SetCache(ldbBlockLocked)
+	ldb.SetNotDisk(ldbHPLimit, 1000)
+	ldb.SetNotDisk(ldbBlockLocked, 10000)
 }
 
 // Exit os exit
@@ -125,21 +123,6 @@ func ReadIDBlocks(chain, index uint64) (ib IDBlocks) {
 	}
 
 	return
-}
-
-// GetMineCount get mine count
-func GetMineCount(chain uint64, key []byte) uint64 {
-	var out uint64
-	stream := ldb.LGet(chain, ldbMineHistory, key)
-	if stream != nil {
-		runtime.Decode(stream, &out)
-	}
-	return out
-}
-
-// SetMineCount set mine count
-func SetMineCount(chain uint64, key []byte, count uint64) {
-	ldb.LSet(chain, ldbMineHistory, key, runtime.Encode(count))
 }
 
 // SetSyncBlock set sync block, index:key
