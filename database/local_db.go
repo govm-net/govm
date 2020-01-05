@@ -14,13 +14,14 @@ type table map[string][]byte
 
 // LDB Local DB
 type LDB struct {
-	wmu     sync.Mutex
-	cmu     sync.Mutex
-	ldb     *bolt.DB
-	cacheTB map[string]bool
-	lru     *LRUCache
-	rdisk   int
-	wdisk   int
+	wmu      sync.Mutex
+	cmu      sync.Mutex
+	ldb      *bolt.DB
+	cacheTB  map[string]bool
+	memoryTB map[string]*LRUCache
+	lru      *LRUCache
+	rdisk    int
+	wdisk    int
 }
 
 // NewLDB new local db
@@ -28,6 +29,7 @@ func NewLDB(name string, cacheCap int) *LDB {
 	os.Mkdir(gDbRoot, 0600)
 	out := LDB{}
 	out.cacheTB = make(map[string]bool)
+	out.memoryTB = make(map[string]*LRUCache)
 	out.lru = NewLRUCache(cacheCap)
 	var err error
 	fn := path.Join(gDbRoot, name)
@@ -50,7 +52,19 @@ func (d *LDB) Close() {
 func (d *LDB) SetCache(tbName string) {
 	d.cmu.Lock()
 	defer d.cmu.Unlock()
+	_, ok := d.memoryTB[tbName]
+	if ok {
+		return
+	}
 	d.cacheTB[tbName] = true
+}
+
+// SetNotDisk the data only in memory
+func (d *LDB) SetNotDisk(tbName string, cap int) {
+	d.cmu.Lock()
+	defer d.cmu.Unlock()
+	delete(d.cacheTB, tbName)
+	d.memoryTB[tbName] = NewLRUCache(cap)
 }
 
 // LGet Local DB Get
@@ -66,6 +80,17 @@ func (d *LDB) LGet(chain uint64, tbName string, key []byte) []byte {
 		if ok {
 			d.cmu.Unlock()
 			return v.([]byte)
+		}
+	} else {
+		lru, ok := d.memoryTB[tbName]
+		if ok {
+			k := fmt.Sprintf("%s:%x", tn, key)
+			v, ok := lru.Get(k)
+			d.cmu.Unlock()
+			if ok {
+				return v.([]byte)
+			}
+			return nil
 		}
 	}
 	d.cmu.Unlock()
@@ -109,6 +134,14 @@ func (d *LDB) LSet(chain uint64, tbName string, key, value []byte) error {
 		} else {
 			d.lru.Set(k, value)
 		}
+	} else {
+		lru, ok := d.memoryTB[tbName]
+		if ok {
+			k := fmt.Sprintf("%s:%x", tn, key)
+			lru.Set(k, value)
+			d.cmu.Unlock()
+			return nil
+		}
 	}
 	d.cmu.Unlock()
 	if same {
@@ -140,6 +173,18 @@ func (d *LDB) LSet(chain uint64, tbName string, key, value []byte) error {
 // LGetNext Local DB Get next,for visit all keys
 func (d *LDB) LGetNext(chain uint64, tbName string, prefix []byte) (k, v []byte) {
 	tn := fmt.Sprintf("%d:%s", chain, tbName)
+	d.cmu.Lock()
+	lru, ok := d.memoryTB[tbName]
+	if ok {
+		pk := fmt.Sprintf("%s:%x", tn, prefix)
+		key, value, ok := lru.GetNext(pk)
+		d.cmu.Unlock()
+		if ok {
+			return key.([]byte), value.([]byte)
+		}
+		return nil, nil
+	}
+	d.cmu.Unlock()
 	d.ldb.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(tn))
 		if b == nil {

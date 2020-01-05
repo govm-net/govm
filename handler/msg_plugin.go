@@ -416,7 +416,7 @@ func processTransaction(chain uint64, key, data []byte) error {
 
 	if (believable(chain, trans.User[:]) || bytes.Compare(trans.User[:], c.WalletAddr) == 0) &&
 		(chain == c.ChainOfMine || c.ChainOfMine == 0) &&
-		trans.Energy > c.EnergyOfTrans &&
+		trans.Energy >= c.EnergyOfTrans &&
 		trans.Time <= now && trans.Time+transAcceptTime > now {
 
 		info := transInfo{}
