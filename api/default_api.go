@@ -28,50 +28,6 @@ import (
 	"strconv"
 )
 
-// WalletInfo wallet info for new
-type WalletInfo struct {
-	WalletFile string `json:"wallet_file,omitempty"`
-	Password   string `json:"password,omitempty"`
-}
-
-// RespWalletInfo response wallet info
-type RespWalletInfo struct {
-	WalletAddr string `json:"wallet_addr,omitempty"`
-}
-
-// WalletPost new wallet
-func WalletPost(w http.ResponseWriter, r *http.Request) {
-	data, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "fail to read body of request,", err)
-		return
-	}
-	info := WalletInfo{}
-	err = json.Unmarshal(data, &info)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "fail to Unmarshal body of request,", err)
-		return
-	}
-	if info.WalletFile == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "need wallet file.")
-	}
-	if info.Password == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "need password.")
-	}
-	conf.LoadWallet(info.WalletFile, info.Password)
-
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
-	out := RespWalletInfo{}
-	out.WalletAddr = hex.EncodeToString(conf.GetConf().WalletAddr)
-	enc := json.NewEncoder(w)
-	enc.Encode(out)
-}
-
 // Account account
 type Account struct {
 	Chain   uint64 `json:"chain,omitempty"`
@@ -545,11 +501,12 @@ func TransactionNewAppPost(w http.ResponseWriter, r *http.Request) {
 
 // RunApp run app
 type RunApp struct {
-	Cost      uint64 `json:"cost,omitempty"`
-	Energy    uint64 `json:"energy,omitempty"`
-	AppName   string `json:"app_name,omitempty"`
-	Param     string `json:"param,omitempty"`
-	ParamType string `json:"param_type,omitempty"`
+	Cost      uint64      `json:"cost,omitempty"`
+	Energy    uint64      `json:"energy,omitempty"`
+	AppName   string      `json:"app_name,omitempty"`
+	Param     string      `json:"param,omitempty"`
+	ParamType string      `json:"param_type,omitempty"`
+	JSONParam interface{} `json:"json_param,omitempty"`
 }
 
 // RespOfNewTrans the response of New Transaction
@@ -583,13 +540,23 @@ func TransactionRunAppPost(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("run app:", info)
 	var param []byte
-	if len(info.Param) > 0 {
-		switch info.ParamType {
-		case "json":
-			param = []byte(info.Param)
-		case "string":
-			param = []byte(info.Param)
-		default:
+	switch info.ParamType {
+	case "json":
+		if len(info.Param) > 0 {
+			prefix, err := hex.DecodeString(info.Param)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintln(w, "error param, hope hex string,", err)
+				return
+			}
+			param = prefix
+		}
+		jData, _ := json.Marshal(info.JSONParam)
+		param = append(param, jData...)
+	case "string":
+		param = []byte(info.Param)
+	default:
+		if len(info.Param) > 0 {
 			param, err = hex.DecodeString(info.Param)
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)

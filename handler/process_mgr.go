@@ -353,6 +353,7 @@ func finishProcBlock(chain uint64, rel core.TReliability, rn int) error {
 			}
 		}
 	}
+	log.Printf("[warning]chain:%d,limitBLN:%d\n", chain, limitBLN)
 	return nil
 }
 
