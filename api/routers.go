@@ -62,13 +62,6 @@ func Index(w http.ResponseWriter, r *http.Request) {
 
 var routes = Routes{
 	Route{
-		"WalletPost",
-		strings.ToUpper("Post"),
-		"/api/v1/wallet",
-		WalletPost,
-	},
-
-	Route{
 		"AccountGet",
 		strings.ToUpper("Get"),
 		"/api/v1/{chain}/account",

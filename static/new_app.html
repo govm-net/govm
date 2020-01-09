@@ -8,108 +8,326 @@
     <link href="css/bootstrap.min.css" rel="stylesheet">
     <link rel="icon" type="image/x-ico" href="logo.ico" />
     <link rel="shortcut icon" href="logo.ico">
-
 </head>
 
 <body ng-app="">
     <div class="container">
         <div id="navbar"></div>
-        <div class="panel panel-default">
-            <div class="panel-heading">
-                <h3 class="panel-title" data-localize="new_app">
-                    New APP
-                </h3>
-            </div>
-            <div class="panel-body">
-                <form class="bs-example bs-example-form" role="form">
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="chain">Chain:</span>
-                        <input type="number" min="1" class="form-control" name="chain" value="1">
-                        <span class="input-group-addon label-success">*</span>
+        <ul class="nav nav-tabs">
+            <li class="active"><a href="#tab_default" data-toggle="tab" data-localize="tab_default">New APP</a></li>
+            <li><a href="#tab_search" data-toggle="tab" data-localize="tab_search">Search APP</a></li>
+            <li><a href="#tab_alias" data-toggle="tab" data-localize="tab_alias">New Alias</a></li>
+        </ul>
+        <div class="tab-content">
+            <div class="tab-pane active" id="tab_default">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title" data-localize="new_app">
+                            New APP
+                        </h3>
                     </div>
-                    <br>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="code_path">Code Path</span>
-                        <input type="text" class="form-control" name="code_path" placeholder="./app_code.go">
-                        <span class="input-group-addon label-success">*</span>
+                    <div class="panel-body">
+                        <form class="bs-example bs-example-form" role="form">
+                            <div class="input-group">
+                                <span class="input-group-addon" data-localize="chain">Chain:</span>
+                                <input type="number" min="1" class="form-control" name="chain" value="1">
+                                <span class="input-group-addon label-success">*</span>
+                            </div>
+                            <br>
+                            <div class="input-group">
+                                <span class="input-group-addon" data-localize="code_path">Code Path</span>
+                                <input type="text" class="form-control" name="code_path" placeholder="./app_code.go">
+                                <span class="input-group-addon label-success">*</span>
+                            </div>
+                            <br>
+                            <div class="input-group">
+                                <span class="input-group-addon" data-localize="energy">Energy</span>
+                                <input type="number" class="form-control" value="1" name="energy">
+                                <span class="input-group-addon" id="base_energy"></span>
+                            </div>
+                            <br>
+                            <div class="input-group">
+                                <span class="input-group-addon">
+                                    <input type="checkbox" name="is_private">Private</span>
+                                <span class="input-group-addon"></span>
+                                <span class="input-group-addon">
+                                    <input type="checkbox" checked="checked" name="enable_import">Enable Import</span>
+                                <span class="input-group-addon"></span>
+                                <span class="input-group-addon">
+                                    <input type="checkbox" checked="checked" name="enable_run">Enable Run</span>
+                                <span class="form-control"></span>
+                            </div>
+                            <br>
+                            <button type="button" class="btn btn-success pull-right" id="submit"
+                                data-localize="submit">Submit</button>
+                            <br>
+                        </form>
                     </div>
-                    <br>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="energy">Energy</span>
-                        <input type="number" class="form-control" value="1" name="energy">
-                        <span class="input-group-addon" id="base_energy"></span>
+                </div>
+            </div>
+            <div class="tab-pane" id="tab_search">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title" data-localize="search">
+                            Search
+                        </h3>
                     </div>
-
-                    <br>
-                    <div class="input-group">
-                        <span class="input-group-addon">
-                            <input type="checkbox" name="is_private">Private</span>
-                        <span class="input-group-addon"></span>
-                        <span class="input-group-addon">
-                            <input type="checkbox" checked="checked" name="enable_import">Enable Import</span>
-                        <span class="input-group-addon"></span>
-                        <span class="input-group-addon">
-                            <input type="checkbox" checked="checked" name="enable_run">Enable Run</span>
-                        <span class="form-control"></span>
+                    <div class="panel-body">
+                        <div class="input-group">
+                            <span class="input-group-addon" data-localize="chain">Chain:</span>
+                            <input type="number" min="1" class="form-control" id="search_chain" value="1">
+                            <span class="input-group-addon label-success">*</span>
+                        </div>
+                        <br>
+                        <div class="input-group">
+                            <span class="input-group-addon" data-localize="app_name">App Name:</span>
+                            <input type="text" class="form-control" id="search_key"
+                                value="e4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c">
+                            <span class="input-group-btn">
+                                <button class="btn btn-default" type="button" id="btn_key"
+                                    data-localize="go">Go!</button>
+                            </span>
+                        </div>
                     </div>
-
-                    <br>
-                    <button type="button" class="btn btn-success pull-right" id="submit" data-localize="submit">Submit</button>
-                    <br>
-                </form>
+                </div>
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title" data-localize="app_info">
+                            APP Info
+                        </h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="input-group">
+                            <span class="input-group-addon" data-localize="chain">Chain:</span>
+                            <span class="form-control" id="chain"></span>
+                        </div>
+                        <br>
+                        <div class="input-group">
+                            <span class="input-group-addon" data-localize="key">Key:</span>
+                            <span class="form-control" id="key"></span>
+                        </div>
+                        <br>
+                        <div class="input-group">
+                            <span class="input-group-addon" data-localize="flag">Flag:</span>
+                            <span class="form-control" id="flag"></span>
+                        </div>
+                        <br>
+                        <div class="input-group">
+                            <span class="input-group-addon" data-localize="account">Account:</span>
+                            <span class="form-control" id="account"></span>
+                        </div>
+                        <br>
+                        <div class="input-group">
+                            <span class="input-group-addon" data-localize="life">Life:</span>
+                            <span class="form-control" id="life"></span>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
-        <div class="panel panel-default">
-            <div class="panel-heading">
-                <h3 class="panel-title" data-localize="search">
-                    Search
-                </h3>
-            </div>
-            <div class="panel-body">
-                <div class="input-group">
-                    <span class="input-group-addon" data-localize="chain">Chain:</span>
-                    <input type="number" min="1" class="form-control" id="search_chain" value="1">
-                    <span class="input-group-addon label-success">*</span>
-                </div>
-                <div class="input-group">
-                    <span class="input-group-addon" data-localize="app_name">App Name:</span>
-                    <input type="text" class="form-control" id="search_key" value="e4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c">
-                    <span class="input-group-btn">
-                        <button class="btn btn-default" type="button" id="btn_key" data-localize="go">Go!</button>
-                    </span>
-                </div>
-            </div>
-        </div>
-        <div class="panel panel-default">
-            <div class="panel-heading">
-                <h3 class="panel-title" data-localize="app_info">
-                    APP Info
-                </h3>
-            </div>
-            <div class="panel-body">
-                <div class="input-group">
-                    <span class="input-group-addon" data-localize="chain">Chain:</span>
-                    <span class="form-control" id="chain"></span>
-                </div>
-                <br>
-                <div class="input-group">
-                    <span class="input-group-addon" data-localize="key">Key:</span>
-                    <span class="form-control" id="key"></span>
-                </div>
-                <br>
-                <div class="input-group">
-                    <span class="input-group-addon" data-localize="flag">Flag:</span>
-                    <span class="form-control" id="flag"></span>
-                </div>
-                <br>
-                <div class="input-group">
-                    <span class="input-group-addon" data-localize="account">Account:</span>
-                    <span class="form-control" id="account"></span>
-                </div>
-                <br>
-                <div class="input-group">
-                    <span class="input-group-addon" data-localize="life">Life:</span>
-                    <span class="form-control" id="life"></span>
+            <div class="tab-pane" id="tab_alias">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title" data-localize="new_alias">
+                            New Alias
+                        </h3>
+                    </div>
+                    <div class="panel-body">
+                        <ul class="nav nav-tabs">
+                            <li class="active"><a href="#tab_new_alias" data-toggle="tab"
+                                    data-localize="tab_new_alias">New Alias</a></li>
+                            <li><a href="#tab_new_rui" data-toggle="tab" data-localize="new_rui">New UI(View)</a></li>
+                            <li><a href="#tab_new_wui" data-toggle="tab" data-localize="new_wui">New UI(Run)</a></li>
+                        </ul>
+                        <div class="tab-content">
+                            <div class="tab-pane active" id="tab_new_alias">
+                                <form class="bs-example bs-example-form" role="form">
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="chain">Chain:</span>
+                                        <input type="number" min="1" class="form-control" id="alias_chain" value="1">
+                                        <span class="input-group-addon label-success">*</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="app_name">App Name:</span>
+                                        <input type="text" class="form-control" name="app"
+                                            placeholder="c514cb497286b0ff206c6fae74634f6f546f43fab823fd87bf6fcb1616ce9665">
+                                        <span class="input-group-addon label-success">*</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="alias">Alias:</span>
+                                        <input type="text" class="form-control" name="alias"
+                                            placeholder="unable include point">
+                                        <span class="input-group-addon label-success">*</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="description">Description:</span>
+                                        <input type="text" class="form-control" name="desc" placeholder="length < 200">
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="cost">Cost</span>
+                                        <span class="form-control">1</span>
+                                        <span class="input-group-addon">t9</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="energy">Energy</span>
+                                        <input type="number" class="form-control" name="energy" value="5">
+                                        <span class="input-group-addon" id="alias_energy"></span>
+                                    </div>
+                                    <button type="button" class="btn btn-success pull-right" id="btn_alias"
+                                        data-localize="submit">Submit</button>
+                                </form>
+                            </div>
+                            <div class="tab-pane" id="tab_new_rui">
+                                <form class="bs-example bs-example-form" role="form">
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="description">Description:</span>
+                                        <span type="text" class="form-control" data-localize="rui_desc">
+                                            View UI,only read and show data of APP,not run app</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="chain">Chain:</span>
+                                        <input type="number" min="1" class="form-control" id="rui_chain" value="1">
+                                        <span class="input-group-addon label-success">*</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="alias">Alias:</span>
+                                        <input type="text" class="form-control" name="alias">
+                                        <span class="input-group-addon label-success">*</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="index">Index:</span>
+                                        <input type="number" class="form-control" name="index" value="0">
+                                        <span class="input-group-addon label-success">*</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="title">Title:</span>
+                                        <input type="text" class="form-control" name="title">
+                                        <span class="input-group-addon label-success">*</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="struct_name">Struct Name:</span>
+                                        <input type="text" class="form-control" name="struct_name" value="tApp">
+                                        <span class="input-group-addon label-success">*</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="data_type">Data Type:</span>
+                                        <select class="form-control" name="data_type">
+                                            <option value="db">DB Data</option>
+                                            <option value="log">Log Data</option>
+                                        </select>
+                                        <span class="input-group-addon label-success">*</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="value_type">Value Type:</span>
+                                        <select class="form-control" name="value_type">
+                                            <option value="hex2json">json</option>
+                                            <option value="hex2int">int</option>
+                                            <option value="hex2str">string</option>
+                                            <option value="">hex</option>
+                                        </select>
+                                        <span class="input-group-addon label-success">*</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="cost">Cost</span>
+                                        <span class="form-control">1</span>
+                                        <span class="input-group-addon">t9</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="energy">Energy</span>
+                                        <input type="number" class="form-control" name="energy" value="5">
+                                        <span class="input-group-addon" id="rui_energy"></span>
+                                    </div>
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            <h3 class="panel-title" data-localize="info">
+                                                Input of Display UI(key of database request)</h3>
+                                        </div>
+                                        <div class="panel-body">
+                                            <div id="edittable_rui"></div>
+                                        </div>
+                                    </div>
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            <h3 class="panel-title" data-localize="info">
+                                                Show of Display UI(values of result)</h3>
+                                        </div>
+                                        <div class="panel-body">
+                                            <div id="edittable_rvui"></div>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-success pull-right" id="btn_rui"
+                                        data-localize="submit">Submit</button>
+                                </form>
+                            </div>
+                            <div class="tab-pane" id="tab_new_wui">
+                                <form class="bs-example bs-example-form" role="form">
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="description">Description:</span>
+                                        <span type="text" class="form-control" data-localize="wui_desc">
+                                            Run UI,set paramete to run app</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="chain">Chain:</span>
+                                        <input type="number" min="1" class="form-control" id="wui_chain" value="1">
+                                        <span class="input-group-addon label-success">*</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="alias">Alias:</span>
+                                        <input type="text" class="form-control" name="alias">
+                                        <span class="input-group-addon label-success">*</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="index">Index:</span>
+                                        <input type="number" class="form-control" name="index" value="0">
+                                        <span class="input-group-addon label-success">*</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="title">Title:</span>
+                                        <input type="text" class="form-control" name="title">
+                                        <span class="input-group-addon label-success">*</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="prefix_param">Prefix
+                                            parameter:</span>
+                                        <input type="text" class="form-control" name="prefix" placeholder="01">
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="value_type">Value Type:</span>
+                                        <select class="form-control" name="value_type" id="wui_vt">
+                                            <option>json</option>
+                                            <option>bytes</option>
+                                            <option>string</option>
+                                        </select>
+                                        <span class="input-group-addon label-success">*</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="cost">Cost</span>
+                                        <span class="form-control">1</span>
+                                        <span class="input-group-addon">t9</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="energy">Energy</span>
+                                        <input type="number" class="form-control" name="energy" value="5">
+                                        <span class="input-group-addon" id="wui_energy"></span>
+                                    </div>
+                                    <div class="input-group">
+                                        <span class="input-group-addon" data-localize="cost_of_run">Cost(UI Run)</span>
+                                        <input type="text" class="form-control" name="cost_of_run" value="0 t9">
+                                    </div>
+                                    <div class="panel panel-default">
+                                        <div class="panel-heading">
+                                            <h3 class="panel-title" data-localize="info">
+                                                Parameter of Do App</h3>
+                                        </div>
+                                        <div class="panel-body">
+                                            <div id="edittable_wui"></div>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-success pull-right" id="btn_wui"
+                                        data-localize="submit">Submit</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -119,22 +337,107 @@
         </div>
     </div>
 
-
-    <!-- jQuery (Bootstrap 的 JavaScript 插件需要引入 jQuery) -->
     <script src="js/jquery-3.3.1.min.js"></script>
-    <!-- 包括所有已编译的插件 -->
+    <script type="text/javascript" src="js/jquery.edittable.min.js"></script>
+    <link rel="stylesheet" href="css/jquery.edittable.min.css">
     <script src="js/bootstrap.min.js"></script>
     <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
     <script src="js/jquery.localize.min.js"></script>
     <script src="js/load.js?v=1"></script>
+    <script src="js/encode.js?v=6"></script>
 
     <script type="text/javascript">
         $("#base_energy").html(gCostBase);
+        $("#alias_energy").html(gCostBase);
+        $("#rui_energy").html(gCostBase);
+        $("#wui_energy").html(gCostBase);
         $("#search_chain").val(gChainID);
         $("input[name='chain']").val(gChainID);
+        var tb1 = $('#edittable_rui').editTable({
+            data: [
+                ["item1", "", "user", "user address", false],
+                ["item2", "value", "string", "key of database", false]
+            ],
+            headerCols: ['Key(*)', 'Default Value', 'Value Type(*)', 'Description', 'Readonly'],
+            field_templates: {
+                'checkbox': {
+                    html: '<input type="checkbox"/>',
+                    getValue: function (input) {
+                        return $(input).is(':checked');
+                    },
+                    setValue: function (input, value) {
+                        if (value) {
+                            return $(input).attr('checked', true);
+                        }
+                        return $(input).removeAttr('checked');
+                    }
+                },
+                'textarea': {
+                    html: '<textarea/>',
+                    getValue: function (input) {
+                        return $(input).val();
+                    },
+                    setValue: function (input, value) {
+                        return $(input).text(value);
+                    }
+                },
+                'select': {
+                    html: '<select><option value="str2hex">string</option>' +
+                        '<option value="">hex</option>' +
+                        '<option value="int642hex">int64</option>' +
+                        '<option value="int322hex">int32</option>' +
+                        '<option value="user">user</option></select>',
+                    getValue: function (input) {
+                        return $(input).val();
+                    },
+                    setValue: function (input, value) {
+                        var select = $(input);
+                        select.find('option').filter(function () {
+                            return $(this).val() == value;
+                        }).attr('selected', true);
+                        return select;
+                    }
+                }
+            },
+            row_template: ['text', 'text', 'select', 'textarea', 'checkbox'],
+            first_row: false,
+        });
+        var tb2 = $('#edittable_rvui').editTable({
+            data: [
+                ["key", ".", "string"]
+            ],
+            first_row: false,
+            headerCols: ['Display Key*', 'Value Key*', 'Value Type*'],
+            field_templates: {
+                'select': {
+                    html: '<select><option value="">default</option>' +
+                        '<option>bytes2hex</option>' +
+                        '<option>bytes2str</option>' +
+                        '<option>array2str</option>' +
+                        '<option>hex2int</option>' +
+                        '<option>time2str</option>' +
+                        '<option>json2str</option>' +
+                        '<option>uristr</option>' +
+                        '</select>',
+                    getValue: function (input) {
+                        return $(input).val();
+                    },
+                    setValue: function (input, value) {
+                        var select = $(input);
+                        select.find('option').filter(function () {
+                            return $(this).val() == value;
+                        }).attr('selected', true);
+                        return select;
+                    }
+                }
+            },
+            row_template: ['text', 'text', 'select'],
+        });
+        var tb3;
+
         $('#submit').on('click', function () {
             var data = $('form').serializeJSON()
-            data.energy = parseInt(data.energy*getBaseByName(gCostBase))
+            data.energy = parseInt(data.energy * getBaseByName(gCostBase))
             if (data.is_private == "on") {
                 data.is_private = true
             }
@@ -159,14 +462,10 @@
                     console.log(data);
                 },
                 error: function (XMLHttpRequest, textStatus, errorThrown) {
-                    // 状态码
                     console.log(XMLHttpRequest.status);
-                    // 状态
                     console.log(XMLHttpRequest.readyState);
                     console.log(XMLHttpRequest.responseText);
-                    // 错误信息   
                     console.log(textStatus);
-                    //alert(XMLHttpRequest.responseText)
                     $("#result").html("<span class=\"label label-danger\">error code:" + XMLHttpRequest.status +
                         ". msg: " + XMLHttpRequest.responseText + "</span>");
                 }
@@ -211,6 +510,209 @@
             var key = $("#search_key").val()
             getAppInfo(chain, key)
         });
+
+        $('#wui_vt').change(function () {
+            var vt = $(this).children('option:selected').val();
+            $('#edittable_wui').html("")
+            if (vt == "json") {
+                tb3 = $('#edittable_wui').editTable({
+                    first_row: false,
+                    headerCols: ['Display Key*', 'Name*', 'Default Value', 'Value Type*'],
+                    field_templates: {
+                        'select': {
+                            html: '<select><option value="">string</option>' +
+                                '<option value="str2int">number</option>' +
+                                '<option value="str2json">json</option>' +
+                                '<option>bool</option>' +
+                                '</select>',
+                            getValue: function (input) {
+                                return $(input).val();
+                            },
+                            setValue: function (input, value) {
+                                var select = $(input);
+                                select.find('option').filter(function () {
+                                    return $(this).val() == value;
+                                }).attr('selected', true);
+                                return select;
+                            }
+                        }
+                    },
+                    row_template: ['text', 'text', 'text', 'select'],
+                });
+            } else if (vt == "bytes") {
+                tb3 = $('#edittable_wui').editTable({
+                    first_row: false,
+                    headerCols: ['Display Key*', 'Default Value', 'Value Type*'],
+                    field_templates: {
+                        'select': {
+                            html: '<select><option value="str2hex">string</option>' +
+                                '<option value="">hex</option>' +
+                                '<option value="int642hex">int64</option>' +
+                                '<option value="int322hex">int32</option>' +
+                                '<option value="int162hex">int16</option>' +
+                                '</select>',
+                            getValue: function (input) {
+                                return $(input).val();
+                            },
+                            setValue: function (input, value) {
+                                var select = $(input);
+                                select.find('option').filter(function () {
+                                    return $(this).val() == value;
+                                }).attr('selected', true);
+                                return select;
+                            }
+                        }
+                    },
+                    row_template: ['text', 'text', 'select'],
+                });
+            }
+        })
+
+        $('#btn_alias').on('click', function () {
+            var chain = $("#alias_chain").val();
+            var data = $(this).parent().serializeJSON();
+            data.app = dataEncode(data.app, "hex2bytes");
+            var runParam = {};
+            base = getBaseByName(gCostBase)
+            runParam.cost = 1000000000;
+            runParam.energy = parseInt(data.energy * base);
+            delete data.energy;
+            runParam.app_name = "c514cb497286b0ff206c6fae74634f6f546f43fab823fd87bf6fcb1616ce9665";
+            runParam.param = "00";
+            runParam.param_type = "json";
+            runParam.json_param = data;
+            console.log(runParam)
+            run_app(chain, JSON.stringify(runParam))
+        });
+
+        function run_app(chain, data) {
+            $.ajax({
+                type: "POST",
+                url: "/api/v1/" + chain + "/transaction/app/run",
+                data: data,
+                dataType: "json",
+                contentType: "application/json",
+                success: function (data) {
+                    console.log(data);
+                    $("#result").html("<span class=\"label label-success\">transaction:<a href=\"transaction.html?key="
+                        + data.key + "\">" + data.key + "</a></span>");
+                },
+                error: function (XMLHttpRequest, textStatus, errorThrown) {
+                    console.log(XMLHttpRequest.status);
+                    console.log(XMLHttpRequest.readyState);
+                    console.log(XMLHttpRequest.responseText);
+                    console.log(textStatus);
+                    $("#result").html("<span class=\"label label-danger\">error code:" + XMLHttpRequest.status +
+                        ". msg: " + XMLHttpRequest.responseText + "</span>");
+                }
+            });
+        }
+
+        $('#btn_rui').on('click', function () {
+            console.log("btn_rui.click")
+            var chain = $("#rui_chain").val()
+            var data = $(this).parent().serializeJSON()
+            // console.log(data)
+            var setUI = {};
+            setUI["index"] = parseInt(data.index);
+            setUI["alias"] = data.alias;
+            var uiInfo = {};
+            var ui = {};
+            uiInfo["is_view_ui"] = true;
+            uiInfo["title"] = data.title;
+            uiInfo["value_type"] = data.value_type;
+            uiInfo["struct_name"] = data.struct_name;
+            if (data.data_type == "log") {
+                uiInfo["is_log"] = true;
+            }
+            ui["info"] = uiInfo
+            ui["items"] = [];
+            ui["view_items"] = [];
+            $.each(tb1.getData(), function (i, line) {
+                var item = {};
+                item["key"] = line[0];
+                if (line[1] != "")
+                    item["value"] = line[1];
+                if (line[2] != "")
+                    item["value_type"] = line[2];
+                if (line[3] != "")
+                    item["description"] = line[3];
+                if (line[4] == true)
+                    item["readonly"] = line[4];
+                ui["items"].push(item)
+            });
+            $.each(tb2.getData(), function (i, line) {
+                var item = {};
+                item["key"] = line[0];
+                item["vk"] = line[1];
+                if (line[2] != "")
+                    item["value_type"] = line[2];
+                ui["view_items"].push(item)
+            });
+            setUI["ui"] = ui;
+            var runParam = {};
+            base = getBaseByName(gCostBase)
+            runParam.cost = 1000000000;
+            runParam.energy = parseInt(data.energy * base);
+            runParam.app_name = "c514cb497286b0ff206c6fae74634f6f546f43fab823fd87bf6fcb1616ce9665";
+            runParam.param = "01";
+            runParam.param_type = "json";
+            runParam.json_param = setUI;
+            console.log("set read ui:", runParam)
+            run_app(chain, JSON.stringify(runParam))
+        });
+
+        $('#btn_wui').on('click', function () {
+            console.log("btn_wui.click")
+            var chain = $("#wui_chain").val()
+            var data = $(this).parent().serializeJSON()
+            base = getBaseByName(gCostBase)
+            var setUI = {};
+            setUI["index"] = parseInt(data.index);
+            setUI["alias"] = data.alias;
+            var uiInfo = {};
+            var ui = {};
+            uiInfo["title"] = data.title;
+            uiInfo["value_type"] = data.value_type;
+            uiInfo["prefix"] = data.prefix;
+            ui["info"] = uiInfo
+            ui["items"] = [];
+            uiInfo["cost"] = data.cost_of_run;
+            if (uiInfo["value_type"] == "json") {
+                $.each(tb3.getData(), function (i, line) {
+                    var item = {};
+                    item["key"] = line[0];
+                    if (line[1] != "")
+                        item["name"] = line[1];
+                    if (line[2] != "")
+                        item["value"] = line[2];
+                    if (line[3] != "")
+                        item["value_type"] = line[3];
+                    ui["items"].push(item)
+                });
+            } else if (uiInfo["value_type"] == "bytes") {
+                $.each(tb3.getData(), function (i, line) {
+                    var item = {};
+                    item["key"] = line[0];
+                    if (line[1] != "")
+                        item["value"] = line[1];
+                    if (line[2] != "")
+                        item["value_type"] = line[2];
+                    ui["items"].push(item)
+                });
+            }
+            setUI["ui"] = ui;
+            var runParam = {};
+            runParam.cost = 1000000000;
+            runParam.energy = parseInt(data.energy * base);
+            runParam.app_name = "c514cb497286b0ff206c6fae74634f6f546f43fab823fd87bf6fcb1616ce9665";
+            runParam.param = "01";
+            runParam.param_type = "json";
+            runParam.json_param = setUI;
+            console.log("set write ui:", runParam)
+            run_app(chain, JSON.stringify(runParam))
+        });
+        $('#wui_vt').change();
     </script>
 </body>
 
