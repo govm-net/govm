@@ -11,9 +11,9 @@ function dynamic_load(chain, ui_id, rst) {
         if (i == 0) {
             li.attr("class", "active")
         }
-        if (item.info.is_view_ui == true) {
-            li.css('background-color', '#00FFCC')
-        }
+        // if (item.info.is_view_ui == true) {
+        //     li.css('background-color', '#00FFCC')
+        // }
         nat_list.append(li)
     });
     uis.append(nat_list)
@@ -31,10 +31,10 @@ function dynamic_load(chain, ui_id, rst) {
         )
         if (item.info.is_view_ui == true) {
             desc.append($('<span class="form-control">').append(
-                'View UI,Only read and show data.'))
+                '(Free)View UI,only read and show data.'))
         } else {
             desc.append($('<span class="form-control">').append(
-                'Update UI,run app'))
+                'Run UI,set paramete to run app'))
         }
         form.append(desc)
         if (item.info.is_view_ui != true) {
@@ -44,7 +44,19 @@ function dynamic_load(chain, ui_id, rst) {
                 $('<input type="number" class="form-control" name="energy" value="1">')
             ).append(
                 $('<span class="input-group-addon">t9</span>')
-            ))
+            ));
+            form.append($('<div class="input-group">').append(
+                $('<span class="input-group-addon">Cost</span>')
+            ).append(
+                $('<input type="text" class="form-control" name="cost" value="' + item.info.cost + '">')
+            ));
+            if (item.info.value_type == "string") {
+                form.append($('<div class="input-group">').append(
+                    $('<span class="input-group-addon">Paramete</span>')
+                ).append(
+                    $('<input type="text" class="form-control" name="paramete">')
+                ));
+            }
         }
 
         $.each(item.items, function (j, sub_it) {
@@ -52,7 +64,7 @@ function dynamic_load(chain, ui_id, rst) {
                 $('<span class="input-group-addon">').append(sub_it.key)
             )
             var vit = $('<input type="text" class="form-control">')
-            if (item.info.is_view_ui == true)
+            if (item.info.is_view_ui == true || sub_it.name === undefined)
                 vit.attr("name", "name" + j);
             else
                 vit.attr("name", sub_it.name);
@@ -80,49 +92,80 @@ function dynamic_load(chain, ui_id, rst) {
                 sit.attr("style", "display: none")
             }
             sit.append(vit)
-            // if (sub_it.value_type !== undefined) {
-            //     sit.append($('<span class="input-group-addon"">').append(sub_it.value_type))
-            // } else {
-            //     sit.append($('<span class="input-group-addon"">').append("string"))
-            // }
             form.append(sit)
         });
         form.append('<br>')
-        var btn = $('<button type="button" class="btn btn-success pull-right">Do</button>')
-        form.append(btn)
+        var btns = $('<div class="pull-right">')
+        var next = $('<button type="button" class="btn btn-success">').append("Next")
+        if (item.info.is_view_ui == true) {
+            btns.append(next)
+        }
+        var btn = $('<button type="button" class="btn btn-success">')
+        if (item.info.is_view_ui == true) {
+            btn.html("Search")
+        } else {
+            btn.html("Run")
+        }
+        btns.append(btn)
+        form.append(btns)
         form.append($('<br>'))
         var rstEle = $('<div>')
+        var preKey = ""
         form.append(rstEle)
         btn.on('click', function () {
             console.log("click item:", i)
             if (item.info.is_view_ui == true) {
-                var data = $(this).parent("form").serializeJSON();
+                var data = $(this).parent().parent("form").serializeJSON();
                 var key = "";
                 $.each(item.items, function (j, sub_it) {
                     var type = sub_it.value_type;
-                    // if (type === undefined || type == "") {
-                    //     type = "str2hex"
-                    // }
                     key += dataEncode(data["name" + j], type)
                 });
-                rstEle.html($('<h4>').append("Read Result:"));
+                rstEle.html($('<h4>').append("Read Result,key:" + key));
+                preKey = key;
                 readFromDB(chain, rst.app, item.info.struct_name, (!item.info.is_log).toString(),
                     key, item.info.value_type, rstEle, item.view_items)
             } else {
                 var data = $(this).parent("form").serializeJSON()
-                var cost = 0;
-                var prifix = "";
-                if (item.info.cost !== undefined) {
-                    cost = dataEncode(item.info.cost, "cost2int")
-                }
-                if (item.info.prefix_param !== undefined) {
-                    prifix = item.info.prefix_param
-                }
-                rstEle.html($('<h4>').append("Run Result:"));
+                var cost = dataEncode(data.cost, "cost2int");
                 var energy = parseInt(1000000000 * data.energy);
+                var prifix = "";
                 delete data.energy;
-                runApp(chain, rst.app, cost, prifix, data, rstEle, energy)
+                delete data.cost;
+
+                if (item.info.prefix !== undefined) {
+                    prifix = item.info.prefix
+                }
+                if (item.info.value_type == "bytes") {
+                    var key = "";
+                    $.each(item.items, function (j, sub_it) {
+                        key += dataEncode(data["name" + j], sub_it.value_type);
+                    });
+                    prifix += key;
+                    data = null;
+                } else if (item.info.value_type == "string") {
+                    prifix += dataEncode(data["paramete"], "str2hex");
+                    data = null;
+                }
+
+                rstEle.html($('<h4>').append("Run Result:"));
+                runApp(chain, rst.app, cost, prifix, item.info.value_type, data, rstEle, energy)
             }
+        })
+        next.on('click', function () {
+            getNextKey(chain, rst.app, item.info.struct_name, (!item.info.is_log).toString(),
+            preKey, function (next_key) {
+                    if (next_key == "") {
+                        rstEle.html($('<h4>').append("Read Result:"));
+                        rstEle.append("not found next key,Previous Key:" + preKey)
+                        preKey = "";
+                        return
+                    }
+                    rstEle.html($('<h4>').append("Read Result,Key:" + next_key));
+                    preKey = next_key;
+                    readFromDB(chain, rst.app, item.info.struct_name, (!item.info.is_log).toString(),
+                        next_key, item.info.value_type, rstEle, item.view_items)
+                })
         })
         tab_content.append(it.append(form))
     });
@@ -130,8 +173,8 @@ function dynamic_load(chain, ui_id, rst) {
     // $("#" + ui_id).append(uis)
 }
 
-function runApp(chain, app, cost, prefix, data, element, energy) {
-    var body = { "cost": cost, "energy": energy, "app_name": app, "param": prefix, "param_type": "json", "json_param": data };
+function runApp(chain, app, cost, prefix, typ, data, element, energy) {
+    var body = { "cost": cost, "energy": energy, "app_name": app, "param": prefix, "param_type": typ, "json_param": data };
     $.ajax({
         type: "POST",
         url: "/api/v1/" + chain + "/transaction/app/run",
@@ -154,11 +197,31 @@ function runApp(chain, app, cost, prefix, data, element, energy) {
     });
 }
 
+function getNextKey(chain, app, struct, is_db, pre_key, cb) {
+    $.ajax({
+        type: "GET",
+        url: "/api/v1/" + chain + "/data/visit",
+        data: { "app_name": app, "struct_name": struct, "is_db_data": is_db, "pre_key": pre_key },
+        dataType: "json",
+        success: function (rst) {
+            if (rst.key === undefined || rst.key == "") {
+                cb("")
+                return
+            }
+            cb(rst.key)
+        },
+        error: function (XMLHttpRequest, textStatus, errorThrown) {
+            console.log(XMLHttpRequest.responseText);
+            console.log(textStatus);
+            cb("")
+        }
+    });
+}
+
 function readFromDB(chain, app, struct, is_db, key, valueType, element, views) {
     $.ajax({
         type: "GET",
         url: "/api/v1/" + chain + "/data",
-        // url: "test_data/data.json?v=1",
         data: { "app_name": app, "struct_name": struct, "is_db_data": is_db, "key": key },
         dataType: "json",
         success: function (rst) {
@@ -168,7 +231,6 @@ function readFromDB(chain, app, struct, is_db, key, valueType, element, views) {
             }
             rst.value = dataEncode(rst.value, valueType)
             rst.life = dataEncode(rst.life, "time2str")
-            // console.log(JSON.stringify(rst, null, 2))
             element.append(
                 $('<div class="input-group">').append(
                     $('<span class="input-group-addon">').append("Data Life:")

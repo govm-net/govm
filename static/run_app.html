@@ -8,7 +8,6 @@
     <link href="css/bootstrap.min.css" rel="stylesheet">
     <link rel="icon" type="image/x-ico" href="logo.ico" />
     <link rel="shortcut icon" href="logo.ico">
-
 </head>
 
 <body ng-app="">
@@ -93,7 +92,6 @@
                             data-localize="search">Search</button>
                         <br>
                     </div>
-
                 </div>
                 <div class="panel panel-default">
                     <div class="panel-heading">
@@ -126,7 +124,6 @@
                         <div id="alias_app">
                         </div>
                     </div>
-
                 </div>
             </div>
             <div>
@@ -134,7 +131,6 @@
                 </h3>
             </div>
         </div>
-
     </div>
 
 
@@ -145,8 +141,8 @@
     <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
     <script src="js/jquery.localize.min.js"></script>
     <script src="js/load.js?v=1"></script>
-    <script src="js/dync_ui.js?v=10"></script>
-    <script src="js/encode.js?v=7"></script>
+    <script src="js/dync_ui.js?v=1"></script>
+    <script src="js/encode.js?v=1"></script>
 
     <script type="text/javascript">
         $("#base_cost").html(gCostBase);
@@ -221,6 +217,7 @@
                     $('#creator').html(dataEncode(rst.creator, "bytes2hex"))
                     $('#time').html(dataEncode(rst.time, "time2str"))
                     rst["list"] = [];
+                    $('#alias_app').html("downloading View_UI and Run_UI")
                     downloadUI(chain, rst.alias, 0, rst)
                 },
                 error: function (XMLHttpRequest, textStatus, errorThrown) {
