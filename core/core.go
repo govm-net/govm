@@ -622,8 +622,19 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 		assert(decT == blockInterval)
 	}
 	hp := getHashPower(key)
+	stream, _ := p.pDbMining.Get(p.Encode(0, block.Index))
+	var weight uint64
+	if len(stream) > 0 {
+		mi := Miner{}
+		p.Decode(0, stream, &mi)
+		for i := 0; i < minerNum; i++ {
+			if mi.Miner[i] == p.Producer {
+				weight = mi.Cost[i] / maxGuerdon / 5
+			}
+		}
+	}
 	assert(hp > 2)
-	assert(hp >= hpLimit*8/10000)
+	assert(hp+weight >= hpLimit*8/10000)
 	hp = hp + hpLimit - hpLimit/1000
 	p.pDbStat.SetInt([]byte{StatHashPower}, hp, maxDbLife)
 

@@ -5,6 +5,7 @@ import (
 	core "github.com/lengzhao/govm/core"
 	"github.com/lengzhao/govm/event"
 	"github.com/lengzhao/govm/messages"
+	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/libp2p"
 	"github.com/lengzhao/libp2p/plugins"
 	"log"
@@ -151,6 +152,48 @@ func (p *InternalPlugin) event(m event.Message) error {
 			return err
 		}
 		return session.Send(plugins.Ping{IsServer: session.GetSelfAddr().IsServer()})
+	case *messages.RawData:
+		if msg.IsTrans {
+			err := processTransaction(msg.Chain, msg.Key, msg.Data)
+			if err != nil {
+				return err
+			}
+			if !msg.Broadcast {
+				return nil
+			}
+			trans := core.DecodeTrans(msg.Data)
+			m := &messages.TransactionInfo{}
+			m.Chain = msg.Chain
+			m.Key = msg.Key
+			m.Time = trans.Time
+			m.User = trans.User[:]
+			p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: m})
+			return nil
+		}
+		err := processBlock(msg.Chain, msg.Key, msg.Data)
+		if err != nil {
+			return err
+		}
+		if msg.LockNum > 0 {
+			ldb.LSet(msg.Chain, ldbBlockLocked, msg.Key, runtime.Encode(msg.LockNum))
+		}
+		rel := core.ReadBlockReliability(msg.Chain, msg.Key)
+		if rel.Index == 0 || rel.Key.Empty() {
+			return nil
+		}
+		setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
+
+		if !msg.Broadcast {
+			return nil
+		}
+		info := messages.BlockInfo{}
+		info.Chain = msg.Chain
+		info.Index = rel.Index
+		info.Key = rel.Key[:]
+		info.HashPower = rel.HashPower
+		info.PreKey = rel.Previous[:]
+		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
+
 	case *messages.OSExit:
 		log.Println("exit by user:", msg.Msg)
 		p.network.Close()

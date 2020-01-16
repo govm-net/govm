@@ -195,6 +195,13 @@ var routes = Routes{
 	},
 
 	Route{
+		"DataPost",
+		strings.ToUpper("Post"),
+		"/api/v1/{chain}/data",
+		DataPost,
+	},
+
+	Route{
 		"EventPost",
 		strings.ToUpper("Post"),
 		"/api/v1/{chain}/event",

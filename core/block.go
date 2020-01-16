@@ -80,16 +80,29 @@ func Exit() {
 func NewBlock(chain uint64, producer Address) *StBlock {
 	var hashPowerLimit uint64
 	var blockInterval uint64
+	var weight uint64
 	var pStat BaseInfo
+	var miner Miner
 	out := new(StBlock)
 	getDataFormDB(chain, dbStat{}, []byte{StatBaseInfo}, &pStat)
 	getDataFormDB(chain, dbStat{}, []byte{StatHashPower}, &hashPowerLimit)
 	getDataFormDB(chain, dbStat{}, []byte{StatBlockInterval}, &blockInterval)
+	getDataFormDB(chain, dbMining{}, runtime.Encode(pStat.ID+1), &miner)
 
 	hashPowerLimit = hashPowerLimit*8/10000 + 1
-	if hashPowerLimit < 10 {
+	if pStat.ID > 1 {
+		for i := 0; i < minerNum; i++ {
+			if miner.Miner[i] == producer {
+				weight = miner.Cost[i] / maxGuerdon / 5
+			}
+		}
+	}
+	if hashPowerLimit > weight+10 {
+		hashPowerLimit -= weight
+	} else {
 		hashPowerLimit = 10
 	}
+
 	out.HashpowerLimit = hashPowerLimit
 
 	if pStat.ID == 1 && chain > 1 {
@@ -369,6 +382,12 @@ func (r *TReliability) Recalculation(chain uint64) {
 		}
 		if miner.Miner[i] == r.Producer {
 			hp = hp + hp*uint64(minerNum-i+5)/50
+			weight := miner.Cost[i] / maxGuerdon / 5
+			if weight < 100 {
+				hp += weight
+			} else {
+				hp += 100
+			}
 			r.Miner = true
 			break
 		}

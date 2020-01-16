@@ -1029,6 +1029,7 @@ func DataGet(w http.ResponseWriter, r *http.Request) {
 	info.AppName = r.Form.Get("app_name")
 	info.StructName = r.Form.Get("struct_name")
 	info.Key = r.Form.Get("key")
+	raw := r.Form.Get("raw")
 	if r.Form.Get("is_db_data") == "true" {
 		info.IsDBData = true
 	}
@@ -1047,6 +1048,11 @@ func DataGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	val, life := runtime.GetValue(chain, info.IsDBData, info.AppName, info.StructName, key)
+	if raw == "true" {
+		w.WriteHeader(http.StatusOK)
+		w.Write(val)
+		return
+	}
 	info.Value = hex.EncodeToString(val)
 	info.Life = life
 
@@ -1054,6 +1060,60 @@ func DataGet(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	enc := json.NewEncoder(w)
 	enc.Encode(info)
+}
+
+// DataPost post data
+func DataPost(w http.ResponseWriter, r *http.Request) {
+	info := new(messages.RawData)
+	vars := mux.Vars(r)
+	chainStr := vars["chain"]
+	r.ParseForm()
+	keyStr := r.Form.Get("key")
+	isTrans := r.Form.Get("is_trans")
+	broadcast := r.Form.Get("broadcast")
+	lockNum := r.Form.Get("lockNum")
+
+	chain, err := strconv.ParseUint(chainStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("error chain"))
+		return
+	}
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "fail to read body of request,", err, chainStr)
+		return
+	}
+	key, err := hex.DecodeString(keyStr)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "fail to Decode preKey,", keyStr, err)
+		return
+	}
+	if lockNum != "" {
+		num, err := strconv.ParseUint(lockNum, 10, 64)
+		if err == nil {
+			info.LockNum = num
+		}
+	}
+	info.Chain = chain
+	info.Key = key
+	info.Data = data
+	if isTrans == "true" {
+		info.IsTrans = true
+	}
+	if broadcast == "true" {
+		info.Broadcast = true
+	}
+	err = event.Send(info)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "error:%s", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 // DataNextKey the next key of data
