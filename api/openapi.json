@@ -1,0 +1,1235 @@
+{
+    "openapi": "3.0.2",
+    "info": {
+        "title": "GOVM API",
+        "version": "1.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:9090/api/v1"
+        }
+    ],
+    "paths": {
+        "/{chain}/account": {
+            "get": {
+                "description": "get balance of wallet address in chain",
+                "parameters": [
+                    {
+                        "name": "chain",
+                        "in": "path",
+                        "description": "chain id",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "uint64"
+                        },
+                        "example": 1
+                    },
+                    {
+                        "name": "key",
+                        "in": "query",
+                        "description": "address of account",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "hex"
+                        },
+                        "example": "01ccaf415a3a6dc8964bf935a1f40e55654a4243ae99c709"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "chain": {
+                                            "type": "number",
+                                            "format": "uint64"
+                                        },
+                                        "address": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "example": "01ccaf415a3a6dc8964bf935a1f40e55654a4243ae99c709"
+                                        },
+                                        "cost": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "example": "1000000000",
+                                            "nullable": true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "string": {
+                                "example": "error chain"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{chain}/transaction/transfer": {
+            "post": {
+                "description": "transfer to peer",
+                "parameters": [
+                    {
+                        "name": "chain",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "uint64"
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "peer": {
+                                        "type": "string",
+                                        "format": "hex",
+                                        "example": "01e230696841fa7be9e1cfca4020b72280cb62788a996ef9"
+                                    },
+                                    "cost": {
+                                        "type": "number",
+                                        "format": "uint64",
+                                        "description": "transfer amount ",
+                                        "example": 1000000000
+                                    },
+                                    "energy": {
+                                        "type": "number",
+                                        "format": "uint64",
+                                        "description": "tip to miners",
+                                        "default": 10000000,
+                                        "nullable": true,
+                                        "example": 1000000000
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "peer": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "peer address",
+                                            "example": "01e230696841fa7be9e1cfca4020b72280cb62788a996ef9"
+                                        },
+                                        "cost": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "transfer amount ",
+                                            "example": 1000000000
+                                        },
+                                        "energy": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "tip to miners",
+                                            "example": 1000000000
+                                        },
+                                        "trans_key": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "transaction key",
+                                            "example": "4341c77d690db40c593a2f3d4ed062b4a6f7fec3ed8d846bdb68e0a61c6d6628"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "string": {
+                                "example": "not enough cost"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{chain}/transaction/move": {
+            "post": {
+                "description": "transfer money to neighboring chains(same wallet address,different chain)",
+                "parameters": [
+                    {
+                        "name": "chain",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "uint64"
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "dst_chain": {
+                                        "type": "number",
+                                        "format": "uint64",
+                                        "description": "destination chain",
+                                        "example": 2
+                                    },
+                                    "cost": {
+                                        "type": "number",
+                                        "format": "uint64",
+                                        "description": "transfer amount",
+                                        "example": 1000000000
+                                    },
+                                    "energy": {
+                                        "type": "number",
+                                        "format": "uint64",
+                                        "description": "tip to miners",
+                                        "default": 10000000,
+                                        "nullable": true,
+                                        "example": 1000000000
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "dst_chain": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "destination chain",
+                                            "example": 2
+                                        },
+                                        "cost": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "transfer amount ",
+                                            "example": 1000000000
+                                        },
+                                        "energy": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "tip to miners",
+                                            "example": 1000000000
+                                        },
+                                        "trans_key": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "transaction key",
+                                            "example": "4341c77d690db40c593a2f3d4ed062b4a6f7fec3ed8d846bdb68e0a61c6d6628"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "string": {
+                                "example": "not enough cost"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{chain}/transaction/miner": {
+            "post": {
+                "description": "miners registered as designated blocks",
+                "parameters": [
+                    {
+                        "name": "chain",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "uint64"
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "taget_chain": {
+                                        "type": "number",
+                                        "format": "uint64",
+                                        "description": "miner of chain,0 mean equal trans chain,or neighboring chains",
+                                        "nullable": true,
+                                        "default": 0,
+                                        "example": 0
+                                    },
+                                    "index": {
+                                        "type": "number",
+                                        "format": "uint64",
+                                        "description": "block index of miner, range:(now.BlockID + 20,now.BlockID + 100000)",
+                                        "example": 1000000
+                                    },
+                                    "cost": {
+                                        "type": "number",
+                                        "format": "uint64",
+                                        "description": "registration fee, must > 3*guerdon",
+                                        "example": 1000000000
+                                    },
+                                    "energy": {
+                                        "type": "number",
+                                        "format": "uint64",
+                                        "description": "tip to miners",
+                                        "default": 10000000,
+                                        "nullable": true,
+                                        "example": 1000000000
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "taget_chain": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "miner of chain",
+                                            "nullable": true,
+                                            "default": 0,
+                                            "example": 0
+                                        },
+                                        "index": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "block index of miner",
+                                            "example": 1000000
+                                        },
+                                        "cost": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "registration fee",
+                                            "example": 1000000000
+                                        },
+                                        "energy": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "tip to miners",
+                                            "default": 10000000,
+                                            "nullable": true,
+                                            "example": 1000000000
+                                        },
+                                        "trans_key": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "transaction key",
+                                            "example": "4341c77d690db40c593a2f3d4ed062b4a6f7fec3ed8d846bdb68e0a61c6d6628"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "string": {
+                                "example": "not enough cost"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{chain}/transaction/app/new": {
+            "post": {
+                "description": "create new app",
+                "parameters": [
+                    {
+                        "name": "chain",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "uint64"
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "cost": {
+                                        "type": "number",
+                                        "format": "uint64",
+                                        "description": "transfer amount",
+                                        "example": 1000000000
+                                    },
+                                    "energy": {
+                                        "type": "number",
+                                        "format": "uint64",
+                                        "description": "tip to miners",
+                                        "default": 10000000,
+                                        "nullable": true,
+                                        "example": 1000000000
+                                    },
+                                    "code_path": {
+                                        "type": "string",
+                                        "description": "code path(relative govm server)",
+                                        "example": "./tmp/app.go"
+                                    },
+                                    "is_private": {
+                                        "type": "boolean",
+                                        "description": "if private,APP Name=Hash(code,wallet_address),else =Hash(code)",
+                                        "nullable": true,
+                                        "example": false
+                                    },
+                                    "enable_run": {
+                                        "type": "boolean",
+                                        "description": "APP can be call",
+                                        "nullable": true,
+                                        "example": true
+                                    },
+                                    "enable_import": {
+                                        "type": "boolean",
+                                        "description": "APP can be import",
+                                        "nullable": true,
+                                        "example": true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "cost": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "transfer amount",
+                                            "example": 1000000000
+                                        },
+                                        "energy": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "tip to miners",
+                                            "default": 10000000,
+                                            "nullable": true,
+                                            "example": 1000000000
+                                        },
+                                        "code_path": {
+                                            "type": "string",
+                                            "description": "code path(relative govm server)",
+                                            "example": "./tmp/app.go"
+                                        },
+                                        "is_private": {
+                                            "type": "boolean",
+                                            "description": "if private,APP Name=Hash(code,wallet_address),else =Hash(code)",
+                                            "nullable": true,
+                                            "example": false
+                                        },
+                                        "enable_run": {
+                                            "type": "boolean",
+                                            "description": "APP can be call",
+                                            "nullable": true,
+                                            "example": true
+                                        },
+                                        "enable_import": {
+                                            "type": "boolean",
+                                            "description": "APP can be import",
+                                            "nullable": true,
+                                            "example": true
+                                        },
+                                        "app_name": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "app name",
+                                            "example": "c514cb497286b0ff206c6fae74634f6f546f43fab823fd87bf6fcb1616ce9665"
+                                        },
+                                        "trans_key": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "transaction key",
+                                            "example": "4341c77d690db40c593a2f3d4ed062b4a6f7fec3ed8d846bdb68e0a61c6d6628"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "string": {
+                                "example": "not enough cost"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{chain}/transaction/app/run": {
+            "post": {
+                "description": "run app",
+                "parameters": [
+                    {
+                        "name": "chain",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "uint64"
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "cost": {
+                                        "type": "number",
+                                        "format": "uint64",
+                                        "description": "transfer amount",
+                                        "example": 1000000000
+                                    },
+                                    "energy": {
+                                        "type": "number",
+                                        "format": "uint64",
+                                        "description": "tip to miners.if app will write database,need more energy",
+                                        "default": 10000000,
+                                        "nullable": true,
+                                        "example": 1000000000
+                                    },
+                                    "app_name": {
+                                        "type": "string",
+                                        "format": "hex",
+                                        "description": "app name",
+                                        "example": "c514cb497286b0ff206c6fae74634f6f546f43fab823fd87bf6fcb1616ce9665"
+                                    },
+                                    "param_type": {
+                                        "type": "string",
+                                        "description": "parameter type.",
+                                        "enum": [
+                                            "hex",
+                                            "json",
+                                            "string"
+                                        ],
+                                        "format": "enum",
+                                        "default": "hex",
+                                        "example": "hex"
+                                    },
+                                    "param": {
+                                        "type": "string",
+                                        "format": "hex",
+                                        "nullable": true,
+                                        "example": "0a01020304"
+                                    },
+                                    "json_param": {
+                                        "description": "used when param_type=json",
+                                        "type": "object",
+                                        "format": "json",
+                                        "nullable": true
+                                    }
+                                },
+                                "example": {
+                                    "cost": 0,
+                                    "app_name": "54dd0677abbf4fa7064cbdce0ef8e01a9196957215e9091e46dd7e3f05e80cb6",
+                                    "param_type": "json",
+                                    "json_param": {
+                                        "ops": 0,
+                                        "key": [
+                                            1,
+                                            2,
+                                            3,
+                                            4
+                                        ],
+                                        "value": 456789
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "chain": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "transfer amount",
+                                            "example": 1000000000
+                                        },
+                                        "trans_key": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "transaction key",
+                                            "example": "4341c77d690db40c593a2f3d4ed062b4a6f7fec3ed8d846bdb68e0a61c6d6628"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "string": {
+                                "example": "not enough cost"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{chain}/transaction/app/life": {
+            "post": {
+                "description": "update app life",
+                "parameters": [
+                    {
+                        "name": "chain",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "uint64"
+                        },
+                        "example": 1
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "life": {
+                                        "type": "number",
+                                        "format": "uint64",
+                                        "description": "app life(ms)",
+                                        "example": 31536000000
+                                    },
+                                    "energy": {
+                                        "type": "number",
+                                        "format": "uint64",
+                                        "description": "tip to miners",
+                                        "default": 10000000,
+                                        "nullable": true,
+                                        "example": 1000000000
+                                    },
+                                    "app_name": {
+                                        "type": "string",
+                                        "format": "hex",
+                                        "description": "app name",
+                                        "example": "c514cb497286b0ff206c6fae74634f6f546f43fab823fd87bf6fcb1616ce9665"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "life": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "app life(ms)",
+                                            "example": 31536000000
+                                        },
+                                        "energy": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "tip to miners",
+                                            "default": 10000000,
+                                            "nullable": true,
+                                            "example": 1000000000
+                                        },
+                                        "app_name": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "app name",
+                                            "example": "c514cb497286b0ff206c6fae74634f6f546f43fab823fd87bf6fcb1616ce9665"
+                                        },
+                                        "trans_key": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "transaction key",
+                                            "example": "4341c77d690db40c593a2f3d4ed062b4a6f7fec3ed8d846bdb68e0a61c6d6628"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "content": {
+                            "string": {
+                                "example": "error chain"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{chain}/transaction/app/info": {
+            "get": {
+                "description": "get app info",
+                "parameters": [
+                    {
+                        "name": "chain",
+                        "in": "path",
+                        "description": "chain id",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "uint64"
+                        },
+                        "example": 1
+                    },
+                    {
+                        "name": "key",
+                        "in": "query",
+                        "description": "app name",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "hex"
+                        },
+                        "example": "160a875e55a9feb7b4ec872b38adff476f8f853e775eb562af022e7d9779834b"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "account": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "account of app",
+                                            "example": "ff0a875e55a9feb7b4ec872b38adff476f8f853e775eb562"
+                                        },
+                                        "life": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "deadline of app",
+                                            "example": 1608925390000
+                                        },
+                                        "flag": {
+                                            "type": "number",
+                                            "format": "uint8",
+                                            "example": 7
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
+        "/{chain}/block/info": {
+            "get": {
+                "description": "get block info.if not query,will get the last block info",
+                "parameters": [
+                    {
+                        "name": "chain",
+                        "in": "path",
+                        "description": "chain id",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "uint64"
+                        },
+                        "example": 1
+                    },
+                    {
+                        "name": "key",
+                        "in": "query",
+                        "description": "block name,if null,use index",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "hex"
+                        },
+                        "example": "160a875e55a9feb7b4ec872b38adff476f8f853e775eb562af022e7d9779834b"
+                    },
+                    {
+                        "name": "index",
+                        "in": "query",
+                        "description": "block id, used when key null.",
+                        "required": false,
+                        "schema": {
+                            "type": "number",
+                            "format": "uint64"
+                        },
+                        "example": 157626
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "key": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "block key"
+                                        },
+                                        "previous": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "previous block"
+                                        },
+                                        "parent": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "lock block of parent chain",
+                                            "nullable": true
+                                        },
+                                        "left_child": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "lock block of left_child chain",
+                                            "nullable": true
+                                        },
+                                        "right_child": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "lock block of right_child chain",
+                                            "nullable": true
+                                        },
+                                        "trans_list_hash": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "hash of transaction list",
+                                            "nullable": true
+                                        },
+                                        "producer": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "miner",
+                                            "example":"01e230696841fa7be9e1cfca4020b72280cb62788a996ef9"
+                                        },
+                                        "Time": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "block time",
+                                            "example": 1578556260000
+                                        },
+                                        "index": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "block index(height)",
+                                            "example": 7
+                                        },
+                                        "trans_list":{
+                                            "type": "array",
+                                            "format": "hex",
+                                            "description": "transaction key list"
+                                        }
+                                    },
+                                    "example": {
+                                        "time": 1577699194000,
+                                        "previous": "000108e588952914ac3d43fa463bf15ac408170ea460980dc1cb34cda515d707",
+                                        "producer": "0179000e8ace6d19ccdfe5a2d97b96d066ba1c3746a14057",
+                                        "chain": 1,
+                                        "index": 7,
+                                        "nonce": 13260572831089793980,
+                                        "key": "00004ef625938130b14c41804fc1763946588b49f938aafbd97798e8a8670398"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
+        "/{chain}/data": {
+            "post": {
+                "description":"post transaction data or block data",
+                "parameters": [
+                    {
+                        "name": "chain",
+                        "in": "path",
+                        "description": "chain id",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "uint64"
+                        },
+                        "example": 1
+                    },
+                    {
+                        "name": "key",
+                        "in": "query",
+                        "description": "the key of transaction or block",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "hex"
+                        },
+                        "example": "4163b7cbd56fb0eff216c622d4a41853de720d6d1f9d3a56c54ad970e6e741a1"
+                    },
+                    {
+                        "name": "is_trans",
+                        "in": "query",
+                        "description": "true:transaction, false:block",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "example": true
+                    },
+                    {
+                        "name": "broadcast",
+                        "in": "query",
+                        "description": "broadcast the data to other node",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "example": true
+                    },
+                    {
+                        "name": "lock_num",
+                        "in": "query",
+                        "description": "when block,can set lock number",
+                        "required": false,
+                        "schema": {
+                            "type": "number",
+                            "format": "uint64"
+                        },
+                        "example": 100
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "get": {
+                "description": "read database data",
+                "parameters": [
+                    {
+                        "name": "chain",
+                        "in": "path",
+                        "description": "chain id",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "uint64"
+                        },
+                        "example": 1
+                    },
+                    {
+                        "name": "app_name",
+                        "in": "query",
+                        "description": "app name",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "hex"
+                        },
+                        "example": "c514cb497286b0ff206c6fae74634f6f546f43fab823fd87bf6fcb1616ce9665"
+                    },
+                    {
+                        "name": "struct_name",
+                        "in": "query",
+                        "description": "struct name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "tApp"
+                    },
+                    {
+                        "name": "key",
+                        "in": "query",
+                        "description": "key of data",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "hex"
+                        },
+                        "example": "01020304"
+                    },
+                    {
+                        "name": "is_db_data",
+                        "in": "query",
+                        "description": "db data or log data",
+                        "required": true,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "example": true
+                    },
+                    {
+                        "name": "raw",
+                        "in": "query",
+                        "description": "if true,will return raw data, or return json(include hex data and data deadline)",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "example": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "app_name": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "app name",
+                                            "example":"54dd0677abbf4fa7064cbdce0ef8e01a9196957215e9091e46dd7e3f05e80cb6"
+                                        },
+                                        "struct_name": {
+                                            "type": "string",
+                                            "description": "struct name",
+                                            "example":"tApp"
+                                        },
+                                        "is_db_data": {
+                                            "type": "boolean",
+                                            "description": "db data or log data",
+                                            "example":true
+                                        },
+                                        "key": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "data key",
+                                            "example":"00010003"
+                                        },
+                                        "value": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "data value",
+                                            "example":"00000000012e4737"
+                                        },
+                                        "life": {
+                                            "type": "number",
+                                            "format": "uint64",
+                                            "description": "block time",
+                                            "example": 1578556260000
+                                        }
+                                    },
+                                    "example": {
+                                        "app_name": "54dd0677abbf4fa7064cbdce0ef8e01a9196957215e9091e46dd7e3f05e80cb6",
+                                        "struct_name": "tApp",
+                                        "is_db_data": true,
+                                        "key": "00010003",
+                                        "value": "00000000012e4737",
+                                        "life": 1578414120000
+                                    }
+                                }
+                            },
+                            "raw":{
+                                "schema":{
+                                    "type": "object",
+                                    "format": "stream",
+                                    "description": "raw data"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                }
+            }
+        },
+        "/{chain}/data/visit": {
+            "get": {
+                "description": "get next key of database",
+                "parameters": [
+                    {
+                        "name": "chain",
+                        "in": "path",
+                        "description": "chain id",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "uint64"
+                        },
+                        "example": 1
+                    },
+                    {
+                        "name": "app_name",
+                        "in": "query",
+                        "description": "app name",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "hex"
+                        },
+                        "example": "c514cb497286b0ff206c6fae74634f6f546f43fab823fd87bf6fcb1616ce9665"
+                    },
+                    {
+                        "name": "struct_name",
+                        "in": "query",
+                        "description": "struct name",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "example": "tApp"
+                    },
+                    {
+                        "name": "pre_key",
+                        "in": "query",
+                        "description": "pre_key, if null,will return first key",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "hex"
+                        },
+                        "example": "01020304"
+                    },
+                    {
+                        "name": "is_db_data",
+                        "in": "query",
+                        "description": "db data or log data",
+                        "required": true,
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "example": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "app_name": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "app name",
+                                            "example":"54dd0677abbf4fa7064cbdce0ef8e01a9196957215e9091e46dd7e3f05e80cb6"
+                                        },
+                                        "struct_name": {
+                                            "type": "string",
+                                            "description": "struct name",
+                                            "example":"tApp"
+                                        },
+                                        "is_db_data": {
+                                            "type": "boolean",
+                                            "description": "db data or log data",
+                                            "nullable": true,
+                                            "example":true
+                                        },
+                                        "pre_key": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "data pre_key",
+                                            "nullable": true,
+                                            "example":"00010003"
+                                        },
+                                        "key": {
+                                            "type": "string",
+                                            "format": "hex",
+                                            "description": "next data key, if not next,not this item",
+                                            "nullable": true,
+                                            "example":"01020304"
+                                        }
+                                    },
+                                    "example": {
+                                        "app_name": "54dd0677abbf4fa7064cbdce0ef8e01a9196957215e9091e46dd7e3f05e80cb6",
+                                        "struct_name": "tApp",
+                                        "pre_key": "00010003",
+                                        "is_db_data": true,
+                                        "key": "01020304"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -95,7 +95,6 @@ func main() {
 	cp := crypto.NewMgr()
 	rk := wallet.EcdsaKey{Type: "test"}
 	cp.Register(&rk)
-	cp.Register(new(wallet.EcdsaKey))
 	cp.SetPrivKey(rk.GetType(), key)
 	n.SetKeyMgr(cp)
 	n.RegistPlugin(new(handler.MsgPlugin))

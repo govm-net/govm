@@ -175,16 +175,16 @@ func TransactionMovePost(w http.ResponseWriter, r *http.Request) {
 	enc.Encode(info)
 }
 
-// TranferInfo tranfer info
-type TranferInfo struct {
+// TransferInfo transfer info
+type TransferInfo struct {
 	Peer     string `json:"peer,omitempty"`
 	Cost     uint64 `json:"cost,omitempty"`
 	Energy   uint64 `json:"energy,omitempty"`
 	TransKey string `json:"trans_key,omitempty"`
 }
 
-// TransactionTranferPost tranfer
-func TransactionTranferPost(w http.ResponseWriter, r *http.Request) {
+// TransactionTransferPost transfer
+func TransactionTransferPost(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	chainStr := vars["chain"]
 	data, err := ioutil.ReadAll(r.Body)
@@ -199,7 +199,7 @@ func TransactionTranferPost(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("error chain"))
 		return
 	}
-	info := TranferInfo{}
+	info := TransferInfo{}
 	err = json.Unmarshal(data, &info)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -310,9 +310,9 @@ func TransactionMinerGet(w http.ResponseWriter, r *http.Request) {
 type Miner struct {
 	TagetChain uint64 `json:"taget_chain,omitempty"`
 	Index      uint64 `json:"index,omitempty"`
-	Address    string `json:"address,omitempty"`
 	Cost       uint64 `json:"cost,omitempty"`
 	Energy     uint64 `json:"energy,omitempty"`
+	TransKey   string `json:"trans_key,omitempty"`
 }
 
 // TransactionMinerPost register miner
@@ -389,7 +389,7 @@ func TransactionMinerPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	info.Energy = trans.Energy
-	info.Address = hex.EncodeToString(key)
+	info.TransKey = hex.EncodeToString(key)
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 	enc := json.NewEncoder(w)
@@ -405,6 +405,7 @@ type NewApp struct {
 	EnableRun    bool   `json:"enable_run,omitempty"`
 	EnableImport bool   `json:"enable_import,omitempty"`
 	AppName      string `json:"app_name,omitempty"`
+	TransKey     string `json:"trans_key,omitempty"`
 }
 
 // TransactionNewAppPost new app
@@ -493,6 +494,7 @@ func TransactionNewAppPost(w http.ResponseWriter, r *http.Request) {
 	}
 	info.AppName = hex.EncodeToString(codeHS)
 	info.Energy = trans.Energy
+	info.TransKey = hex.EncodeToString(key)
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 	enc := json.NewEncoder(w)
@@ -511,8 +513,8 @@ type RunApp struct {
 
 // RespOfNewTrans the response of New Transaction
 type RespOfNewTrans struct {
-	Chain uint64 `json:"chain,omitempty"`
-	Key   string `json:"key,omitempty"`
+	Chain    uint64 `json:"chain,omitempty"`
+	TransKey string `json:"trans_key,omitempty"`
 }
 
 // TransactionRunAppPost run app
@@ -627,9 +629,10 @@ func TransactionRunAppPost(w http.ResponseWriter, r *http.Request) {
 
 // AppLife app life
 type AppLife struct {
-	Energy  uint64 `json:"energy,omitempty"`
-	AppName string `json:"app_name,omitempty"`
-	Life    uint64 `json:"life,omitempty"`
+	Energy   uint64 `json:"energy,omitempty"`
+	AppName  string `json:"app_name,omitempty"`
+	Life     uint64 `json:"life,omitempty"`
+	TransKey string `json:"trans_key,omitempty"`
 }
 
 // TransactionAppLifePost update app life
@@ -702,6 +705,7 @@ func TransactionAppLifePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	info.Energy = trans.Energy
+	info.TransKey = hex.EncodeToString(trans.Key[:])
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 	enc := json.NewEncoder(w)
@@ -829,6 +833,22 @@ func BlockMinePost(w http.ResponseWriter, r *http.Request) {
 	enc.Encode(msg)
 }
 
+type blockInfo struct {
+	Time          uint64   `json:"time,omitempty"`
+	Previous      string   `json:"previous,omitempty"`
+	Parent        string   `json:"parent,omitempty"`
+	LeftChild     string   `json:"left_child,omitempty"`
+	RightChild    string   `json:"right_child,omitempty"`
+	TransListHash string   `json:"trans_list_hash,omitempty"`
+	Producer      string   `json:"producer,omitempty"`
+	Chain         uint64   `json:"chain,omitempty"`
+	Index         uint64   `json:"index,omitempty"`
+	Nonce         uint64   `json:"nonce,omitempty"`
+	Size          uint32   `json:"size,omitempty"`
+	Key           string   `json:"key,omitempty"`
+	TransList     []string `json:"trans_list,omitempty"`
+}
+
 // BlockInfoGet get block info
 func BlockInfoGet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -869,13 +889,35 @@ func BlockInfoGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	block := core.DecodeBlock(data)
-
-	//relb := core.GetBlockReliability(chain, key)
+	info := blockInfo{}
+	info.Time = block.Time
+	info.Previous = hex.EncodeToString(block.Previous[:])
+	if !block.Parent.Empty() {
+		info.Parent = hex.EncodeToString(block.Parent[:])
+	}
+	if !block.LeftChild.Empty() {
+		info.LeftChild = hex.EncodeToString(block.LeftChild[:])
+	}
+	if !block.RightChild.Empty() {
+		info.RightChild = hex.EncodeToString(block.RightChild[:])
+	}
+	if !block.TransListHash.Empty() {
+		info.TransListHash = hex.EncodeToString(block.TransListHash[:])
+	}
+	info.Producer = hex.EncodeToString(block.Producer[:])
+	info.Chain = block.Chain
+	info.Index = block.Index
+	info.Nonce = block.Nonce
+	info.Size = block.Size
+	info.Key = hex.EncodeToString(block.Key[:])
+	for _, k := range block.TransList {
+		info.TransList = append(info.TransList, hex.EncodeToString(k[:]))
+	}
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 	enc := json.NewEncoder(w)
-	enc.Encode(block)
+	enc.Encode(info)
 }
 
 // BlockRollback rollback

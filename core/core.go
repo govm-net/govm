@@ -75,10 +75,10 @@ type Log struct {
 
 // AppInfo App info in database
 type AppInfo struct {
-	Account Address
-	LineSum uint64
-	Life    uint64
-	Flag    uint8
+	Account Address `json:"account,omitempty"`
+	LineSum uint64  `json:"line_sum,omitempty"`
+	Life    uint64  `json:"life,omitempty"`
+	Flag    uint8   `json:"flag"`
 }
 
 // BaseInfo stat info of last block
