@@ -96,19 +96,22 @@ func getBestBlock(chain, index uint64) core.TReliability {
 				hp = rel.HashPower
 			}
 		}
+		if t+blockSyncTime > now {
+			if !rel.Parent.Empty() && !core.BlockOnTheChain(chain/2, rel.Parent[:]) {
+				continue
+			}
+			if !rel.LeftChild.Empty() && !core.BlockOnTheChain(chain*2, rel.LeftChild[:]) {
+				continue
+			}
+			if !rel.RightChild.Empty() && !core.BlockOnTheChain(chain*2+1, rel.RightChild[:]) {
+				continue
+			}
+		}
 
 		stat := ReadBlockRunStat(chain, key)
-		if index > 1 && t+10*tMinute < now {
+		if index > 1 && t+blockSyncTime < now {
 			bln := getBlockLockNum(chain, key)
 			hp += bln
-			log.Printf("[warn]getBestBlock,chain:%d,index:%d,key:%x,i:%d,hp:%d,bln:%d\n",
-				chain, index, key, i, rel.HashPower, bln)
-			if bln < 5 {
-				continue
-			}
-			if t+tHour < now && bln < 40 {
-				continue
-			}
 		}
 		if t+blockSyncTime > now && hp+hpAcceptRange < hpLimit {
 			continue

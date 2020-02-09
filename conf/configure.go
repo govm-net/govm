@@ -29,6 +29,8 @@ type TConfig struct {
 	DoMine             bool   `json:"do_mine,omitempty"`
 	SaveLog            bool   `json:"save_log,omitempty"`
 	ReliaRecalculation bool   `json:"relia_recalculation,omitempty"`
+	SeparateDB         bool   `json:"separate_db,omitempty"`
+	ForceMine          bool   `json:"force_mine,omitempty"`
 }
 
 // DebugMod debug mode

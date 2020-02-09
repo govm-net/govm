@@ -3,14 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"net"
-	"net/http"
-	"net/rpc"
-	"os"
-	"time"
-
 	"github.com/lengzhao/govm/api"
 	"github.com/lengzhao/govm/conf"
 	"github.com/lengzhao/govm/database"
@@ -19,20 +11,32 @@ import (
 	"github.com/lengzhao/libp2p/crypto"
 	"github.com/lengzhao/libp2p/network"
 	"github.com/lengzhao/libp2p/plugins"
+	"gopkg.in/natefinch/lumberjack.v2"
+	"io/ioutil"
+	"log"
+	"net"
+	"net/http"
+	"net/rpc"
+	"os"
+	"time"
 )
 
 func main() {
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
 	c := conf.GetConf()
 	if c.SaveLog {
-		lf := new(logWriter)
-		defer lf.Close()
-		log.SetOutput(lf)
+		log.SetOutput(&lumberjack.Logger{
+			Filename:   "./log/govm.log",
+			MaxSize:    500, // megabytes
+			MaxBackups: 5,
+			MaxAge:     10,   //days
+			Compress:   true, // disabled by default
+		})
 	}
 
 	conf.LoadWallet(c.WalletFile, c.Password)
 	// start database server
-	{
+	if !c.SeparateDB {
 		db := database.TDb{}
 		db.Init()
 		defer db.Close()
@@ -124,51 +128,4 @@ func loadNodeKey() []byte {
 		wallet.SaveWallet(nodeKeyFile, passwd, addr, w.Key, nil)
 	}
 	return w.Key
-}
-
-type logWriter struct {
-	os.File
-	size int
-	fn   string
-	f    *os.File
-}
-
-func (l *logWriter) Write(data []byte) (int, error) {
-	now := time.Now()
-	fn := fmt.Sprintf("./log/govm_%d%02d%02d.log", now.Year(), now.Month(), now.Day())
-	if fn != l.fn {
-		old := now.Add(-time.Hour * 24 * 5)
-		ofn := fmt.Sprintf("./log/govm_%d%02d%02d.log", old.Year(), old.Month(), old.Day())
-		os.Remove(ofn)
-		l.fn = fn
-		if l.f == nil {
-			os.Mkdir("./log/", 0755)
-		} else {
-			l.f.Close()
-			l.f = nil
-		}
-		l.size = 0
-		file, err := os.OpenFile(fn, os.O_WRONLY|os.O_CREATE|os.O_SYNC|os.O_APPEND, 0755)
-		if err != nil {
-			return 0, err
-		}
-		l.f = file
-		os.Stdout = file
-		// os.Stderr = file
-	}
-	if l.f == nil {
-		return 0, nil
-	}
-	if l.size > (500 << 20) {
-		l.f.Seek(0, 0)
-		l.size = 0
-	}
-	l.size += len(data)
-	return l.f.Write(data)
-}
-
-func (l *logWriter) Close() {
-	if l.f != nil {
-		l.f.Close()
-	}
 }

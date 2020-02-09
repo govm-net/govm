@@ -75,10 +75,10 @@ type Log struct {
 
 // AppInfo App info in database
 type AppInfo struct {
-	Account Address
-	LineSum uint64
-	Life    uint64
-	Flag    uint8
+	Account Address `json:"account,omitempty"`
+	LineSum uint64  `json:"line_sum,omitempty"`
+	Life    uint64  `json:"life,omitempty"`
+	Flag    uint8   `json:"flag"`
 }
 
 // BaseInfo stat info of last block
@@ -621,8 +621,19 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 		assert(decT == blockInterval)
 	}
 	hp := getHashPower(key)
+	stream, _ := p.pDbMining.Get(p.Encode(0, block.Index))
+	var weight uint64
+	if len(stream) > 0 {
+		mi := Miner{}
+		p.Decode(0, stream, &mi)
+		for i := 0; i < minerNum; i++ {
+			if mi.Miner[i] == p.Producer {
+				weight = mi.Cost[i] / maxGuerdon / 5
+			}
+		}
+	}
 	assert(hp > 2)
-	assert(hp >= hpLimit*8/10000)
+	assert(hp+weight >= hpLimit*8/10000)
 	hp = hp + hpLimit - hpLimit/1000
 	p.pDbStat.SetInt([]byte{StatHashPower}, hp, maxDbLife)
 
