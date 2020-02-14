@@ -16,6 +16,7 @@ type TConfig struct {
 	HTTPPort           int    `json:"http_port,omitempty"`
 	DbAddrType         string `json:"db_addr_type,omitempty"`
 	DbServerAddr       string `json:"db_server_addr,omitempty"`
+	AddrForTest        string `json:"addr_for_test,omitempty"`
 	CorePackName       []byte `json:"core_pack_name,omitempty"`
 	FirstTransName     []byte `json:"first_trans_name,omitempty"`
 	ChainOfMine        uint64 `json:"chain_of_mine,omitempty"`
@@ -29,6 +30,7 @@ type TConfig struct {
 	DoMine             bool   `json:"do_mine,omitempty"`
 	SaveLog            bool   `json:"save_log,omitempty"`
 	ReliaRecalculation bool   `json:"relia_recalculation,omitempty"`
+	ForceMine          bool   `json:"force_mine,omitempty"`
 }
 
 // DebugMod debug mode
@@ -39,7 +41,7 @@ const (
 var (
 	conf TConfig
 	// Version software version
-	Version string = "v0.3.8"
+	Version string = "v0.3.9"
 	// BuildTime build time
 	BuildTime string
 	// GitHead git head

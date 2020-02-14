@@ -181,7 +181,9 @@ func (p *InternalPlugin) event(m event.Message) error {
 		if rel.Index == 0 || rel.Key.Empty() {
 			return nil
 		}
-		setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
+		if msg.LockNum > 0 && rel.Ready {
+			setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
+		}
 
 		if !msg.Broadcast {
 			return nil

@@ -24,6 +24,10 @@ type LDB struct {
 	wdisk    int
 }
 
+const (
+	gDbRoot = "db_dir"
+)
+
 // NewLDB new local db
 func NewLDB(name string, cacheCap int) *LDB {
 	os.Mkdir(gDbRoot, 0600)

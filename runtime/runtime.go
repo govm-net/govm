@@ -3,8 +3,10 @@ package runtime
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/lengzhao/database/client"
+	"github.com/lengzhao/govm/conf"
 	"github.com/lengzhao/govm/counter"
-	"github.com/lengzhao/govm/database"
+	db "github.com/lengzhao/govm/database"
 	"github.com/lengzhao/govm/wallet"
 	"log"
 	"reflect"
@@ -16,8 +18,7 @@ type TRuntime struct {
 	Chain    uint64
 	Flag     []byte
 	testMode bool
-	dbData   map[string][]byte
-	logData  map[string][]byte
+	db       *client.Client
 }
 
 const (
@@ -31,6 +32,17 @@ func assert(cond bool) {
 	}
 }
 
+// NewRuntime input address of database
+func NewRuntime(addrType, address string) *TRuntime {
+	out := new(TRuntime)
+	if address != "" {
+		out.db = client.New(addrType, address, 1)
+	} else {
+		out.db = db.GetClient()
+	}
+	return out
+}
+
 // SetInfo 设置参数
 func (r *TRuntime) SetInfo(chain uint64, flag []byte) {
 	r.Flag = flag
@@ -39,10 +51,9 @@ func (r *TRuntime) SetInfo(chain uint64, flag []byte) {
 
 // SetTestMode set test mode,it will not write data to database
 func (r *TRuntime) SetTestMode() {
-	assert(!r.testMode)
+	c := conf.GetConf()
 	r.testMode = true
-	r.dbData = make(map[string][]byte)
-	r.logData = make(map[string][]byte)
+	r.db = client.New(c.DbAddrType, c.AddrForTest, 1)
 }
 
 // GetHash 计算hash值
@@ -111,10 +122,10 @@ func AdminDbSet(owner interface{}, chain uint64, key, value []byte, life uint64)
 	assert(chain > 0)
 	tbName := GetStructName(owner)
 	if len(value) == 0 || life == 0 {
-		return database.Set(chain, tbName, key, nil)
+		return db.GetClient().Set(chain, tbName, key, nil)
 	}
 	value = append(value, Encode(life)...)
-	err := database.Set(chain, tbName, key, value)
+	err := db.GetClient().Set(chain, tbName, key, value)
 	if err != nil {
 		return err
 	}
@@ -125,7 +136,7 @@ func AdminDbSet(owner interface{}, chain uint64, key, value []byte, life uint64)
 func DbGet(owner interface{}, chain uint64, key []byte) ([]byte, uint64) {
 	assert(chain > 0)
 	tbName := GetStructName(owner)
-	data := database.Get(chain, tbName, key)
+	data := db.GetClient().Get(chain, tbName, key)
 	if len(data) == 0 {
 		return nil, 0
 	}
@@ -140,7 +151,7 @@ func DbGet(owner interface{}, chain uint64, key []byte) ([]byte, uint64) {
 func DbExist(owner interface{}, chain uint64, key []byte) bool {
 	assert(chain > 0)
 	tbName := GetStructName(owner)
-	return database.Exist(chain, tbName, key)
+	return db.GetClient().Exist(chain, tbName, key)
 }
 
 // DbSet 数据库保存数据
@@ -148,13 +159,7 @@ func (r *TRuntime) DbSet(owner interface{}, key, value []byte, life uint64) {
 	assert(r.Chain > 0)
 	assert(r.Flag != nil)
 	tbName := GetStructName(owner)
-	value = append(value, r.Encode(0, life)...)
-	if r.testMode {
-		k := fmt.Sprintf("%s_%x", tbName, key)
-		r.dbData[k] = value
-		return
-	}
-	err := database.SetWithFlag(r.Chain, r.Flag, tbName, key, value)
+	err := r.db.SetWithFlag(r.Chain, r.Flag, tbName, key, value)
 	if err != nil {
 		panic(err)
 	}
@@ -164,15 +169,8 @@ func (r *TRuntime) DbSet(owner interface{}, key, value []byte, life uint64) {
 func (r *TRuntime) DbGet(owner interface{}, key []byte) ([]byte, uint64) {
 	assert(r.Chain > 0)
 	var data []byte
-	var ok bool
 	tbName := GetStructName(owner)
-	if r.testMode {
-		k := fmt.Sprintf("%s_%x", tbName, key)
-		data, ok = r.dbData[k]
-	}
-	if !ok {
-		data = database.Get(r.Chain, tbName, key)
-	}
+	data = r.db.Get(r.Chain, tbName, key)
 
 	if len(data) == 0 {
 		return nil, 0
@@ -196,12 +194,7 @@ func (r *TRuntime) LogWrite(owner interface{}, key, value []byte, life uint64) {
 	assert(r.Flag != nil)
 	tbName := getNameOfLogDB(owner)
 	value = append(value, r.Encode(0, life)...)
-	if r.testMode {
-		k := fmt.Sprintf("%s_%x", tbName, key)
-		r.logData[k] = value
-		return
-	}
-	err := database.SetWithFlag(r.Chain, r.Flag, tbName, key, value)
+	err := r.db.SetWithFlag(r.Chain, r.Flag, tbName, key, value)
 	if err != nil {
 		panic(err)
 	}
@@ -228,7 +221,6 @@ func getLogicDist(c1, c2 uint64) uint64 {
 func (r *TRuntime) LogRead(owner interface{}, chain uint64, key []byte) ([]byte, uint64) {
 	assert(r.Chain > 0)
 	var data []byte
-	var ok bool
 	tbName := getNameOfLogDB(owner)
 	if chain == 0 {
 		chain = r.Chain
@@ -242,13 +234,7 @@ func (r *TRuntime) LogRead(owner interface{}, chain uint64, key []byte) ([]byte,
 			assert(r.Chain < chain+3)
 		}
 	}
-	if chain == r.Chain {
-		k := fmt.Sprintf("%s_%x", tbName, key)
-		data, ok = r.logData[k]
-	}
-	if !ok {
-		data = database.Get(chain, tbName, key)
-	}
+	data = r.db.Get(chain, tbName, key)
 
 	if len(data) == 0 {
 		// log.Printf("fail to read log data.self:%d,chain:%d,tb:%s,key:%x\n", r.Chain, chain, tbName, key)
@@ -272,7 +258,7 @@ func (r *TRuntime) LogReadLife(owner interface{}, key []byte) uint64 {
 func LogRead(owner interface{}, chain uint64, key []byte) ([]byte, uint64) {
 	assert(chain > 0)
 	tbName := getNameOfLogDB(owner)
-	data := database.Get(chain, tbName, key)
+	data := db.GetClient().Get(chain, tbName, key)
 	if len(data) == 0 {
 		return nil, 0
 	}
@@ -293,7 +279,7 @@ func GetNextKey(chain uint64, isDb bool, appName, structName string, preKey []by
 	}
 	tbName += appName + "." + structName
 	// log.Printf("GetNextKey,tbName:%s\n", string(tbName))
-	return database.GetNextKey(chain, []byte(tbName), preKey)
+	return db.GetClient().GetNextKey(chain, []byte(tbName), preKey)
 }
 
 // GetValue get value of key
@@ -306,7 +292,7 @@ func GetValue(chain uint64, isDb bool, appName, structName string, key []byte) (
 	}
 	tbName += appName + "." + structName
 	// log.Printf("GetNextKey,tbName:%s\n", string(tbName))
-	data := database.Get(chain, []byte(tbName), key)
+	data := db.GetClient().Get(chain, []byte(tbName), key)
 	if len(data) == 0 {
 		return nil, 0
 	}
@@ -376,11 +362,10 @@ func (r *TRuntime) NewApp(name []byte, code []byte) {
 func (r *TRuntime) RunApp(name, user, data []byte, energy, cost uint64) {
 	// log.Println("run app:", "a"+hex.EncodeToString(name))
 	if r.testMode {
-		RunApp(r.Flag, r.Chain, "test", name, user, data, energy, cost)
+		RunApp(r.db, r.Flag, r.Chain, "test", name, user, data, energy, cost)
 	} else {
-		RunApp(r.Flag, r.Chain, "", name, user, data, energy, cost)
+		RunApp(r.db, r.Flag, r.Chain, "", name, user, data, energy, cost)
 	}
-
 }
 
 // Event event

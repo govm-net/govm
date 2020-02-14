@@ -3,13 +3,14 @@ package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
 import (
 	"encoding/hex"
 	"fmt"
+	"log"
+	"os"
+	"runtime/debug"
+
 	"github.com/lengzhao/govm/conf"
 	"github.com/lengzhao/govm/database"
 	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/govm/wallet"
-	"log"
-	"os"
-	"runtime/debug"
 )
 
 // StBlock StBlock
@@ -37,7 +38,9 @@ type TReliability struct {
 }
 
 const ldbReliability = "reliability" //blockKey:relia
-var ldb *database.LDB
+var (
+	ldb *database.LDB
+)
 
 func init() {
 	ldb = database.NewLDB("reliability.db", 2000)
@@ -525,21 +528,7 @@ func BlockOnTheChain(chain uint64, key []byte) bool {
 // CreateBiosTrans CreateBiosTrans
 func CreateBiosTrans(chain uint64) {
 	c := conf.GetConf()
-	err := database.OpenFlag(chain, c.FirstTransName)
-	if err != nil {
-		log.Println("fail to open Flag,", err)
-		return
-	}
-	defer database.Cancel(chain, c.FirstTransName)
 	runtime.NewApp(chain, c.CorePackName, nil)
-	// data, _ := runtime.DbGet(dbTransactionData{}, chain, c.FirstTransName)
-	// trans := DecodeTrans(data)
-
-	// appCode := trans.Data
-	// appName := runtime.GetHash(appCode)
-	// log.Printf("first app: %x\n", appName)
-	// appCode[6] = appCode[6] | AppFlagRun
-	// runtime.NewApp(chain, appName, appCode)
 }
 
 // ProcessBlockOfChain process block
@@ -552,17 +541,18 @@ func ProcessBlockOfChain(chain uint64, key []byte) (err error) {
 			err = fmt.Errorf("recover:%s", e)
 		}
 	}()
-	err = database.OpenFlag(chain, key)
+	client := database.GetClient()
+	err = client.OpenFlag(chain, key)
 	if err != nil {
 		log.Println("fail to open Flag,", err)
-		f := database.GetLastFlag(chain)
-		database.Cancel(chain, f)
+		f := client.GetLastFlag(chain)
+		client.Cancel(chain, f)
 		return err
 	}
-	defer database.Cancel(chain, key)
+	defer client.Cancel(chain, key)
 
 	run(chain, key)
-	database.Commit(chain, key)
+	client.Commit(chain, key)
 	return err
 }
 
