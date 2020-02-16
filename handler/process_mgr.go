@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lengzhao/govm/conf"
 	core "github.com/lengzhao/govm/core"
 	"github.com/lengzhao/govm/messages"
 	"github.com/lengzhao/govm/runtime"
@@ -438,7 +439,9 @@ func writeFirstBlockToChain(chain uint64) {
 	}
 	c := conf.GetConf()
 	data := core.ReadTransactionData(1, c.FirstTransName)
-	core.WriteTransaction(chain, data)
+	if len(data) > 0 {
+		core.WriteTransaction(chain, data)
+	}
 	key := core.GetTheBlockKey(1, 1)
 	data = core.ReadBlockData(1, key)
 	processBlock(chain, key, data)
