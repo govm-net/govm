@@ -3,8 +3,9 @@ package runtime
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/lengzhao/database/client"
 	"github.com/lengzhao/govm/counter"
-	"github.com/lengzhao/govm/database"
+	db "github.com/lengzhao/govm/database"
 	"github.com/lengzhao/govm/wallet"
 	"log"
 	"reflect"
@@ -16,6 +17,7 @@ type TRuntime struct {
 	Chain    uint64
 	Flag     []byte
 	testMode bool
+	db       *client.Client
 	dbData   map[string][]byte
 	logData  map[string][]byte
 }
@@ -31,6 +33,17 @@ func assert(cond bool) {
 	}
 }
 
+// NewRuntime input address of database
+func NewRuntime(addrType, address string) *TRuntime {
+	out := new(TRuntime)
+	if address != "" {
+		out.db = client.New(addrType, address, 1)
+	} else {
+		out.db = db.GetClient()
+	}
+	return out
+}
+
 // SetInfo 设置参数
 func (r *TRuntime) SetInfo(chain uint64, flag []byte) {
 	r.Flag = flag
@@ -39,7 +52,6 @@ func (r *TRuntime) SetInfo(chain uint64, flag []byte) {
 
 // SetTestMode set test mode,it will not write data to database
 func (r *TRuntime) SetTestMode() {
-	assert(!r.testMode)
 	r.testMode = true
 	r.dbData = make(map[string][]byte)
 	r.logData = make(map[string][]byte)
@@ -111,10 +123,10 @@ func AdminDbSet(owner interface{}, chain uint64, key, value []byte, life uint64)
 	assert(chain > 0)
 	tbName := GetStructName(owner)
 	if len(value) == 0 || life == 0 {
-		return database.Set(chain, tbName, key, nil)
+		return db.GetClient().Set(chain, tbName, key, nil)
 	}
 	value = append(value, Encode(life)...)
-	err := database.Set(chain, tbName, key, value)
+	err := db.GetClient().Set(chain, tbName, key, value)
 	if err != nil {
 		return err
 	}
@@ -125,7 +137,7 @@ func AdminDbSet(owner interface{}, chain uint64, key, value []byte, life uint64)
 func DbGet(owner interface{}, chain uint64, key []byte) ([]byte, uint64) {
 	assert(chain > 0)
 	tbName := GetStructName(owner)
-	data := database.Get(chain, tbName, key)
+	data := db.GetClient().Get(chain, tbName, key)
 	if len(data) == 0 {
 		return nil, 0
 	}
@@ -140,7 +152,7 @@ func DbGet(owner interface{}, chain uint64, key []byte) ([]byte, uint64) {
 func DbExist(owner interface{}, chain uint64, key []byte) bool {
 	assert(chain > 0)
 	tbName := GetStructName(owner)
-	return database.Exist(chain, tbName, key)
+	return db.GetClient().Exist(chain, tbName, key)
 }
 
 // DbSet 数据库保存数据
@@ -154,7 +166,7 @@ func (r *TRuntime) DbSet(owner interface{}, key, value []byte, life uint64) {
 		r.dbData[k] = value
 		return
 	}
-	err := database.SetWithFlag(r.Chain, r.Flag, tbName, key, value)
+	err := r.db.SetWithFlag(r.Chain, r.Flag, tbName, key, value)
 	if err != nil {
 		panic(err)
 	}
@@ -171,7 +183,7 @@ func (r *TRuntime) DbGet(owner interface{}, key []byte) ([]byte, uint64) {
 		data, ok = r.dbData[k]
 	}
 	if !ok {
-		data = database.Get(r.Chain, tbName, key)
+		data = r.db.Get(r.Chain, tbName, key)
 	}
 
 	if len(data) == 0 {
@@ -201,7 +213,7 @@ func (r *TRuntime) LogWrite(owner interface{}, key, value []byte, life uint64) {
 		r.logData[k] = value
 		return
 	}
-	err := database.SetWithFlag(r.Chain, r.Flag, tbName, key, value)
+	err := r.db.SetWithFlag(r.Chain, r.Flag, tbName, key, value)
 	if err != nil {
 		panic(err)
 	}
@@ -247,7 +259,7 @@ func (r *TRuntime) LogRead(owner interface{}, chain uint64, key []byte) ([]byte,
 		data, ok = r.logData[k]
 	}
 	if !ok {
-		data = database.Get(chain, tbName, key)
+		data = r.db.Get(chain, tbName, key)
 	}
 
 	if len(data) == 0 {
@@ -272,7 +284,7 @@ func (r *TRuntime) LogReadLife(owner interface{}, key []byte) uint64 {
 func LogRead(owner interface{}, chain uint64, key []byte) ([]byte, uint64) {
 	assert(chain > 0)
 	tbName := getNameOfLogDB(owner)
-	data := database.Get(chain, tbName, key)
+	data := db.GetClient().Get(chain, tbName, key)
 	if len(data) == 0 {
 		return nil, 0
 	}
@@ -293,7 +305,7 @@ func GetNextKey(chain uint64, isDb bool, appName, structName string, preKey []by
 	}
 	tbName += appName + "." + structName
 	// log.Printf("GetNextKey,tbName:%s\n", string(tbName))
-	return database.GetNextKey(chain, []byte(tbName), preKey)
+	return db.GetClient().GetNextKey(chain, []byte(tbName), preKey)
 }
 
 // GetValue get value of key
@@ -306,7 +318,7 @@ func GetValue(chain uint64, isDb bool, appName, structName string, key []byte) (
 	}
 	tbName += appName + "." + structName
 	// log.Printf("GetNextKey,tbName:%s\n", string(tbName))
-	data := database.Get(chain, []byte(tbName), key)
+	data := db.GetClient().Get(chain, []byte(tbName), key)
 	if len(data) == 0 {
 		return nil, 0
 	}
@@ -376,11 +388,10 @@ func (r *TRuntime) NewApp(name []byte, code []byte) {
 func (r *TRuntime) RunApp(name, user, data []byte, energy, cost uint64) {
 	// log.Println("run app:", "a"+hex.EncodeToString(name))
 	if r.testMode {
-		RunApp(r.Flag, r.Chain, "test", name, user, data, energy, cost)
+		RunApp(r.db, r.Flag, r.Chain, "test", name, user, data, energy, cost)
 	} else {
-		RunApp(r.Flag, r.Chain, "", name, user, data, energy, cost)
+		RunApp(r.db, r.Flag, r.Chain, "", name, user, data, energy, cost)
 	}
-
 }
 
 // Event event

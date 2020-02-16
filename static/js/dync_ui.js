@@ -38,6 +38,9 @@ function dynamic_load(chain, ui_id, rst) {
         }
         form.append(desc)
         if (item.info.is_view_ui != true) {
+            if (item.info.cost === undefined) {
+                item.info.cost = 0
+            }
             form.append($('<div class="input-group">').append(
                 $('<span class="input-group-addon">Energy</span>')
             ).append(
@@ -126,7 +129,7 @@ function dynamic_load(chain, ui_id, rst) {
                 readFromDB(chain, rst.app, item.info.struct_name, (!item.info.is_log).toString(),
                     key, item.info.value_type, rstEle, item.view_items)
             } else {
-                var data = $(this).parent("form").serializeJSON()
+                var data = $(this).parent().parent("form").serializeJSON()
                 var cost = dataEncode(data.cost, "cost2int");
                 var energy = parseInt(1000000000 * data.energy);
                 var prifix = "";
@@ -154,7 +157,7 @@ function dynamic_load(chain, ui_id, rst) {
         })
         next.on('click', function () {
             getNextKey(chain, rst.app, item.info.struct_name, (!item.info.is_log).toString(),
-            preKey, function (next_key) {
+                preKey, function (next_key) {
                     if (next_key == "") {
                         rstEle.html($('<h4>').append("Read Result:"));
                         rstEle.append("not found next key,Previous Key:" + preKey)
@@ -185,7 +188,7 @@ function runApp(chain, app, cost, prefix, typ, data, element, energy) {
             console.log(rst);
             element.append(
                 $('<span class="label label-success">').append(
-                    $('<a href="transaction.html?key=' + rst.key + '&chain=' + chain + '">').append("Transaction:" + rst.key)
+                    $('<a href="transaction.html?key=' + rst.trans_key + '&chain=' + chain + '">').append("Transaction:" + rst.trans_key)
                 ))
         },
         error: function (XMLHttpRequest, textStatus, errorThrown) {

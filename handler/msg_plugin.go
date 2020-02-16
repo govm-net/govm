@@ -233,6 +233,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			} else {
 				ctx.Reply(&messages.ReqBlockInfo{Chain: 1, Index: index})
 			}
+			createSystemAPP(1)
 			c := conf.GetConf()
 			_, err := os.Stat("./db_dir/recalculation")
 			if c.ReliaRecalculation || os.IsNotExist(err) {
@@ -243,6 +244,16 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 	}
 
 	return nil
+}
+
+func createSystemAPP(chain uint64) {
+	id := core.GetLastBlockIndex(chain)
+	if id == 0 {
+		return
+	}
+	core.CreateBiosTrans(chain)
+	createSystemAPP(2 * chain)
+	createSystemAPP(2*chain + 1)
 }
 
 func processBlock(chain uint64, key, data []byte) (err error) {
@@ -459,7 +470,7 @@ func dbRollBack(chain, index uint64, key []byte) error {
 	bln := getBlockLockNum(chain, lKey)
 	for nIndex >= index {
 		lKey = core.GetTheBlockKey(chain, nIndex)
-		err = database.Rollback(chain, lKey)
+		err = database.GetClient().Rollback(chain, lKey)
 		log.Printf("dbRollBack,chain:%d,index:%d,key:%x\n", chain, nIndex, lKey)
 		if err != nil {
 			log.Println("fail to Rollback.", nIndex, err)

@@ -3,14 +3,15 @@ package handler
 import (
 	"bytes"
 	"errors"
-	"github.com/lengzhao/govm/conf"
-	core "github.com/lengzhao/govm/core"
-	"github.com/lengzhao/govm/messages"
-	"github.com/lengzhao/govm/runtime"
+	"fmt"
 	"log"
 	"runtime/debug"
 	"sync"
 	"time"
+
+	core "github.com/lengzhao/govm/core"
+	"github.com/lengzhao/govm/messages"
+	"github.com/lengzhao/govm/runtime"
 )
 
 // chain->index->blockKey->reliability
@@ -268,6 +269,9 @@ func beforeProcBlock(chain uint64, rel core.TReliability) error {
 }
 
 func finishProcBlock(chain uint64, rel core.TReliability, rn int) error {
+	if rel.Index < 1 {
+		return fmt.Errorf("error index")
+	}
 	if !rel.LeftChild.Empty() {
 		setBlockLockNum(chain*2, rel.LeftChild[:], 10)
 	}
@@ -280,82 +284,6 @@ func finishProcBlock(chain uint64, rel core.TReliability, rn int) error {
 	ldb.LSet(chain, ldbHPLimit, runtime.Encode(rel.Index), runtime.Encode(rel.HashPower))
 	if old != rel.HashPower {
 		core.SaveBlockReliability(chain, rel.Key[:], rel)
-	}
-	// success to run more than 3 times
-	if rn < 3 {
-		return nil
-	}
-	now := uint64(time.Now().Unix() * 1000)
-	if rel.Time+tMinute*10 > now {
-		return nil
-	}
-
-	index := rel.Index
-	start := core.GetLastBlockIndex(chain)
-	if index < start {
-		index = start
-	}
-	rng := (now-rel.Time)/tMinute - 3
-	if rng > 350 {
-		index += 350
-	} else {
-		index += rng
-	}
-	log.Printf("[warning]long time blocked,update IDBlocks,chain:%d,index:%d,update num:%d\n",
-		chain, rel.Index, rng)
-
-	var limitBLN uint64
-	for i := index; i >= start && i > 0; i-- {
-		var ib IDBlocks
-		ib = ReadIDBlocks(chain, i)
-		if len(ib.Items) == 0 {
-			continue
-		}
-
-		for _, it := range ib.Items {
-			if it.Key.Empty() {
-				continue
-			}
-			r := core.ReadBlockReliability(chain, it.Key[:])
-			if r.Key.Empty() {
-				continue
-			}
-			if r.Index == 0 {
-				log.Printf("[warning]chain:%d,error index:%d,hope:%d,key:%x\n", chain, r.Index, i, r.Key)
-				setBlockToIDBlocks(chain, i, it.Key, 0)
-				core.DeleteBlock(chain, it.Key[:])
-				core.DeleteBlockReliability(chain, it.Key[:])
-				info := messages.ReqBlockInfo{Chain: chain, Index: i}
-				network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
-				continue
-			}
-			if r.Index != i {
-				log.Printf("[warning]chain:%d,error index:%d,hope:%d,key:%x\n", chain, r.Index, i, r.Key)
-				setBlockToIDBlocks(chain, i, r.Key, 0)
-				setBlockToIDBlocks(chain, r.Index, r.Key, r.HashPower)
-			}
-			ln := getBlockLockNum(chain, r.Key[:])
-			if ln+5 < limitBLN {
-				setBlockToIDBlocks(chain, r.Index, r.Key, 0)
-				continue
-			}
-			if ln > limitBLN {
-				limitBLN = ln
-			}
-
-			setBlockLockNum(chain, r.Previous[:], ln+1)
-			setBlockToIDBlocks(chain, r.Index-1, r.Previous, r.HashPower+ln)
-			if !r.LeftChild.Empty() {
-				setBlockLockNum(chain*2, r.LeftChild[:], 2*ln+10)
-				cr := core.ReadBlockReliability(chain*2, r.LeftChild[:])
-				setBlockToIDBlocks(chain*2, cr.Index, cr.Key, cr.HashPower+2*ln)
-			}
-			if !r.RightChild.Empty() {
-				setBlockLockNum(chain*2+1, r.RightChild[:], 2*ln+10)
-				cr := core.ReadBlockReliability(chain*2, r.RightChild[:])
-				setBlockToIDBlocks(chain*2, cr.Index, cr.Key, cr.HashPower+2*ln)
-			}
-		}
 	}
 	return nil
 }

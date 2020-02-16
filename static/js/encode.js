@@ -137,6 +137,10 @@ function dataEncode(input, type) {
             myDate.setTime(input)
             return myDate.toString()
         case "cost2int":
+            if (input === undefined || input == "" || input == "0" || typeof arr !== 'string') {
+                return 0;
+            }
+            
             var split = input.split("t")
             var num = parseInt(split[0])
             if(split.length > 1){

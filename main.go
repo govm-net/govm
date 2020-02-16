@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/lengzhao/govm/api"
 	"github.com/lengzhao/govm/conf"
-	"github.com/lengzhao/govm/database"
 	"github.com/lengzhao/govm/handler"
 	"github.com/lengzhao/govm/wallet"
 	"github.com/lengzhao/libp2p/crypto"
@@ -14,9 +13,7 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
-	"net/rpc"
 	"os"
 	"time"
 )
@@ -27,44 +24,16 @@ func main() {
 	if c.SaveLog {
 		log.SetOutput(&lumberjack.Logger{
 			Filename:   "./log/govm.log",
-			MaxSize:    500, // megabytes
+			MaxSize:    50, // megabytes
 			MaxBackups: 5,
 			MaxAge:     10,   //days
 			Compress:   true, // disabled by default
 		})
 	}
-
 	conf.LoadWallet(c.WalletFile, c.Password)
-	// start database server
-	if !c.SeparateDB {
-		db := database.TDb{}
-		db.Init()
-		defer db.Close()
-		sr := rpc.NewServer()
-		sr.Register(&db)
-		sr.HandleHTTP(rpc.DefaultRPCPath, rpc.DefaultDebugPath)
-
-		ln, err := net.Listen(c.DbAddrType, c.DbServerAddr)
-		if err != nil {
-			log.Println("fail to start db Listen:", c.DbServerAddr, err)
-			return
-		}
-
-		server := &http.Server{
-			Addr: c.DbServerAddr,
-			// ReadTimeout:  10 * time.Second,
-			// WriteTimeout: 10 * time.Second,
-			// IdleTimeout:  20 * time.Second,
-			Handler: sr,
-		}
-		// go server.ListenAndServe()
-
-		go server.Serve(ln)
-	}
-
 	// startHTTPServer
 	{
-		addr := fmt.Sprintf("localhost:%d", c.HTTPPort)
+		addr := fmt.Sprintf("127.0.0.1:%d", c.HTTPPort)
 		router := api.NewRouter()
 		go func() {
 			err := http.ListenAndServe(addr, router)
