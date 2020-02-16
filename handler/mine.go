@@ -132,6 +132,7 @@ func doMine(chain uint64, force bool) {
 	var transList []core.Hash
 	var size uint64
 
+	force = force || c.ForceMine
 	if !force {
 		now := uint64(time.Now().Unix()) * 1000
 		if block.Time+blockSyncTime < now {
@@ -153,12 +154,10 @@ func doMine(chain uint64, force bool) {
 	for {
 		now := time.Now().Unix()
 		if timeout < now && block.Time < uint64(now)*1000 {
-			if !force {
-				break
+			if force && oldRel.HashPower == 0 {
+				go doMine(chain, false)
 			}
-			if force && oldRel.HashPower != 0 {
-				break
-			}
+			break
 		}
 		signData := block.GetSignData()
 		sign := wallet.Sign(c.PrivateKey, signData)

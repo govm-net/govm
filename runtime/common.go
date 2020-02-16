@@ -8,7 +8,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/lengzhao/govm/database"
+	"github.com/lengzhao/database/client"
+	db "github.com/lengzhao/govm/database"
 	"github.com/lengzhao/govm/wallet"
 	"io/ioutil"
 	"log"
@@ -36,8 +37,8 @@ var filter EventFilter
 
 func init() {
 	// projectRoot = path.Join(os.Getenv("GOPATH"), "src", module)
-	projectRoot = "."
-	packPath = module
+	projectRoot = "app"
+	packPath = path.Join(module, "app")
 	loadEventFilter()
 }
 
@@ -63,7 +64,8 @@ func Decode(in []byte, out interface{}) int {
 	buf := bytes.NewReader(in)
 	err := binary.Read(buf, binary.BigEndian, out)
 	if err != nil {
-		log.Println("fail to decode interface:", in[:20])
+		log.Println("fail to decode interface:", in[:20], len(in))
+		log.Printf("type:%T\n", out)
 		panic(err)
 		//return 0
 	}
@@ -141,19 +143,22 @@ type TRunParam struct {
 }
 
 // RunApp run app
-func RunApp(flag []byte, chain uint64, mode string, appName, user, data []byte, energy, cost uint64) {
+func RunApp(client *client.Client, flag []byte, chain uint64, mode string, appName, user, data []byte, energy, cost uint64) {
 	args := TRunParam{chain, flag, user, data, cost, energy, ""}
 	var buf bytes.Buffer
 	var err error
 	enc := gob.NewEncoder(&buf)
 	enc.Encode(args)
 	var paramKey []byte
+	if client == nil {
+		client = db.GetClient()
+	}
 	if mode == "" {
 		paramKey = []byte(hexToPackageName(appName))
 	} else {
 		paramKey = []byte("test")
 	}
-	err = database.Set(chain, []byte("app_run"), paramKey, buf.Bytes())
+	err = client.Set(chain, []byte("app_run"), paramKey, buf.Bytes())
 	if err != nil {
 		log.Println("[db]fail to write data.", err)
 		panic("retry")
@@ -171,15 +176,15 @@ func RunApp(flag []byte, chain uint64, mode string, appName, user, data []byte, 
 		cmd = exec.CommandContext(ctx, appPath)
 	}
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stdout
+	cmd.Stdout = log.Writer()
+	cmd.Stderr = log.Writer()
 	err = cmd.Run()
 	if err != nil {
 		log.Println("fail to exec app.", err)
 		panic("retry")
 	}
 	var d []byte
-	d = database.Get(chain, []byte("app_run"), paramKey)
+	d = client.Get(chain, []byte("app_run"), paramKey)
 	if len(d) == 0 {
 		log.Println("[db]fail to get data.")
 		panic("retry")

@@ -64,6 +64,17 @@ type OSExit struct {
 	Msg string
 }
 
+// RawData raw data
+type RawData struct {
+	BaseMsg
+	Chain     uint64
+	Key       []byte
+	Broadcast bool
+	IsTrans   bool
+	LockNum   uint64
+	Data      []byte
+}
+
 // Internal msg keys
 const (
 	BroadcastMsg = "broadcast"

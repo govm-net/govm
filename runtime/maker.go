@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
 	"text/template"
 	"time"
@@ -48,10 +49,14 @@ const (
 	AppFlagPlublc
 	// AppFlagGzipCompress gzip compress
 	AppFlagGzipCompress
+	// AppFlagEnd end of flag
+	AppFlagEnd
 )
 
 // var envItems = []string{"GO111MODULE=on"}
 var envItems = []string{}
+
+const execName = "app.exe"
 
 func init() {
 	os.RemoveAll(path.Join(projectRoot, "app_main"))
@@ -62,7 +67,6 @@ func NewApp(chain uint64, name []byte, code []byte) {
 	//1.生成原始文件，go build，校验是否正常
 	//2.添加代码统计
 	//3.如果可执行，添加执行代码
-
 	c := conf.GetConf()
 	if bytes.Compare(c.CorePackName, name) == 0 {
 		filePath := GetFullPathOfApp(chain, name)
@@ -71,7 +75,7 @@ func NewApp(chain uint64, name []byte, code []byte) {
 		createDir(filePath)
 		s1, err := template.ParseFiles("./core/core.tmpl")
 		if err != nil {
-			log.Println("fail to ParseFiles run.tmpl:", err)
+			log.Println("fail to ParseFiles core.tmpl:", err)
 			panic(err)
 		}
 		f, err := os.Create(dstFileName)
@@ -93,7 +97,7 @@ func NewApp(chain uint64, name []byte, code []byte) {
 	nInfo := TAppNewInfo{}
 	n := Decode(code, &nInfo.TAppNewHead)
 	assert(nInfo.Type == 0)
-	if nInfo.Flag >= 2*AppFlagGzipCompress {
+	if nInfo.Flag >= AppFlagEnd {
 		panic("error flag")
 	}
 
@@ -144,9 +148,9 @@ func NewApp(chain uint64, name []byte, code []byte) {
 	f.Close()
 	//编译、校验原始代码
 	cmd := exec.Command("go", "build", srcFilePath)
-	cmd.Dir = projectRoot
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stdout
+	// cmd.Dir = projectRoot
+	cmd.Stdout = log.Writer()
+	cmd.Stderr = log.Writer()
 	cmd.Env = os.Environ()
 	for _, item := range envItems {
 		cmd.Env = append(cmd.Env, item)
@@ -167,9 +171,9 @@ func NewApp(chain uint64, name []byte, code []byte) {
 
 	//再次编译，确认没有代码冲突
 	cmd = exec.Command("go", "build", dstFileName)
-	cmd.Dir = projectRoot
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stdout
+	// cmd.Dir = projectRoot
+	cmd.Stdout = log.Writer()
+	cmd.Stderr = log.Writer()
 	cmd.Env = os.Environ()
 	for _, item := range envItems {
 		cmd.Env = append(cmd.Env, item)
@@ -258,7 +262,7 @@ func makeAppExe(chain uint64, name []byte) {
 	// log.Println("create fun file:", runFile)
 	fn := path.Join(projectRoot, "app_main", fmt.Sprintf("chain%d_%d", chain, time.Now().UnixNano()), "main.go")
 	dir := path.Dir(fn)
-	exeFile := path.Join(dir, "app.exe")
+	exeFile := path.Join(dir, execName)
 	createDir(dir)
 	defer os.RemoveAll(dir)
 
@@ -269,9 +273,9 @@ func makeAppExe(chain uint64, name []byte) {
 
 	//再次编译，确认没有代码冲突
 	cmd := exec.Command("go", "build", "-o", exeFile, fn)
-	cmd.Dir = projectRoot
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stdout
+	// cmd.Dir = projectRoot
+	cmd.Stdout = log.Writer()
+	cmd.Stderr = log.Writer()
 	cmd.Env = os.Environ()
 	for _, item := range envItems {
 		cmd.Env = append(cmd.Env, item)
@@ -285,4 +289,36 @@ func makeAppExe(chain uint64, name []byte) {
 	binFile := path.Join(realPath, "app.exe")
 	os.Remove(binFile)
 	os.Rename(exeFile, binFile)
+}
+
+// RebuildApp rebuild app
+func RebuildApp(chain uint64, dir string) error {
+	err := filepath.Walk(dir, func(fPath string, f os.FileInfo, err error) error {
+		if f == nil {
+			return err
+		}
+		if f.IsDir() {
+			return nil
+		}
+		if f.Name() != execName {
+			return nil
+		}
+		dir := filepath.Dir(fPath)
+		name := filepath.Base(dir)
+		if name == "" {
+			log.Println("unknow path:", fPath)
+			return nil
+		}
+		appName, err := hex.DecodeString(name[1:])
+		if err != nil {
+			log.Println("fail to decode:", name, err)
+			return nil
+		}
+		makeAppExe(chain, appName)
+		return nil
+	})
+	if err != nil {
+		log.Println("fail:", err)
+	}
+	return err
 }

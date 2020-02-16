@@ -18,5 +18,5 @@ func TestNewApp(t *testing.T) {
 	head := Encode(nInfo.TAppNewHead)
 	code = append(head, code...)
 	NewApp(1, appName, code)
-	RunApp(nil, 1, "", appName, []byte("user1"), []byte("data1"), 1<<50, 1)
+	RunApp(nil, nil, 1, "", appName, []byte("user1"), []byte("data1"), 1<<50, 1)
 }

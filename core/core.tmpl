@@ -222,8 +222,8 @@ func init() {
 	gBS.pDbMining.free = true
 	gBS.pLogBlockInfo = GetLog(logBlockInfo{})
 	gBS.pLogSync = GetLog(logSync{})
-
-	runt := new(runtime.TRuntime)
+	
+	runt := runtime.NewRuntime("","")
 	for _,arg := range os.Args{
 		if arg == "-mode"{
 			runt.SetTestMode()
@@ -281,6 +281,7 @@ func Recover(address, sign, msg []byte) bool {
 func (d *DB) Set(key, value []byte, life uint64) {
 	assert(life <= maxDbLife)
 	assert(len(key) > 0)
+	assert(len(key) < 200)
 	assert(len(value) < 40960)
 	size := uint64(len(key) + len(value))
 	if d.free {

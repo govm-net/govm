@@ -8,11 +8,18 @@ cn: 这是一个基于同构多链的区块链系统。它的理论性能可以�
 ## Building the source
 
 1. install golang(>v1.20),git
-2. download code
-3. build: go build
-4. init config:./upgrade.sh  or cp conf/conf.json.bak conf/conf.json
-5. start software: ./start.sh
-6. browser open http://localhost:9090
+2. start database: github.com/lengzhao/database
+3. download code
+4. build: go build
+5. change config:conf/conf.json
+6. start software: ./start.sh
+7. browser open http://localhost:9090
+
+## upgrade
+
+1. stop govm
+2. ./upgrade.sh
+3. ./start.sh
 
 ## plan
 

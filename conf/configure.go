@@ -29,6 +29,7 @@ type TConfig struct {
 	DoMine             bool   `json:"do_mine,omitempty"`
 	SaveLog            bool   `json:"save_log,omitempty"`
 	ReliaRecalculation bool   `json:"relia_recalculation,omitempty"`
+	ForceMine          bool   `json:"force_mine,omitempty"`
 }
 
 // DebugMod debug mode
@@ -39,7 +40,7 @@ const (
 var (
 	conf TConfig
 	// Version software version
-	Version string = "v0.3.8"
+	Version string = "v0.3.9"
 	// BuildTime build time
 	BuildTime string
 	// GitHead git head

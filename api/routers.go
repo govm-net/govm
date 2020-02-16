@@ -83,10 +83,10 @@ var routes = Routes{
 	},
 
 	Route{
-		"TransactionTranferPost",
+		"TransactionTransferPost",
 		strings.ToUpper("Post"),
-		"/api/v1/{chain}/transaction/tranfer",
-		TransactionTranferPost,
+		"/api/v1/{chain}/transaction/transfer",
+		TransactionTransferPost,
 	},
 
 	Route{
@@ -192,6 +192,13 @@ var routes = Routes{
 		strings.ToUpper("Get"),
 		"/api/v1/{chain}/data/visit",
 		DataNextKeyGet,
+	},
+
+	Route{
+		"DataPost",
+		strings.ToUpper("Post"),
+		"/api/v1/{chain}/data",
+		DataPost,
 	},
 
 	Route{

@@ -75,10 +75,10 @@ type Log struct {
 
 // AppInfo App info in database
 type AppInfo struct {
-	Account Address
-	LineSum uint64
-	Life    uint64
-	Flag    uint8
+	Account Address `json:"account,omitempty"`
+	LineSum uint64  `json:"line_sum,omitempty"`
+	Life    uint64  `json:"life,omitempty"`
+	Flag    uint8   `json:"flag"`
 }
 
 // BaseInfo stat info of last block
@@ -231,7 +231,8 @@ func (p *processer) initEnv(chain uint64, flag []byte) {
 	p.pDbMining.free = true
 	p.pLogBlockInfo = p.GetLog(logBlockInfo{})
 	p.pLogSync = p.GetLog(logSync{})
-	runt := new(runtime.TRuntime)
+	// runt := new(runtime.TRuntime)
+	runt := runtime.NewRuntime("", "")
 	runt.SetInfo(chain, flag)
 	p.iRuntime = runt
 	stream, _ := p.DbGet(p.pDbStat.owner, []byte{StatBaseInfo})
@@ -292,7 +293,7 @@ func (d *DB) Get(key []byte) ([]byte, uint64) {
 // GetInt read uint64 data from database
 func (d *DB) GetInt(key []byte) uint64 {
 	v, _ := d.Get(key)
-	if v == nil {
+	if len(v) == 0 {
 		return 0
 	}
 	var val uint64
@@ -621,8 +622,19 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 		assert(decT == blockInterval)
 	}
 	hp := getHashPower(key)
+	stream, _ := p.pDbMining.Get(p.Encode(0, block.Index))
+	var weight uint64
+	if len(stream) > 0 {
+		mi := Miner{}
+		p.Decode(0, stream, &mi)
+		for i := 0; i < minerNum; i++ {
+			if mi.Miner[i] == p.Producer {
+				weight = mi.Cost[i] / maxGuerdon / 5
+			}
+		}
+	}
 	assert(hp > 2)
-	assert(hp >= hpLimit*8/10000)
+	assert(hp+weight >= hpLimit*8/10000)
 	hp = hp + hpLimit - hpLimit/1000
 	p.pDbStat.SetInt([]byte{StatHashPower}, hp, maxDbLife)
 
@@ -772,6 +784,7 @@ func (p *processer) processFirstBlock(block Block, transList []byte) {
 	saveInfo.LineSum = 945
 	appName := p.GetAppName(dbStat{})
 	p.pDbApp.Set(appName[:], p.Encode(0, saveInfo), maxDbLife)
+	p.NewApp(appName[:], nil)
 
 	p.Event(logBlockInfo{}, "finish_block", p.Key[:])
 }
