@@ -196,9 +196,6 @@ func (p *InternalPlugin) event(m event.Message) error {
 		info.PreKey = rel.Previous[:]
 		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 
-	case *messages.OSExit:
-		log.Println("exit by user:", msg.Msg)
-		p.network.Close()
 	}
 	return nil
 }
