@@ -94,15 +94,6 @@
                         <span class="input-group-addon" data-localize="git_head">Git Head:</span>
                         <span class="form-control" id="git_head"></span>
                     </div>
-
-                    <br>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="message">Message:</span>
-                        <span class="form-control" id="check" data-localize="describe">Send event to close govm.</span>
-                        <div class="input-group-btn">
-                            <button type="button" class="btn btn-warning" onclick="closeGOVM()" data-localize="close">Close
-                            </button></div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -140,19 +131,6 @@
                 $("#git_head").html("<b>" + data.GitHead + "</b>");
             }
         });
-
-        function closeGOVM() {
-            $.ajax({
-                type: "DELETE", url: "/api/v1/os/exit",
-                success: function (data) {
-                    alert("success to close govm.");
-                    window.opener = null;
-                    window.location.href="about:blank";
-                    window.open('', '_self');
-                    window.close()
-                }
-            });
-        }
 
         function changeLang(lg){
             gLanguage = lg;

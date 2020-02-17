@@ -58,12 +58,6 @@ type NewNode struct {
 	Peer string
 }
 
-// OSExit exit
-type OSExit struct {
-	BaseMsg
-	Msg string
-}
-
 // RawData raw data
 type RawData struct {
 	BaseMsg
