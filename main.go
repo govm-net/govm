@@ -3,19 +3,21 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
 	"github.com/lengzhao/govm/api"
 	"github.com/lengzhao/govm/conf"
+	"github.com/lengzhao/govm/database"
 	"github.com/lengzhao/govm/handler"
 	"github.com/lengzhao/govm/wallet"
 	"github.com/lengzhao/libp2p/crypto"
 	"github.com/lengzhao/libp2p/network"
 	"github.com/lengzhao/libp2p/plugins"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"os"
-	"time"
 )
 
 func main() {
@@ -29,6 +31,11 @@ func main() {
 			MaxAge:     10,   //days
 			Compress:   true, // disabled by default
 		})
+	}
+	err := database.GetClient().Set(1, []byte("test"), []byte("test"), []byte("test"))
+	if err != nil {
+		log.Println("fail to set database,make sure the database server running.", err)
+		os.Exit(2)
 	}
 	conf.LoadWallet(c.WalletFile, c.Password)
 	// startHTTPServer
@@ -74,14 +81,14 @@ func main() {
 	n.RegistPlugin(new(handler.SyncPlugin))
 	n.RegistPlugin(new(handler.NATTPlugin))
 
-	err := n.Listen(c.ServerHost)
+	err = n.Listen(c.ServerHost)
 	if err != nil {
 		log.Println("fail to listen:", c.ServerHost, err)
 	}
 	n.Close()
-	log.Println("wait to exit(5s)")
-	time.Sleep(5 * time.Second)
 	handler.Exit()
+	log.Println("wait to exit(3s)")
+	time.Sleep(3 * time.Second)
 }
 
 func loadNodeKey() []byte {
