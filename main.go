@@ -32,6 +32,7 @@ func main() {
 			Compress:   true, // disabled by default
 		})
 	}
+	database.ChangeClientNumber(10)
 	err := database.GetClient().Set(1, []byte("test"), []byte("test"), []byte("test"))
 	if err != nil {
 		log.Println("fail to set database,make sure the database server running.", err)
