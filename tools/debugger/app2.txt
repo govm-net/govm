@@ -1,0 +1,18 @@
+package a1000000000000000000000000000000000000000000000000000000000000000
+
+import core "github.com/lengzhao/govm/app/chain1/ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c"
+
+type tApp struct {
+	Key   string `json:"key,omitempty"`
+	Value string `json:"value,omitempty"`
+}
+
+func run(user, in []byte, cost uint64) {
+	info := tApp{}
+	core.Decode(core.EncJSON, in, &info)
+	db := core.GetDB(tApp{})
+	key := user
+	key = append(key, []byte(info.Key)...)
+	db.Set(key, []byte(info.Value), core.TimeMonth)
+	core.Event(tApp{}, "save", user, []byte(info.Key), []byte(info.Value))
+}
