@@ -98,7 +98,7 @@ func TestImitateData(t *testing.T) {
 		life := now + d.Life*3600*1000
 		value := append(d.Value, runtime.Encode(life)...)
 		tbName[0] = 'd'
-		err := database.Set(d.Chain, tbName, d.Key, value)
+		err := database.GetClient().Set(d.Chain, tbName, d.Key, value)
 		if err != nil {
 			fmt.Println("fail to imitate data.", d.Describe)
 			t.Fatal(err)
@@ -114,14 +114,15 @@ func Test_run(t *testing.T) {
 		t.Fatal("wrong db server address,error test dir?")
 	}
 	key := blockKey[:]
-	err := database.OpenFlag(chain, key)
+	client := database.GetClient()
+	err := client.OpenFlag(chain, key)
 	if err != nil {
 		// fmt.Println("fail to open Flag,", err)
-		f := database.GetLastFlag(chain)
-		database.Cancel(chain, f)
-		database.OpenFlag(chain, key)
+		f := client.GetLastFlag(chain)
+		client.Cancel(chain, f)
+		client.OpenFlag(chain, key)
 	}
-	defer database.Cancel(chain, key)
+	defer client.Cancel(chain, key)
 
 	run(hexToBytes("02984010319cd34659f7fcb20b31d615d850ab32ca930618"), []byte("parament"), 10)
 }
