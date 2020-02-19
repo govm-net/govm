@@ -238,10 +238,4 @@ var routes = Routes{
 		"/api/v1/crypto/check",
 		CryptoCheck,
 	},
-	Route{
-		"OSExit",
-		strings.ToUpper("Delete"),
-		"/api/v1/os/exit",
-		OSExit,
-	},
 }

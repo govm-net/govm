@@ -3,7 +3,6 @@
     "http_port":47778,
     "db_addr_type":"tcp",
     "db_server_addr": "127.0.0.1:47777",
-    "addr_for_test":"127.0.0.1:47779",
     "chain_of_mine":0,
     "energy_of_trans":10000,
     "wallet_file":"./conf/wallet.key",

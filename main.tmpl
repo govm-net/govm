@@ -8,7 +8,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/lengzhao/govm/counter"
-	"github.com/lengzhao/govm/database"
+	"github.com/lengzhao/govm/conf"
+	"github.com/lengzhao/database/client"
 	"io/ioutil"
 	"log"
 	sysr "runtime"
@@ -38,6 +39,9 @@ func main() {
 	mode := flag.String("mode", "", "enable set 'test' mode,it will not write data to database")
 	flag.Parse()
 	var paramKey []byte
+	
+	c := conf.GetConf()
+	dbc := client.New(c.DbAddrType, c.DbServerAddr, 1)
 	if *mode == "" {
 		paramKey = []byte("{{.AppName}}")
 	} else {
@@ -58,7 +62,8 @@ func main() {
 		var buf bytes.Buffer
 		enc := gob.NewEncoder(&buf)
 		enc.Encode(args)
-		database.Set({{.ChainID}}, []byte("app_run"), paramKey, buf.Bytes())
+		dbc.Set({{.ChainID}}, []byte("app_run"), paramKey, buf.Bytes())
+		dbc.Close()
 	}()
 	var d []byte
 	var err error
@@ -74,7 +79,7 @@ func main() {
 			return
 		}
 	} else {
-		d = database.Get({{.ChainID}}, []byte("app_run"), paramKey)
+		d = dbc.Get({{.ChainID}}, []byte("app_run"), paramKey)
 		if len(d) == 0 {
 			log.Println("[db]fail to get data.")
 			panic("retry")

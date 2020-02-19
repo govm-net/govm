@@ -231,7 +231,8 @@ func (p *processer) initEnv(chain uint64, flag []byte) {
 	p.pDbMining.free = true
 	p.pLogBlockInfo = p.GetLog(logBlockInfo{})
 	p.pLogSync = p.GetLog(logSync{})
-	runt := new(runtime.TRuntime)
+	// runt := new(runtime.TRuntime)
+	runt := runtime.NewRuntime("", "")
 	runt.SetInfo(chain, flag)
 	p.iRuntime = runt
 	stream, _ := p.DbGet(p.pDbStat.owner, []byte{StatBaseInfo})
@@ -292,7 +293,7 @@ func (d *DB) Get(key []byte) ([]byte, uint64) {
 // GetInt read uint64 data from database
 func (d *DB) GetInt(key []byte) uint64 {
 	v, _ := d.Get(key)
-	if v == nil {
+	if len(v) == 0 {
 		return 0
 	}
 	var val uint64
@@ -784,6 +785,7 @@ func (p *processer) processFirstBlock(block Block, transList []byte) {
 	saveInfo.LineSum = 945
 	appName := p.GetAppName(dbStat{})
 	p.pDbApp.Set(appName[:], p.Encode(0, saveInfo), maxDbLife)
+	p.NewApp(appName[:], nil)
 
 	p.Event(logBlockInfo{}, "finish_block", p.Key[:])
 }

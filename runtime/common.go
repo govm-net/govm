@@ -37,7 +37,7 @@ var filter EventFilter
 
 func init() {
 	// projectRoot = path.Join(os.Getenv("GOPATH"), "src", module)
-	projectRoot = "."
+	projectRoot = "app"
 	packPath = path.Join(module, "app")
 	loadEventFilter()
 }
@@ -64,7 +64,8 @@ func Decode(in []byte, out interface{}) int {
 	buf := bytes.NewReader(in)
 	err := binary.Read(buf, binary.BigEndian, out)
 	if err != nil {
-		log.Println("fail to decode interface:", in[:20])
+		log.Println("fail to decode interface:", in[:20], len(in))
+		log.Printf("type:%T\n", out)
 		panic(err)
 		//return 0
 	}

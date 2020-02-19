@@ -3,13 +3,16 @@ package handler
 import (
 	"bytes"
 	"errors"
-	core "github.com/lengzhao/govm/core"
-	"github.com/lengzhao/govm/messages"
-	"github.com/lengzhao/govm/runtime"
+	"fmt"
 	"log"
 	"runtime/debug"
 	"sync"
 	"time"
+
+	"github.com/lengzhao/govm/conf"
+	core "github.com/lengzhao/govm/core"
+	"github.com/lengzhao/govm/messages"
+	"github.com/lengzhao/govm/runtime"
 )
 
 // chain->index->blockKey->reliability
@@ -267,6 +270,9 @@ func beforeProcBlock(chain uint64, rel core.TReliability) error {
 }
 
 func finishProcBlock(chain uint64, rel core.TReliability, rn int) error {
+	if rel.Index < 1 {
+		return fmt.Errorf("error index")
+	}
 	if !rel.LeftChild.Empty() {
 		setBlockLockNum(chain*2, rel.LeftChild[:], 10)
 	}
@@ -431,11 +437,13 @@ func writeFirstBlockToChain(chain uint64) {
 	if id > 0 {
 		return
 	}
-	//c := conf.GetConf()
-	//data := core.ReadTransactionData(1, c.FirstTransName)
-	//core.WriteTransaction(chain, data)
+	c := conf.GetConf()
+	data := core.ReadTransactionData(1, c.FirstTransName)
+	if len(data) > 0 {
+		core.WriteTransaction(chain, data)
+	}
 	key := core.GetTheBlockKey(1, 1)
-	data := core.ReadBlockData(1, key)
+	data = core.ReadBlockData(1, key)
 	processBlock(chain, key, data)
 	rel := core.ReadBlockReliability(chain, key)
 	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)

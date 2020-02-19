@@ -1462,15 +1462,3 @@ func CryptoCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 }
-
-// OSExit exit
-func OSExit(w http.ResponseWriter, r *http.Request) {
-	info := messages.OSExit{}
-	err := event.Send(&info)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "error:%s", err)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-}

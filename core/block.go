@@ -367,9 +367,9 @@ func (r *TReliability) Recalculation(chain uint64) {
 
 	if r.Index > 1 {
 		preRel = ReadBlockReliability(chain, r.Previous[:])
-	}
-	if chain > 1 {
-		parent = ReadBlockReliability(chain/2, r.Parent[:])
+		if chain > 1 {
+			parent = ReadBlockReliability(chain/2, r.Parent[:])
+		}
 	}
 
 	getDataFormDB(chain, dbMining{}, runtime.Encode(r.Index), &miner)

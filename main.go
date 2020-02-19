@@ -3,7 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/lengzhao/database/server"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
 	"github.com/lengzhao/govm/api"
 	"github.com/lengzhao/govm/conf"
 	"github.com/lengzhao/govm/database"
@@ -13,13 +18,6 @@ import (
 	"github.com/lengzhao/libp2p/network"
 	"github.com/lengzhao/libp2p/plugins"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"io/ioutil"
-	"log"
-	"net"
-	"net/http"
-	"net/rpc"
-	"os"
-	"time"
 )
 
 func main() {
@@ -34,37 +32,16 @@ func main() {
 			Compress:   true, // disabled by default
 		})
 	}
-
-	conf.LoadWallet(c.WalletFile, c.Password)
-
-	// start database server
-	if true {
-		db := server.NewRPCObj("db_dir")
-		server.RegisterAPI(db, func(dir string, id uint64) server.DBApi {
-			return database.NewNWProxy(id)
-		})
-		sr := rpc.NewServer()
-		sr.Register(&db)
-		sr.HandleHTTP(rpc.DefaultRPCPath, rpc.DefaultDebugPath)
-		ln, err := net.Listen(c.DbAddrType, c.AddrForTest)
-		if err != nil {
-			log.Println("fail to start db Listen:", c.AddrForTest, err)
-			return
-		}
-
-		server := &http.Server{
-			Addr:         c.AddrForTest,
-			ReadTimeout:  20 * time.Second,
-			WriteTimeout: 20 * time.Second,
-			IdleTimeout:  20 * time.Second,
-			Handler:      sr,
-		}
-		go server.Serve(ln)
+	database.ChangeClientNumber(10)
+	err := database.GetClient().Set(1, []byte("test"), []byte("test"), []byte("test"))
+	if err != nil {
+		log.Println("fail to set database,make sure the database server running.", err)
+		os.Exit(2)
 	}
-
+	conf.LoadWallet(c.WalletFile, c.Password)
 	// startHTTPServer
 	{
-		addr := fmt.Sprintf("localhost:%d", c.HTTPPort)
+		addr := fmt.Sprintf("127.0.0.1:%d", c.HTTPPort)
 		router := api.NewRouter()
 		go func() {
 			err := http.ListenAndServe(addr, router)
@@ -106,14 +83,14 @@ func main() {
 	n.RegistPlugin(new(handler.SyncPlugin))
 	n.RegistPlugin(new(handler.NATTPlugin))
 
-	err := n.Listen(c.ServerHost)
+	err = n.Listen(c.ServerHost)
 	if err != nil {
 		log.Println("fail to listen:", c.ServerHost, err)
 	}
 	n.Close()
-	log.Println("wait to exit(5s)")
-	time.Sleep(5 * time.Second)
 	handler.Exit()
+	log.Println("wait to exit(3s)")
+	time.Sleep(3 * time.Second)
 }
 
 func loadNodeKey() []byte {
