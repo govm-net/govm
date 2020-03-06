@@ -69,7 +69,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		ctx.Reply(resp)
 		return nil
 	case *messages.BlockInfo:
-		log.Printf("<%x> BlockKey %d %d,key:%x,preKey:%x\n", ctx.GetPeerID(), msg.Chain, msg.Index, msg.Key, msg.PreKey)
+		log.Printf("<%x> BlockKey %d %d,key:%x\n", ctx.GetPeerID(), msg.Chain, msg.Index, msg.Key)
 		hp := getHashPower(msg.Key)
 		if hp < 5 || hp > 250 {
 			return nil

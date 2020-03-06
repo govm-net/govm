@@ -11,7 +11,7 @@
     ],
     "components": {
         "schemas": {
-            "cost":{
+            "cost": {
                 "type": "number",
                 "format": "uint64",
                 "description": "transfer amount",
@@ -59,7 +59,7 @@
                 "description": "get balance of wallet address in chain",
                 "parameters": [
                     {
-                        "$ref":"#/components/parameters/chain"
+                        "$ref": "#/components/parameters/chain"
                     },
                     {
                         "name": "key",
@@ -100,7 +100,7 @@
                 "description": "transfer to peer",
                 "parameters": [
                     {
-                        "$ref":"#/components/parameters/chain"
+                        "$ref": "#/components/parameters/chain"
                     }
                 ],
                 "requestBody": {
@@ -187,7 +187,7 @@
                 "description": "transfer money to neighboring chains(same wallet address,different chain)",
                 "parameters": [
                     {
-                        "$ref":"#/components/parameters/chain"
+                        "$ref": "#/components/parameters/chain"
                     }
                 ],
                 "requestBody": {
@@ -275,7 +275,7 @@
                 "description": "miners registered as designated blocks",
                 "parameters": [
                     {
-                        "$ref":"#/components/parameters/chain"
+                        "$ref": "#/components/parameters/chain"
                     }
                 ],
                 "requestBody": {
@@ -381,7 +381,7 @@
                 "description": "create new app",
                 "parameters": [
                     {
-                        "$ref":"#/components/parameters/chain"
+                        "$ref": "#/components/parameters/chain"
                     }
                 ],
                 "requestBody": {
@@ -511,7 +511,7 @@
                 "description": "run app",
                 "parameters": [
                     {
-                        "$ref":"#/components/parameters/chain"
+                        "$ref": "#/components/parameters/chain"
                     }
                 ],
                 "requestBody": {
@@ -626,7 +626,7 @@
                 "description": "update app life",
                 "parameters": [
                     {
-                        "$ref":"#/components/parameters/chain"
+                        "$ref": "#/components/parameters/chain"
                     }
                 ],
                 "requestBody": {
@@ -716,7 +716,7 @@
                 "description": "get app info",
                 "parameters": [
                     {
-                        "$ref":"#/components/parameters/chain"
+                        "$ref": "#/components/parameters/chain"
                     },
                     {
                         "name": "key",
@@ -771,7 +771,7 @@
                 "description": "get block info.if not query,will get the last block info",
                 "parameters": [
                     {
-                        "$ref":"#/components/parameters/chain"
+                        "$ref": "#/components/parameters/chain"
                     },
                     {
                         "name": "key",
@@ -886,7 +886,7 @@
                 "description": "post transaction data or block data",
                 "parameters": [
                     {
-                        "$ref":"#/components/parameters/chain"
+                        "$ref": "#/components/parameters/chain"
                     },
                     {
                         "name": "key",
@@ -941,7 +941,7 @@
                 "description": "read database data",
                 "parameters": [
                     {
-                        "$ref":"#/components/parameters/chain"
+                        "$ref": "#/components/parameters/chain"
                     },
                     {
                         "name": "app_name",
@@ -1069,7 +1069,7 @@
                 "description": "get next key of database",
                 "parameters": [
                     {
-                        "$ref":"#/components/parameters/chain"
+                        "$ref": "#/components/parameters/chain"
                     },
                     {
                         "name": "app_name",
