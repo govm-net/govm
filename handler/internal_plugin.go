@@ -2,15 +2,18 @@ package handler
 
 import (
 	"errors"
+	"log"
+	"net"
+	"sync"
+	"time"
+
+	"github.com/lengzhao/govm/conf"
 	core "github.com/lengzhao/govm/core"
 	"github.com/lengzhao/govm/event"
 	"github.com/lengzhao/govm/messages"
 	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/libp2p"
 	"github.com/lengzhao/libp2p/plugins"
-	"log"
-	"sync"
-	"time"
 )
 
 // InternalPlugin process p2p message
@@ -19,6 +22,7 @@ type InternalPlugin struct {
 	network libp2p.Network
 	mu      sync.Mutex
 	reconn  map[string]string
+	minerIP string
 }
 
 const (
@@ -32,6 +36,7 @@ var Nodes map[string]bool
 func (p *InternalPlugin) Startup(n libp2p.Network) {
 	p.network = n
 	p.reconn = make(map[string]string)
+	p.minerIP = conf.GetConf().MinerIP
 	Nodes = make(map[string]bool)
 	event.RegisterConsumer(p.event)
 	time.AfterFunc(time.Minute*2, p.timeout)
@@ -62,6 +67,13 @@ func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 	if id == "" {
 		return
 	}
+	ip, _, _ := net.SplitHostPort(peer.Host())
+	if ip == "127.0.0.1" || ip == p.minerIP {
+		// not close session
+		s.SetEnv("inDHT", "true")
+		log.Println("local connect:", peer.String())
+		return
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if len(Nodes) < 20 {
@@ -78,6 +90,12 @@ func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 func (p *InternalPlugin) PeerDisconnect(s libp2p.Session) {
 	peer := s.GetPeerAddr()
 	addr := peer.String()
+	ip, _, _ := net.SplitHostPort(peer.Host())
+	if ip == "127.0.0.1" || ip == p.minerIP {
+		// not reconnect
+		log.Println("local disconnect:", addr)
+		return
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	delete(Nodes, addr)

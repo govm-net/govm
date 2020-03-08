@@ -30,6 +30,8 @@ type TConfig struct {
 	SaveLog            bool   `json:"save_log,omitempty"`
 	ReliaRecalculation bool   `json:"relia_recalculation,omitempty"`
 	ForceMine          bool   `json:"force_mine,omitempty"`
+	IdentifyingCode    bool   `json:"identifying_code,omitempty"`
+	MinerIP            string `json:"miner_ip,omitempty"`
 }
 
 // DebugMod debug mode

@@ -155,9 +155,6 @@
             base = getBaseByName(gCostBase)
             data.cost = parseInt(data.cost * base)
             data.energy = parseInt(data.energy * base)
-            if (data.save_result == "on") {
-                data.save_result = true
-            }
             var chain = data.chain
             data = JSON.stringify(data)
             //alert(data)
