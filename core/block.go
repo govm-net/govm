@@ -547,6 +547,7 @@ func ProcessBlockOfChain(chain uint64, key []byte) (err error) {
 		log.Println("fail to open Flag,", err)
 		f := client.GetLastFlag(chain)
 		client.Cancel(chain, f)
+		client.Rollback(chain, f)
 		return err
 	}
 	defer client.Cancel(chain, key)
