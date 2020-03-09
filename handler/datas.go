@@ -2,12 +2,14 @@ package handler
 
 import (
 	"encoding/json"
-	core "github.com/lengzhao/govm/core"
-	"github.com/lengzhao/govm/database"
-	"github.com/lengzhao/govm/runtime"
 	"log"
 	"os"
 	"time"
+
+	"github.com/lengzhao/govm/conf"
+	core "github.com/lengzhao/govm/core"
+	"github.com/lengzhao/govm/database"
+	"github.com/lengzhao/govm/runtime"
 )
 
 // BlockRunStat stat of block
@@ -167,13 +169,15 @@ type transInfo struct {
 
 func saveTransInfo(chain uint64, key []byte, info transInfo) {
 	value := runtime.Encode(info)
-	ldb.LSet(chain, ldbTransInfo, key, value)
+	if conf.GetConf().DoMine {
+		ldb.LSet(chain, ldbTransInfo, key, value)
+	}
 	ldb.LSet(chain, ldbAllTransInfo, key, value)
 }
 
 func readTransInfo(chain uint64, key []byte) transInfo {
 	out := transInfo{}
-	v := ldb.LGet(chain, ldbTransInfo, key)
+	v := ldb.LGet(chain, ldbAllTransInfo, key)
 	if len(v) > 0 {
 		runtime.Decode(v, &out)
 	}
