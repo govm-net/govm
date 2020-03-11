@@ -319,11 +319,9 @@ func needDownload(chain uint64, key []byte) bool {
 	}
 	now := time.Now().Unix()
 	if old+downloadTimeout < now {
-		log.Printf("need download,chain:%d,key:%x\n", chain, key)
 		ldb.LSet(chain, ldbDownloading, key, runtime.Encode(now))
 		return true
 	}
-	log.Printf("not need download,chain:%d,key:%x\n", chain, key)
 	return false
 }
 

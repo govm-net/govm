@@ -35,7 +35,7 @@ func main() {
 	database.ChangeClientNumber(10)
 	err := database.GetClient().Set(1, []byte("test"), []byte("test"), []byte("test"))
 	if err != nil {
-		log.Println("fail to set database,make sure the database server running.", err)
+		fmt.Println("fail to set database,make sure the database server running.", err)
 		os.Exit(2)
 	}
 	conf.LoadWallet(c.WalletFile, c.Password)
@@ -46,14 +46,14 @@ func main() {
 		go func() {
 			err := http.ListenAndServe(addr, router)
 			if err != nil {
-				log.Println("fail to http Listen:", addr, err)
+				fmt.Println("fail to http Listen:", addr, err)
 				os.Exit(2)
 			}
 		}()
 	}
 	n := network.New()
 	if n == nil {
-		log.Println("fail to new network")
+		fmt.Println("fail to new network")
 		os.Exit(2)
 	}
 
