@@ -474,12 +474,15 @@ func dbRollBack(chain, index uint64, key []byte) error {
 	}
 	lKey = core.GetTheBlockKey(chain, nIndex)
 	bln := getBlockLockNum(chain, lKey)
+	client := database.GetClient()
 	for nIndex >= index {
 		lKey = core.GetTheBlockKey(chain, nIndex)
-		err = database.GetClient().Rollback(chain, lKey)
+		err = client.Rollback(chain, lKey)
 		log.Printf("dbRollBack,chain:%d,index:%d,key:%x\n", chain, nIndex, lKey)
 		if err != nil {
 			log.Println("fail to Rollback.", nIndex, err)
+			f := client.GetLastFlag(chain)
+			client.Cancel(chain, f)
 			return err
 		}
 		setBlockLockNum(chain, lKey, bln)
