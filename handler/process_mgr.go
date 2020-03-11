@@ -382,7 +382,9 @@ func processEvent(chain uint64) {
 			info = messages.ReqBlockInfo{Chain: chain, Index: index + 10}
 			finishProcBlock(chain, relia, 10)
 		}
-		network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
+		if needRequstID(chain, index+1) {
+			network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
+		}
 		return
 	}
 	stat := ReadBlockRunStat(chain, relia.Key[:])

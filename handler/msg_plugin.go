@@ -91,7 +91,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 
 		preKey := core.GetTheBlockKey(msg.Chain, msg.Index-1)
 		if bytes.Compare(preKey, msg.PreKey) != 0 {
-			if msg.Index > index+1 {
+			if msg.Index > index+1 && needRequstID(msg.Chain, index+1) {
 				ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + 1})
 			}
 			return nil
@@ -119,8 +119,11 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			}
 			return nil
 		}
-		ctx.GetSession().SetEnv(getEnvKey(msg.Chain, reqBlock), hex.EncodeToString(msg.Key))
-		ctx.Reply(&messages.ReqBlock{Chain: msg.Chain, Index: msg.Index, Key: msg.Key})
+		if needDownload(msg.Chain, msg.Key) {
+			ctx.GetSession().SetEnv(getEnvKey(msg.Chain, reqBlock), hex.EncodeToString(msg.Key))
+			ctx.Reply(&messages.ReqBlock{Chain: msg.Chain, Index: msg.Index, Key: msg.Key})
+		}
+
 		key := core.GetTheBlockKey(msg.Chain, 0)
 		rel := core.ReadBlockReliability(msg.Chain, key)
 		if msg.Index == rel.Index && msg.HashPower < rel.HashPower {
@@ -230,7 +233,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			index++
 			if index == 1 {
 				ctx.Reply(&messages.ReqTransaction{Chain: 1, Key: conf.GetConf().FirstTransName})
-			} else {
+			} else if needRequstID(1, index) {
 				ctx.Reply(&messages.ReqBlockInfo{Chain: 1, Index: index})
 			}
 			createSystemAPP(1)
