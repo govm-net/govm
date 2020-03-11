@@ -197,7 +197,7 @@ func doMine(chain uint64, force bool) {
 	}
 
 	if oldRel.HashPower == 0 {
-		log.Printf("fail to doMine,error oldHP,limit:%d\n", block.HashpowerLimit)
+		// log.Printf("fail to doMine,error oldHP,limit:%d\n", block.HashpowerLimit)
 		go doMine(chain, false)
 		return
 	}

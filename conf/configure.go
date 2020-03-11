@@ -42,7 +42,7 @@ const (
 var (
 	conf TConfig
 	// Version software version
-	Version string = "v0.3.9"
+	Version string = "v0.4.0"
 	// BuildTime build time
 	BuildTime string
 	// GitHead git head

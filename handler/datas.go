@@ -35,7 +35,10 @@ const (
 	ldbMiner        = "miner_register"   //chain:index
 	ldbHPLimit      = "hash_power_limit" //index:limit
 	ldbBlockLocked  = "block_locked"     //key:n
+	ldbDownloading  = "downloading"      //key:time
 )
+
+const downloadTimeout = 10
 
 var ldb *database.LDB
 
@@ -54,6 +57,7 @@ func init() {
 	ldb.SetCache(ldbMiner)
 	ldb.SetNotDisk(ldbHPLimit, 1000)
 	ldb.SetNotDisk(ldbBlockLocked, 10000)
+	ldb.SetNotDisk(ldbDownloading, 2000)
 }
 
 // Exit os exit
@@ -304,4 +308,24 @@ func setBlockLockNum(chain uint64, key []byte, val uint64) {
 	if val > old {
 		ldb.LSet(chain, ldbBlockLocked, key, runtime.Encode(val))
 	}
+}
+
+// get the time of download, if fresh, return false
+func needDownload(chain uint64, key []byte) bool {
+	var old int64
+	rst := ldb.LGet(chain, ldbDownloading, key)
+	if len(rst) >= 8 {
+		runtime.Decode(rst, &old)
+	}
+	now := time.Now().Unix()
+	if old+downloadTimeout < now {
+		ldb.LSet(chain, ldbDownloading, key, runtime.Encode(now))
+		return true
+	}
+	return false
+}
+
+// get the time of request, if fresh, return false
+func needRequstID(chain, index uint64) bool {
+	return needDownload(chain, runtime.Encode(index))
 }

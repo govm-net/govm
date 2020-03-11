@@ -83,19 +83,20 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 			return nil
 		}
 		if msg.Index > index+maxSyncNum {
-			if p.syncCID == "" {
+			if p.syncCID == "" && needRequstID(msg.Chain, index+maxSyncNum) {
 				ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + maxSyncNum})
 			}
 			return nil
 		}
 		if msg.Index > index+acceptBlockID {
-			if core.GetBlockTime(msg.Chain)+tHour > uint64(time.Now().Unix())*1000 {
+			if core.GetBlockTime(msg.Chain)+tHour > uint64(time.Now().Unix())*1000 &&
+				needRequstID(msg.Chain, index+acceptBlockID) {
 				ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + acceptBlockID})
 				return nil
 			}
 			if p.syncCID == "" || p.syncCID == cid {
 				p.syncCID = cid
-			} else {
+			} else if needRequstID(msg.Chain, index+acceptBlockID) {
 				ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + acceptBlockID})
 				return nil
 			}
@@ -110,6 +111,10 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 			} else {
 				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, core.BaseRelia)
 			}
+			return nil
+		}
+
+		if !needDownload(msg.Chain, msg.Key) {
 			return nil
 		}
 
