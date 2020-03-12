@@ -312,15 +312,22 @@ func setBlockLockNum(chain uint64, key []byte, val uint64) {
 
 // get the time of download, if fresh, return false
 func needDownload(chain uint64, key []byte) bool {
-	var old int64
+	type record struct {
+		Time [2]int64
+	}
+	var info record
 	rst := ldb.LGet(chain, ldbDownloading, key)
-	if len(rst) >= 8 {
-		runtime.Decode(rst, &old)
+	if len(rst) > 0 {
+		json.Unmarshal(rst, &info)
 	}
 	now := time.Now().Unix()
-	if old+downloadTimeout < now {
-		ldb.LSet(chain, ldbDownloading, key, runtime.Encode(now))
-		return true
+	for i := range info.Time {
+		if info.Time[i]+downloadTimeout < now {
+			info.Time[i] = now
+			data, _ := json.Marshal(info)
+			ldb.LSet(chain, ldbDownloading, key, data)
+			return true
+		}
 	}
 	return false
 }
