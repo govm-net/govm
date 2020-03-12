@@ -31,6 +31,7 @@ const (
 )
 
 var network libp2p.Network
+var activeNode libp2p.Session
 
 // Startup is called only once when the plugin is loaded
 func (p *MsgPlugin) Startup(n libp2p.Network) {
@@ -181,6 +182,11 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			log.Printf("fail to processBlock,chain:%d,key:%x,err:%s\n", msg.Chain, msg.Key, err)
 			return err
 		}
+
+		procMgr.mu.Lock()
+		activeNode = ctx.GetSession()
+		procMgr.mu.Unlock()
+
 		log.Printf("<%x> BlockData %d %x\n", ctx.GetPeerID(), msg.Chain, msg.Key)
 		p.downloadBlockDepend(ctx, msg.Chain, msg.Key)
 
