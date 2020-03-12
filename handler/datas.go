@@ -38,7 +38,7 @@ const (
 	ldbDownloading  = "downloading"      //key:time
 )
 
-const downloadTimeout = 10
+const downloadTimeout = 5
 
 var ldb *database.LDB
 
@@ -313,7 +313,7 @@ func setBlockLockNum(chain uint64, key []byte, val uint64) {
 // get the time of download, if fresh, return false
 func needDownload(chain uint64, key []byte) bool {
 	type record struct {
-		Time [2]int64
+		Time [3]int64
 	}
 	var info record
 	rst := ldb.LGet(chain, ldbDownloading, key)
