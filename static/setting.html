@@ -94,6 +94,15 @@
                         <span class="input-group-addon" data-localize="git_head">Git Head:</span>
                         <span class="form-control" id="git_head"></span>
                     </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="net_hp">Net HashPower:</span>
+                        <span class="form-control" id="net_hp"></span>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="my_hp">My HashPower:</span>
+                        <span class="form-control" id="my_hp"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -129,6 +138,15 @@
                 $("#version").html("<b>" + data.Version + "</b>");
                 $("#build_time").html("<b>" + data.BuildTime + "</b>");
                 $("#git_head").html("<b>" + data.GitHead + "</b>");
+            }
+        });
+        
+        $.get("/api/v1/"+gChainID+"/hashpower", function (data, status) {
+            if (status != "success") {
+                alert("Data: " + data + "\nStatus: " + status);
+            } else {
+                $("#net_hp").html(data.net_hp);
+                $("#my_hp").html(data.node_hp);
             }
         });
 

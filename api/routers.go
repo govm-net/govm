@@ -207,6 +207,12 @@ var routes = Routes{
 		"/api/v1/{chain}/event",
 		EventPost,
 	},
+	Route{
+		"HashPowerGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/hashpower",
+		HashPowerGet,
+	},
 
 	Route{
 		"AddNode",

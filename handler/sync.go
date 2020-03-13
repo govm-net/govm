@@ -189,11 +189,15 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	}
 	rel := core.ReadBlockReliability(chain, key)
 	if rel.Index == 0 {
-		core.DeleteBlock(chain, key)
-		core.DeleteBlockReliability(chain, key)
-		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), hex.EncodeToString(key))
-		ctx.Reply(&messages.ReqBlock{Chain: chain, Key: key})
-		return
+		err := processBlock(chain, key, nil)
+		if err != nil {
+			core.DeleteBlock(chain, key)
+			core.DeleteBlockReliability(chain, key)
+			ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), hex.EncodeToString(key))
+			ctx.Reply(&messages.ReqBlock{Chain: chain, Key: key})
+			return
+		}
+		rel = core.ReadBlockReliability(chain, key)
 	}
 	id := core.GetLastBlockIndex(chain)
 	if id > rel.Index+1000 {
