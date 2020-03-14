@@ -117,7 +117,7 @@
         $("#search_chain").val(gChainID);
         $("input[name='chain']").val(gChainID);
         
-        $.get("/api/v1/" + chain + "/block/info", function (data, status) {
+        $.get("/api/v1/" + gChainID + "/block/info", function (data, status) {
             $("input[name='index']").val=data.index;
         });
 

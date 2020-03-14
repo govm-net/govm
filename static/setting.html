@@ -145,8 +145,8 @@
             if (status != "success") {
                 alert("Data: " + data + "\nStatus: " + status);
             } else {
-                $("#net_hp").html(data.net_hp);
-                $("#my_hp").html(data.node_hp);
+                $("#net_hp").html(fmoney(data.net_hp));
+                $("#my_hp").html(fmoney(data.node_hp));
             }
         });
 
