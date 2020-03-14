@@ -13,5 +13,7 @@
     "message":"提示",
     "describe":"发送一个事件关闭程序",
     "close":"关闭",
-    "lg_set":"中文"
+    "lg_set":"中文",
+    "net_hp":"主网算力",
+    "my_hp":"节点算力"
 }

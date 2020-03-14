@@ -5,16 +5,17 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+	"time"
+
 	"github.com/lengzhao/govm/conf"
 	core "github.com/lengzhao/govm/core"
 	"github.com/lengzhao/govm/database"
 	"github.com/lengzhao/govm/messages"
 	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/libp2p"
-	"io/ioutil"
-	"log"
-	"os"
-	"time"
 )
 
 // MsgPlugin process p2p message
@@ -30,8 +31,20 @@ const (
 	transOfBlock
 )
 
+type keyOfBlockHP struct {
+	Chain uint64
+	Index int64
+}
+
 var network libp2p.Network
 var activeNode libp2p.Session
+var blockHP *database.LRUCache
+
+const blockHPNumber = 30
+
+func init() {
+	blockHP = database.NewLRUCache(100 * blockHPNumber)
+}
 
 // Startup is called only once when the plugin is loaded
 func (p *MsgPlugin) Startup(n libp2p.Network) {
@@ -99,12 +112,14 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 
 		if core.IsExistBlock(msg.Chain, msg.Key) {
 			log.Println("block exist:", msg.Index, ",chain:", msg.Chain, ",self:", index)
-
 			rel := core.ReadBlockReliability(msg.Chain, msg.Key)
 			if rel.HashPower == 0 {
-				core.DeleteBlock(msg.Chain, msg.Key)
-				log.Printf("error hashpower of block,delete it.chain:%d,key:%x\n", msg.Chain, msg.Key)
-				return nil
+				err := processBlock(msg.Chain, msg.Key, nil)
+				if err != nil {
+					core.DeleteBlock(msg.Chain, msg.Key)
+					log.Printf("error hashpower of block,delete it.chain:%d,key:%x\n", msg.Chain, msg.Key)
+					return nil
+				}
 			}
 			if !rel.Ready {
 				p.downloadBlockDepend(ctx, msg.Chain, msg.Key)
@@ -267,8 +282,14 @@ func createSystemAPP(chain uint64) {
 }
 
 func processBlock(chain uint64, key, data []byte) (err error) {
-	if getHashPower(key) < 5 {
+	needSave := true
+	hp := getHashPower(key)
+	if hp < 5 {
 		return errors.New("error hashpower")
+	}
+	if len(data) == 0 {
+		data = core.ReadBlockData(chain, key)
+		needSave = false
 	}
 
 	// 解析block
@@ -328,8 +349,16 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 	rel := block.GetReliability()
 	core.SaveBlockReliability(chain, block.Key[:], rel)
 	SaveTransList(chain, block.Key[:], block.TransList)
-	core.WriteBlock(chain, data)
-	// log.Printf("new block,chain:%d,index:%d,key:%x,hashpower:%d\n", chain, block.Index, block.Key, rel.HashPower)
+	if needSave {
+		core.WriteBlock(chain, data)
+		val := uint64(1) << hp
+		hpi := time.Now().Unix() / 60
+		old, ok := blockHP.Get(keyOfBlockHP{chain, hpi})
+		if ok {
+			val += old.(uint64)
+		}
+		blockHP.Set(keyOfBlockHP{chain, hpi}, val)
+	}
 
 	return
 }
@@ -509,4 +538,20 @@ func dbRollBack(chain, index uint64, key []byte) error {
 	}
 
 	return nil
+}
+
+// GetHashPowerOfBlocks get average hashpower of blocks
+func GetHashPowerOfBlocks(chain uint64) uint64 {
+	procMgr.mu.Lock()
+	defer procMgr.mu.Unlock()
+	var sum uint64
+	hpi := time.Now().Unix() / 60
+	for i := hpi - blockHPNumber; i < hpi; i++ {
+		v, ok := blockHP.Get(keyOfBlockHP{chain, i})
+		if ok {
+			sum += v.(uint64)
+		}
+	}
+
+	return sum / blockHPNumber
 }

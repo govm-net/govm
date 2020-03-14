@@ -1579,3 +1579,26 @@ func CryptoCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 }
+
+// HashPowerGet get hashpower info
+func HashPowerGet(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chainStr := vars["chain"]
+	chain, err := strconv.ParseUint(chainStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("error chain"))
+		return
+	}
+	mainnetHP := handler.GetHashPowerOfBlocks(chain)
+	myHP := handler.GetMyHashPower(chain)
+	type HP struct {
+		NetHP  uint64 `json:"net_hp,omitempty"`
+		NodeHP uint64 `json:"node_hp,omitempty"`
+	}
+	out := HP{mainnetHP, myHP}
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	enc.Encode(out)
+}
