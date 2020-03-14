@@ -118,7 +118,7 @@
         $("input[name='chain']").val(gChainID);
         
         $.get("/api/v1/" + gChainID + "/block/info", function (data, status) {
-            $("input[name='index']").val=data.index;
+            $("input[name='index']").val(data.index+50);
         });
 
         function getMiner(chain, query) {
