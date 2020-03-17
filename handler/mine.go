@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"github.com/lengzhao/govm/conf"
 	core "github.com/lengzhao/govm/core"
+	"github.com/lengzhao/govm/database"
 	"github.com/lengzhao/govm/event"
 	"github.com/lengzhao/govm/messages"
 	"github.com/lengzhao/govm/runtime"
@@ -12,6 +13,8 @@ import (
 	"math/rand"
 	"time"
 )
+
+var myHP *database.LRUCache
 
 func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 	var preKey []byte
@@ -150,6 +153,7 @@ func doMine(chain uint64, force bool) {
 	var oldRel core.TReliability
 
 	timeout := time.Now().Unix() + 20
+	var count uint64
 
 	for {
 		now := time.Now().Unix()
@@ -172,7 +176,7 @@ func doMine(chain uint64, force bool) {
 
 		block.SetSign(sign)
 		data := block.Output()
-
+		count++
 		hp := getHashPower(block.Key[:])
 		if hp < block.HashpowerLimit {
 			block.Nonce++
@@ -193,13 +197,18 @@ func doMine(chain uint64, force bool) {
 			network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 			log.Printf("mine one blok,chain:%d,index:%d,hashpower:%d,hp limit:%d,trans:%d,key:%x\n",
 				chain, rel.Index, rel.HashPower, block.HashpowerLimit, len(transList), rel.Key)
-			setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
-			break
+			// setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+			// break
 		}
 	}
-
+	hpi := time.Now().Unix() / 60
+	old, ok := myHP.Get(keyOfBlockHP{chain, hpi})
+	if ok {
+		count += old.(uint64)
+	}
+	myHP.Set(keyOfBlockHP{chain, hpi}, count)
 	if oldRel.HashPower == 0 {
-		log.Printf("fail to doMine,error oldHP,limit:%d\n", block.HashpowerLimit)
+		// log.Printf("fail to doMine,error oldHP,limit:%d\n", block.HashpowerLimit)
 		go doMine(chain, false)
 		return
 	}
@@ -256,4 +265,20 @@ func autoRegisterMiner(chain uint64) {
 	msg.Data = td
 	event.Send(msg)
 	// log.Println("SendInternalMsg autoRegisterMiner:", msg)
+}
+
+// GetMyHashPower get my average hashpower
+func GetMyHashPower(chain uint64) uint64 {
+	procMgr.mu.Lock()
+	defer procMgr.mu.Unlock()
+	var sum uint64
+	hpi := time.Now().Unix() / 60
+	for i := hpi - blockHPNumber; i < hpi; i++ {
+		v, ok := myHP.Get(keyOfBlockHP{chain, i})
+		if ok {
+			sum += v.(uint64)
+		}
+	}
+
+	return sum / blockHPNumber
 }

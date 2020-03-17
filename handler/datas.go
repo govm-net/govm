@@ -2,12 +2,14 @@ package handler
 
 import (
 	"encoding/json"
-	core "github.com/lengzhao/govm/core"
-	"github.com/lengzhao/govm/database"
-	"github.com/lengzhao/govm/runtime"
 	"log"
 	"os"
 	"time"
+
+	"github.com/lengzhao/govm/conf"
+	core "github.com/lengzhao/govm/core"
+	"github.com/lengzhao/govm/database"
+	"github.com/lengzhao/govm/runtime"
 )
 
 // BlockRunStat stat of block
@@ -33,11 +35,15 @@ const (
 	ldbMiner        = "miner_register"   //chain:index
 	ldbHPLimit      = "hash_power_limit" //index:limit
 	ldbBlockLocked  = "block_locked"     //key:n
+	ldbDownloading  = "downloading"      //key:time
 )
+
+const downloadTimeout = 5
 
 var ldb *database.LDB
 
-func init() {
+// Init init
+func Init() {
 	ldb = database.NewLDB("local.db", 10000)
 	if ldb == nil {
 		log.Println("fail to open ldb,local.db")
@@ -52,12 +58,7 @@ func init() {
 	ldb.SetCache(ldbMiner)
 	ldb.SetNotDisk(ldbHPLimit, 1000)
 	ldb.SetNotDisk(ldbBlockLocked, 10000)
-}
-
-// Exit os exit
-func Exit() {
-	ldb.Close()
-	core.Exit()
+	ldb.SetNotDisk(ldbDownloading, 2000)
 }
 
 // SaveBlockRunStat save block stat
@@ -167,13 +168,15 @@ type transInfo struct {
 
 func saveTransInfo(chain uint64, key []byte, info transInfo) {
 	value := runtime.Encode(info)
-	ldb.LSet(chain, ldbTransInfo, key, value)
+	if conf.GetConf().DoMine {
+		ldb.LSet(chain, ldbTransInfo, key, value)
+	}
 	ldb.LSet(chain, ldbAllTransInfo, key, value)
 }
 
 func readTransInfo(chain uint64, key []byte) transInfo {
 	out := transInfo{}
-	v := ldb.LGet(chain, ldbTransInfo, key)
+	v := ldb.LGet(chain, ldbAllTransInfo, key)
 	if len(v) > 0 {
 		runtime.Decode(v, &out)
 	}
@@ -300,4 +303,31 @@ func setBlockLockNum(chain uint64, key []byte, val uint64) {
 	if val > old {
 		ldb.LSet(chain, ldbBlockLocked, key, runtime.Encode(val))
 	}
+}
+
+// get the time of download, if fresh, return false
+func needDownload(chain uint64, key []byte) bool {
+	type record struct {
+		Time [3]int64
+	}
+	var info record
+	rst := ldb.LGet(chain, ldbDownloading, key)
+	if len(rst) > 0 {
+		json.Unmarshal(rst, &info)
+	}
+	now := time.Now().Unix()
+	for i := range info.Time {
+		if info.Time[i]+downloadTimeout < now {
+			info.Time[i] = now
+			data, _ := json.Marshal(info)
+			ldb.LSet(chain, ldbDownloading, key, data)
+			return true
+		}
+	}
+	return false
+}
+
+// get the time of request, if fresh, return false
+func needRequstID(chain, index uint64) bool {
+	return needDownload(chain, runtime.Encode(index))
 }

@@ -28,8 +28,8 @@ github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORN
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0 h1:45sCR5RtlFHMR4UwH9sdQ5TC8v0qDQCHnXt+kaKSTVE=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
-github.com/lengzhao/database v1.0.0 h1:2CUchK7BypnTlc7yqnxwG6QfdRUrCydfSnF9AZ7drhU=
-github.com/lengzhao/database v1.0.0/go.mod h1:2ggR6uCSrXJCdVTfRBtpiSUs+Xr14hWOe2U0ZGNrRIg=
+github.com/lengzhao/database v1.0.3 h1:nDTr1rrpTNmKcO9YO1AerB+S5f/iejkg+lI9x4tVKQs=
+github.com/lengzhao/database v1.0.3/go.mod h1:2ggR6uCSrXJCdVTfRBtpiSUs+Xr14hWOe2U0ZGNrRIg=
 github.com/lengzhao/libp2p v0.3.8 h1:2erIzw/DO7udwt10cwy+wiIwnJCwx1t7zkdxX4pXcck=
 github.com/lengzhao/libp2p v0.3.8/go.mod h1:5Xil5+TJAR7b6lE0fl7A/ESWlwpMcBMEn2ucoUbUzk4=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=

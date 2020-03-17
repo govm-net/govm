@@ -42,7 +42,8 @@ var (
 	ldb *database.LDB
 )
 
-func init() {
+// Init init,open reliability.db and create core app
+func Init() {
 	ldb = database.NewLDB("reliability.db", 2000)
 	if ldb == nil {
 		log.Println("fail to open ldb,reliability.db")
@@ -68,7 +69,10 @@ func init() {
 
 // Exit os exit
 func Exit() {
-	ldb.Close()
+	if ldb != nil{
+		ldb.Close()
+		ldb = nil
+	}
 }
 
 // NewBlock new block
@@ -547,6 +551,7 @@ func ProcessBlockOfChain(chain uint64, key []byte) (err error) {
 		log.Println("fail to open Flag,", err)
 		f := client.GetLastFlag(chain)
 		client.Cancel(chain, f)
+		client.Rollback(chain, f)
 		return err
 	}
 	defer client.Cancel(chain, key)

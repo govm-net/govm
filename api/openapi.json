@@ -62,7 +62,7 @@
                         "$ref": "#/components/parameters/chain"
                     },
                     {
-                        "name": "key",
+                        "name": "address",
                         "in": "query",
                         "description": "address of account",
                         "required": false,

@@ -193,7 +193,7 @@ func TransactionMovePost(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "not enough cost.have:%d,hope:%d\n", coin, info.Cost)
 		return
 	}
-	err = identifyBeforeTransaction("Move:", chain, info)
+	err = identifyBeforeTransaction("Move:", chain, string(data))
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprintf(w, "identifying code error,%s", err)
@@ -291,7 +291,7 @@ func TransactionTransferPost(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "not enough cost.have:%d,hope:%d\n", coin, info.Cost)
 		return
 	}
-	err = identifyBeforeTransaction("Transfer:", chain, info)
+	err = identifyBeforeTransaction("Transfer:", chain, string(data))
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprintf(w, "identifying code error,%s", err)
@@ -426,7 +426,7 @@ func TransactionMinerPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	err = identifyBeforeTransaction("Register miner:", chain, info)
+	err = identifyBeforeTransaction("Register miner:", chain, string(data))
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprintf(w, "identifying code error,%s", err)
@@ -518,7 +518,7 @@ func TransactionNewAppPost(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "not enough cost.have:%d,hope:%d\n", coin, info.Cost)
 		return
 	}
-	err = identifyBeforeTransaction("New APP:", chain, info)
+	err = identifyBeforeTransaction("New APP:", chain, string(data))
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprintf(w, "identifying code error,%s", err)
@@ -670,7 +670,7 @@ func TransactionRunAppPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = identifyBeforeTransaction("Run APP:", chain, info)
+	err = identifyBeforeTransaction("Run APP:", chain, string(data))
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprintf(w, "identifying code error,%s", err)
@@ -760,7 +760,7 @@ func TransactionAppLifePost(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "not enough cost.have:%d,hope:%d\n", coin, info.Energy)
 		return
 	}
-	err = identifyBeforeTransaction("Update APP Life:", chain, info)
+	err = identifyBeforeTransaction("Update APP Life:", chain, string(data))
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprintf(w, "identifying code error,%s", err)
@@ -1118,7 +1118,7 @@ func ChainNew(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "not enough cost.have:%d,hope:%d\n", coin, info.Cost)
 		return
 	}
-	err = identifyBeforeTransaction("New chain:", chain, info)
+	err = identifyBeforeTransaction("New chain:", chain, string(data))
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprintf(w, "identifying code error,%s", err)
@@ -1509,7 +1509,7 @@ func CryptoSign(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	err = identifyBeforeTransaction("Sign:", info)
+	err = identifyBeforeTransaction("Sign:", string(data))
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprintf(w, "identifying code error,%s", err)
@@ -1578,4 +1578,27 @@ func CryptoCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+// HashPowerGet get hashpower info
+func HashPowerGet(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chainStr := vars["chain"]
+	chain, err := strconv.ParseUint(chainStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("error chain"))
+		return
+	}
+	mainnetHP := handler.GetHashPowerOfBlocks(chain)
+	myHP := handler.GetMyHashPower(chain)
+	type HP struct {
+		NetHP  uint64 `json:"net_hp"`
+		NodeHP uint64 `json:"node_hp"`
+	}
+	out := HP{mainnetHP, myHP}
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	enc.Encode(out)
 }

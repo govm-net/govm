@@ -37,7 +37,7 @@
                         <br>
                         <div class="input-group">
                             <span class="input-group-addon">Cost:</span>
-                            <input type="number" class="form-control" name="cost">
+                            <input type="number" class="form-control" name="cost" value="200000">
                             <span class="input-group-addon" id="base_cost"></span>
                             <span class="input-group-addon label-success">*</span>
                         </div>
@@ -116,6 +116,11 @@
         $("#base_energy").html(gCostBase);
         $("#search_chain").val(gChainID);
         $("input[name='chain']").val(gChainID);
+        
+        $.get("/api/v1/" + gChainID + "/block/info", function (data, status) {
+            $("input[name='index']").val(data.index+50);
+        });
+
         function getMiner(chain, query) {
             $.get("/api/v1/" + chain + "/transaction/miner" + query, function (data, status) {
                 // console.log(data)
@@ -178,7 +183,7 @@
                 contentType: "application/json",
                 success: function (data) {
                     $("#result").html("<span class=\"label label-success\">key:<a href=\"transaction.html?key="
-                        + data.address + "\">" + data.address + "</a></span>");
+                        + data.trans_key + "\">" + data.trans_key + "</a></span>");
                     $("#chain").html("");
                     $("#index").html("");
                     $("#miner").html("");

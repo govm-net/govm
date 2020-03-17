@@ -7,7 +7,7 @@ cn: 这是一个基于同构多链的区块链系统。它的理论性能可以�
 
 ## Building the source
 
-1. install golang(>v1.20),git
+1. install golang(>v1.13),git
 2. start database: github.com/lengzhao/database
 3. download code
 4. build: go build

@@ -377,12 +377,17 @@ func processEvent(chain uint64) {
 			go processEvent(chain)
 			return
 		}
-		info := messages.ReqBlockInfo{Chain: chain, Index: index + 1}
+		info := &messages.ReqBlockInfo{Chain: chain, Index: index + 1}
+		if activeNode != nil {
+			activeNode.Send(info)
+		}
 		if t+10*tMinute < now {
-			info = messages.ReqBlockInfo{Chain: chain, Index: index + 10}
+			info = &messages.ReqBlockInfo{Chain: chain, Index: index + 10}
 			finishProcBlock(chain, relia, 10)
 		}
-		network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: &info})
+		if needRequstID(chain, index+1) {
+			network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: info})
+		}
 		return
 	}
 	stat := ReadBlockRunStat(chain, relia.Key[:])
