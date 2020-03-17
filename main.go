@@ -87,7 +87,6 @@ func main() {
 		log.Println("fail to listen:", c.ServerHost, err)
 	}
 	n.Close()
-	handler.Exit()
 	log.Println("wait to exit(3s)")
 	time.Sleep(3 * time.Second)
 }

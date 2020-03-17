@@ -16,10 +16,6 @@ import (
 
 var myHP *database.LRUCache
 
-func init() {
-	myHP = database.NewLRUCache(100 * blockHPNumber)
-}
-
 func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 	var preKey []byte
 	var size uint64

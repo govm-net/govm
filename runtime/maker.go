@@ -83,6 +83,7 @@ func NewApp(chain uint64, name []byte, code []byte) {
 			log.Println("fail to create run file:", dstFileName, err)
 			panic(err)
 		}
+		packPath := GetPackPath(chain, name)
 		info := TAppInfo{hexToPackageName(name), packPath, filePath, chain}
 		err = s1.Execute(f, info)
 		if err != nil {

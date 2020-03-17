@@ -3,6 +3,7 @@ package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
 import (
 	"errors"
 	"fmt"
+	"github.com/lengzhao/govm/database"
 	"log"
 	"runtime/debug"
 	"time"
@@ -80,4 +81,55 @@ func CheckTransList(chain uint64, factory func(uint64) Hash) (err error) {
 		}
 		proc.processTransaction(block, k)
 	}
+}
+
+// TransProc transaction processer for miner
+type TransProc struct {
+	proc  processer
+	block BlockInfo
+	chain uint64
+	flag  []byte
+}
+
+// NewTransProc new process for miner
+func NewTransProc(chain uint64, key []byte) *TransProc {
+	out := new(TransProc)
+	out.proc.initEnv(chain, key)
+	out.proc.BaseOpsEnergy = getBaseOpsEnergy(chain)
+	out.block.Index = out.proc.ID
+	out.block.Time = out.proc.Time
+	out.block.Producer = out.proc.Producer
+	out.chain = chain
+	out.flag = key
+	client := database.GetClient()
+	err := client.OpenFlag(chain, key)
+	if err != nil {
+		log.Println("fail to open Flag,", err)
+		f := client.GetLastFlag(chain)
+		client.Cancel(chain, f)
+		client.Rollback(chain, f)
+		client.OpenFlag(chain, key)
+	}
+	return out
+}
+
+// ProcTrans process transaction,return size of transaction. return 0 when error
+func (p *TransProc) ProcTrans(key []byte) uint64 {
+	var result uint64
+	defer func() {
+		err := recover()
+		if err != nil {
+			result = 0
+		}
+	}()
+	var h Hash
+	runtime.Decode(key, &h)
+	result = p.proc.processTransaction(p.block, h)
+	return result
+}
+
+// Close close
+func (p *TransProc) Close() {
+	client := database.GetClient()
+	client.Cancel(p.chain, p.flag)
 }

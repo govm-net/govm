@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/lengzhao/database/client"
-	db "github.com/lengzhao/govm/database"
+	"github.com/lengzhao/govm/database"
 	"github.com/lengzhao/govm/wallet"
 	"io/ioutil"
 	"log"
@@ -151,7 +151,7 @@ func RunApp(client *client.Client, flag []byte, chain uint64, mode string, appNa
 	enc.Encode(args)
 	var paramKey []byte
 	if client == nil {
-		client = db.GetClient()
+		client = database.GetClient()
 	}
 	if mode == "" {
 		paramKey = []byte(hexToPackageName(appName))
