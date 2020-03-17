@@ -42,7 +42,8 @@ const downloadTimeout = 5
 
 var ldb *database.LDB
 
-func init() {
+// Init init
+func Init() {
 	ldb = database.NewLDB("local.db", 10000)
 	if ldb == nil {
 		log.Println("fail to open ldb,local.db")
@@ -58,12 +59,6 @@ func init() {
 	ldb.SetNotDisk(ldbHPLimit, 1000)
 	ldb.SetNotDisk(ldbBlockLocked, 10000)
 	ldb.SetNotDisk(ldbDownloading, 2000)
-}
-
-// Exit os exit
-func Exit() {
-	ldb.Close()
-	core.Exit()
 }
 
 // SaveBlockRunStat save block stat

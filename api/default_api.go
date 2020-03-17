@@ -1593,8 +1593,8 @@ func HashPowerGet(w http.ResponseWriter, r *http.Request) {
 	mainnetHP := handler.GetHashPowerOfBlocks(chain)
 	myHP := handler.GetMyHashPower(chain)
 	type HP struct {
-		NetHP  uint64 `json:"net_hp,omitempty"`
-		NodeHP uint64 `json:"node_hp,omitempty"`
+		NetHP  uint64 `json:"net_hp"`
+		NodeHP uint64 `json:"node_hp"`
 	}
 	out := HP{mainnetHP, myHP}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")

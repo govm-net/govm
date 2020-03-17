@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"github.com/lengzhao/govm/database"
 	"log"
 	"net"
 	"sync"
@@ -34,12 +35,22 @@ var Nodes map[string]bool
 
 // Startup is called only once when the plugin is loaded
 func (p *InternalPlugin) Startup(n libp2p.Network) {
+	core.Init()
+	Init()
+	myHP = database.NewLRUCache(100 * blockHPNumber)
+
 	p.network = n
 	p.reconn = make(map[string]string)
 	p.minerIP = conf.GetConf().MinerIP
 	Nodes = make(map[string]bool)
 	event.RegisterConsumer(p.event)
 	time.AfterFunc(time.Minute*2, p.timeout)
+}
+
+// Cleanup plugin uninstall
+func (p *InternalPlugin) Cleanup(n libp2p.Network) {
+	ldb.Close()
+	core.Exit()
 }
 
 func (p *InternalPlugin) timeout() {
