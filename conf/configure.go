@@ -32,6 +32,7 @@ type TConfig struct {
 	ForceMine          bool   `json:"force_mine,omitempty"`
 	IdentifyingCode    bool   `json:"identifying_code,omitempty"`
 	MinerIP            string `json:"miner_ip,omitempty"`
+	ForwardTrans       bool   `json:"forward_trans,omitempty"`
 }
 
 // DebugMod debug mode

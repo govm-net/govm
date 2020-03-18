@@ -466,11 +466,21 @@ func processTransaction(chain uint64, key, data []byte) error {
 		ldb.LSet(chain, ldbInputTrans, k, trans.Key[:])
 	}
 
-	if (believable(chain, trans.User[:]) || bytes.Compare(trans.User[:], c.WalletAddr) == 0) &&
-		(chain == c.ChainOfMine || c.ChainOfMine == 0) &&
-		trans.Energy >= c.EnergyOfTrans &&
-		trans.Time <= now && trans.Time+transAcceptTime > now {
+	log.Printf("new transaction.chain%d, key:%x ,osp:%d\n", chain, key, trans.Ops)
 
+	if !believable(chain, trans.User[:]) && (bytes.Compare(trans.User[:], c.WalletAddr) != 0) {
+		return nil
+	}
+
+	if trans.Energy < c.EnergyOfTrans {
+		return nil
+	}
+
+	if trans.Time > now && trans.Time+transAcceptTime < now {
+		return nil
+	}
+
+	if chain == c.ChainOfMine || c.ChainOfMine == 0 || c.ForwardTrans {
 		info := transInfo{}
 		info.TransactionHead = trans.TransactionHead
 		runtime.Decode(trans.Key, &info.Key)
@@ -486,8 +496,6 @@ func processTransaction(chain uint64, key, data []byte) error {
 			ldb.LSet(chain, ldbNewerTrans, k, runtime.Encode(info))
 		}
 	}
-
-	log.Printf("new transaction.chain%d, key:%x ,osp:%d\n", chain, key, trans.Ops)
 
 	return nil
 }
