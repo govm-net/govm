@@ -233,6 +233,7 @@ func GetInputTrans(chain uint64, preKey []byte) []HistoryItem {
 		it := HistoryItem{}
 		it.Key = hex.EncodeToString(k)
 		it.Value = hex.EncodeToString(v)
+		out = append(out, it)
 	}
 
 	return out
