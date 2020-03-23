@@ -1282,7 +1282,7 @@ func (p *processer) registerMiner(user Address, index, cost uint64) bool {
 
 func (p *processer) pRegisterMiner(t Transaction) {
 	guerdon := p.pDbStat.GetInt([]byte{StatGuerdon})
-	assert(t.Cost >= 3*guerdon)
+	assertMsg(t.Cost >= 3*guerdon, "not enough cost")
 	info := RegMiner{}
 	p.Decode(0, t.data, &info)
 
@@ -1297,8 +1297,8 @@ func (p *processer) pRegisterMiner(t Transaction) {
 		return
 	}
 
-	assert(info.Index > p.ID+20)
-	assert(p.ID+2*depositCycle > info.Index)
+	assertMsg(info.Index > p.ID+20, "index too small")
+	assertMsg(p.ID+2*depositCycle > info.Index, "index too big")
 
 	rst := p.registerMiner(t.User, info.Index, t.Cost)
 	if rst {

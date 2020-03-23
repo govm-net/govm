@@ -407,7 +407,7 @@ func (p *MsgPlugin) downloadBlockDepend(ctx libp2p.Event, chain uint64, key []by
 	var hpLimit uint64
 	getData(chain, ldbHPLimit, runtime.Encode(rel.Index-1), &hpLimit)
 	if rel.HashPower+hpAcceptRange >= hpLimit {
-		// log.Printf("setBlockToIDBlocks,chain:%d,index:%d,key:%x,hp:%d\n", chain, rel.Index, rel.Key, rel.HashPower)
+		log.Printf("setBlockToIDBlocks,chain:%d,index:%d,key:%x,hp:%d\n", chain, rel.Index, rel.Key, rel.HashPower)
 		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
 	}
 

@@ -12,6 +12,7 @@
                 <li><a href="/new_app.html" data-localize="navbar.new_app">New APP</a></li>
                 <li><a href="/block.html" data-localize="navbar.block">Block</a></li>
                 <li><a href="/transaction.html" data-localize="navbar.transaction">Transaction</a></li>
+                <li><a href="/miner.html" data-localize="navbar.miner">Miner</a></li>
                 <li><a href="/nodes.html" data-localize="navbar.node">Node</a></li>
                 <li><a href="/setting.html" data-localize="navbar.setting">Setting</a></li>
             </ul>

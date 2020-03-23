@@ -131,18 +131,23 @@ func getBestBlock(chain, index uint64) core.TReliability {
 			continue
 		}
 
-		log.Printf("getBestBlock,chain:%d,index:%d,key:%x,i:%d,hp:%d,"+
-			"rollback:%d,runTimes:%d,success:%d,selected:%d\n",
-			chain, index, key, i, rel.HashPower, stat.RollbackCount,
-			stat.RunTimes, stat.RunSuccessCount, stat.SelectedCount)
+		if stat.SelectedCount > 1 || stat.RollbackCount > 1 {
+			log.Printf("getBestBlock,chain:%d,index:%d,key:%x,i:%d,hp:%d,"+
+				"rollback:%d,runTimes:%d,success:%d,selected:%d\n",
+				chain, index, key, i, rel.HashPower, stat.RollbackCount,
+				stat.RunTimes, stat.RunSuccessCount, stat.SelectedCount)
+		}
 
 		rel.HashPower = hp
 		if rel.Cmp(relia) > 0 {
 			relia = rel
 		}
 	}
-	log.Printf("getBestBlock rst,num:%d,chain:%d,index:%d,hp:%d,key:%x\n", len(ib.Items),
-		chain, index, relia.HashPower, relia.Key)
+	if !relia.Key.Empty() {
+		log.Printf("getBestBlock rst,num:%d,chain:%d,index:%d,hp:%d,key:%x\n", len(ib.Items),
+			chain, index, relia.HashPower, relia.Key)
+	}
+
 	return relia
 }
 
