@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"log"
 	"os"
@@ -52,9 +53,9 @@ func Init() {
 	ldb.SetNotDisk(ldbBlockRunStat, 10000)
 	ldb.SetNotDisk(ldbIDBlocks, 10000)
 	ldb.SetNotDisk(ldbSyncBlocks, 10000)
+	ldb.SetNotDisk(ldbBlacklist, 10000)
 	ldb.SetCache(ldbTransList)
 	ldb.SetCache(ldbTransInfo)
-	ldb.SetCache(ldbBlacklist)
 	ldb.SetCache(ldbMiner)
 	ldb.SetNotDisk(ldbHPLimit, 1000)
 	ldb.SetNotDisk(ldbBlockLocked, 10000)
@@ -196,25 +197,24 @@ func deleteTransInfo(chain uint64, key []byte) {
 	ldb.LSet(chain, ldbTransInfo, key, nil)
 }
 
+// HistoryItem history item
+type HistoryItem struct {
+	Key   string `json:"key,omitempty"`
+	Value string `json:"value,omitempty"`
+}
+
 // GetOutputTrans get output transaction by self
-func GetOutputTrans(chain uint64, preKey []byte) []core.Hash {
-	out := make([]core.Hash, 0)
+func GetOutputTrans(chain uint64, preKey []byte) []HistoryItem {
+	out := make([]HistoryItem, 0)
 	for i := 0; i < 10; i++ {
-		k, key := ldb.LGetNext(chain, ldbOutputTrans, preKey)
-		if len(key) == 0 {
+		k, v := ldb.LGetNext(chain, ldbOutputTrans, preKey)
+		if len(v) == 0 {
 			break
 		}
 		preKey = k
-		if len(key) == 1 {
-			key = k
-			ldb.LSet(chain, ldbOutputTrans, key, nil)
-			var t uint64 = ^uint64(0)
-			k = runtime.Encode(t)
-			k = append(k, key[:16]...)
-			ldb.LSet(chain, ldbOutputTrans, k, key)
-		}
-		it := core.Hash{}
-		runtime.Decode(key, &it)
+		it := HistoryItem{}
+		it.Key = hex.EncodeToString(k)
+		it.Value = hex.EncodeToString(v)
 		out = append(out, it)
 	}
 
@@ -222,24 +222,17 @@ func GetOutputTrans(chain uint64, preKey []byte) []core.Hash {
 }
 
 // GetInputTrans get input transaction
-func GetInputTrans(chain uint64, preKey []byte) []core.Hash {
-	out := make([]core.Hash, 0)
+func GetInputTrans(chain uint64, preKey []byte) []HistoryItem {
+	out := make([]HistoryItem, 0)
 	for i := 0; i < 10; i++ {
-		k, key := ldb.LGetNext(chain, ldbInputTrans, preKey)
-		if len(key) == 0 {
+		k, v := ldb.LGetNext(chain, ldbInputTrans, preKey)
+		if len(v) == 0 {
 			break
 		}
 		preKey = k
-		if len(key) == 1 {
-			key = k
-			ldb.LSet(chain, ldbInputTrans, key, nil)
-			var t uint64 = ^uint64(0)
-			k = runtime.Encode(t)
-			k = append(k, key[:16]...)
-			ldb.LSet(chain, ldbInputTrans, k, key)
-		}
-		it := core.Hash{}
-		runtime.Decode(key, &it)
+		it := HistoryItem{}
+		it.Key = hex.EncodeToString(k)
+		it.Value = hex.EncodeToString(v)
 		out = append(out, it)
 	}
 

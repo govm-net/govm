@@ -120,6 +120,7 @@ func (p *TransProc) ProcTrans(key []byte) uint64 {
 		err := recover()
 		if err != nil {
 			result = 0
+			log.Println("[mine]fail to process trans:", err)
 		}
 	}()
 	var h Hash

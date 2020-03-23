@@ -16,6 +16,10 @@ import (
 
 var myHP *database.LRUCache
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 	var preKey []byte
 	var size uint64
