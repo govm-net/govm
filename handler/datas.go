@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"log"
 	"os"
@@ -198,20 +199,22 @@ func deleteTransInfo(chain uint64, key []byte) {
 
 // HistoryItem history item
 type HistoryItem struct {
-	Key   []byte `json:"key,omitempty"`
-	Value []byte `json:"value,omitempty"`
+	Key   string `json:"key,omitempty"`
+	Value string `json:"value,omitempty"`
 }
 
 // GetOutputTrans get output transaction by self
 func GetOutputTrans(chain uint64, preKey []byte) []HistoryItem {
 	out := make([]HistoryItem, 0)
 	for i := 0; i < 10; i++ {
-		it := HistoryItem{}
-		it.Key, it.Value = ldb.LGetNext(chain, ldbOutputTrans, preKey)
-		if len(it.Value) == 0 {
+		k, v := ldb.LGetNext(chain, ldbOutputTrans, preKey)
+		if len(v) == 0 {
 			break
 		}
-		preKey = it.Key
+		preKey = k
+		it := HistoryItem{}
+		it.Key = hex.EncodeToString(k)
+		it.Value = hex.EncodeToString(v)
 		out = append(out, it)
 	}
 
@@ -222,13 +225,14 @@ func GetOutputTrans(chain uint64, preKey []byte) []HistoryItem {
 func GetInputTrans(chain uint64, preKey []byte) []HistoryItem {
 	out := make([]HistoryItem, 0)
 	for i := 0; i < 10; i++ {
-		it := HistoryItem{}
-		it.Key, it.Value = ldb.LGetNext(chain, ldbInputTrans, preKey)
-		if len(it.Value) == 0 {
+		k, v := ldb.LGetNext(chain, ldbInputTrans, preKey)
+		if len(v) == 0 {
 			break
 		}
-		preKey = it.Key
-		out = append(out, it)
+		preKey = k
+		it := HistoryItem{}
+		it.Key = hex.EncodeToString(k)
+		it.Value = hex.EncodeToString(v)
 	}
 
 	return out

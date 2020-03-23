@@ -112,7 +112,7 @@
             $("#output").html("");
             $.get("/api/v1/" + chain + "/transaction/history/output" + query, function (data, status) {
                 for (i in data) {
-                    last_send = bytes2Str(data[i].key)
+                    last_send = data[i].key
                     $("#output").append(
                         $("<div class='input-group'>").append(
                             $("<span class='input-group-addon'>transaction:</span>")
@@ -132,7 +132,7 @@
             $("#input").html("");
             $.get("/api/v1/" + chain + "/transaction/history/input" + query, function (data, status) {
                 for (i in data) {
-                    last_receive = bytes2Str(data[i].key)
+                    last_receive = data[i].key
                     $("#input").append(
                         $("<div class='input-group'>").append(
                             $("<span class='input-group-addon'>transaction:</span>")
