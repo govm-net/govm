@@ -196,25 +196,22 @@ func deleteTransInfo(chain uint64, key []byte) {
 	ldb.LSet(chain, ldbTransInfo, key, nil)
 }
 
+// HistoryItem history item
+type HistoryItem struct {
+	Key   []byte `json:"key,omitempty"`
+	Value []byte `json:"value,omitempty"`
+}
+
 // GetOutputTrans get output transaction by self
-func GetOutputTrans(chain uint64, preKey []byte) []core.Hash {
-	out := make([]core.Hash, 0)
+func GetOutputTrans(chain uint64, preKey []byte) []HistoryItem {
+	out := make([]HistoryItem, 0)
 	for i := 0; i < 10; i++ {
-		k, key := ldb.LGetNext(chain, ldbOutputTrans, preKey)
-		if len(key) == 0 {
+		it := HistoryItem{}
+		it.Key, it.Value = ldb.LGetNext(chain, ldbOutputTrans, preKey)
+		if len(it.Value) == 0 {
 			break
 		}
-		preKey = k
-		if len(key) == 1 {
-			key = k
-			ldb.LSet(chain, ldbOutputTrans, key, nil)
-			var t uint64 = ^uint64(0)
-			k = runtime.Encode(t)
-			k = append(k, key[:16]...)
-			ldb.LSet(chain, ldbOutputTrans, k, key)
-		}
-		it := core.Hash{}
-		runtime.Decode(key, &it)
+		preKey = it.Key
 		out = append(out, it)
 	}
 
@@ -222,24 +219,15 @@ func GetOutputTrans(chain uint64, preKey []byte) []core.Hash {
 }
 
 // GetInputTrans get input transaction
-func GetInputTrans(chain uint64, preKey []byte) []core.Hash {
-	out := make([]core.Hash, 0)
+func GetInputTrans(chain uint64, preKey []byte) []HistoryItem {
+	out := make([]HistoryItem, 0)
 	for i := 0; i < 10; i++ {
-		k, key := ldb.LGetNext(chain, ldbInputTrans, preKey)
-		if len(key) == 0 {
+		it := HistoryItem{}
+		it.Key, it.Value = ldb.LGetNext(chain, ldbInputTrans, preKey)
+		if len(it.Value) == 0 {
 			break
 		}
-		preKey = k
-		if len(key) == 1 {
-			key = k
-			ldb.LSet(chain, ldbInputTrans, key, nil)
-			var t uint64 = ^uint64(0)
-			k = runtime.Encode(t)
-			k = append(k, key[:16]...)
-			ldb.LSet(chain, ldbInputTrans, k, key)
-		}
-		it := core.Hash{}
-		runtime.Decode(key, &it)
+		preKey = it.Key
 		out = append(out, it)
 	}
 

@@ -33,22 +33,22 @@
                     <br>
                     <div class="input-group">
                         <span class="input-group-addon" data-localize="chain">Chain:</span>
+                        <span class="form-control" id="chain0"></span>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="blance">Balance:</span>
+                        <span class="form-control" id="balance0"></span>
+                        <span class="input-group-addon" id="base_cost0"></span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="chain">Chain:</span>
                         <span class="form-control" id="chain1"></span>
                     </div>
                     <div class="input-group">
                         <span class="input-group-addon" data-localize="blance">Balance:</span>
                         <span class="form-control" id="balance1"></span>
-                        <span class="input-group-addon" id="base_cost"></span>
-                    </div>
-                    <br>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="chain">Chain:</span>
-                        <span class="form-control" id="chain2"></span>
-                    </div>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="blance">Balance:</span>
-                        <span class="form-control" id="balance2"></span>
-                        <span class="input-group-addon" id="base_cost"></span>
+                        <span class="input-group-addon" id="base_cost1"></span>
                     </div>
                 </div>
             </div>
@@ -88,17 +88,18 @@
     <script type="text/javascript">
         var last_send = ""
         var last_receive = ""
-        $("#base_cost").html(gCostBase);
+        $("#base_cost0").html(gCostBase);
+        $("#base_cost1").html(gCostBase);
+        gChainID = parseInt(gChainID);
 
-        function getAccount(chain) {
+        function getAccount(chain, id) {
             $.get("/api/v1/" + chain + "/account", function (data, status) {
                 if (status != "success") {
-                    alert("Chain:"+chain+". Data: " + data + "\nStatus: " + status);
+                    alert("Chain:" + chain + ". Data: " + data + "\nStatus: " + status);
                 } else {
-                    var id = 1+ chain%2;
                     $("#address").html("<b>" + data.address + "</b>");
-                    $("#chain"+id).html("<b>" + data.chain + "</b>");
-                    $("#balance"+id).html("<b><p title='" + fmoney(data.cost) + "'>" + getValueWithBase(data.cost, gCostBase) + "</p></b>");
+                    $("#chain" + id).html("<b>" + data.chain + "</b>");
+                    $("#balance" + id).html("<b><p title='" + fmoney(data.cost) + "'>" + getValueWithBase(data.cost, gCostBase) + "</p></b>");
                 }
             });
         }
@@ -111,13 +112,13 @@
             $("#output").html("");
             $.get("/api/v1/" + chain + "/transaction/history/output" + query, function (data, status) {
                 for (i in data) {
-                    last_send = bytes2Str(data[i])
+                    last_send = bytes2Str(data[i].key)
                     $("#output").append(
                         $("<div class='input-group'>").append(
                             $("<span class='input-group-addon'>transaction:</span>")
                         ).append(
                             $("<span class='form-control'>").append(
-                                getLinkString("transaction.html", chain, data[i])
+                                getLinkString("transaction.html", chain, data[i].value)
                             )
                         ));
                 }
@@ -131,13 +132,13 @@
             $("#input").html("");
             $.get("/api/v1/" + chain + "/transaction/history/input" + query, function (data, status) {
                 for (i in data) {
-                    last_receive = bytes2Str(data[i])
+                    last_receive = bytes2Str(data[i].key)
                     $("#input").append(
                         $("<div class='input-group'>").append(
                             $("<span class='input-group-addon'>transaction:</span>")
                         ).append(
                             $("<span class='form-control'>").append(
-                                getLinkString("transaction.html", chain, data[i])
+                                getLinkString("transaction.html", chain, data[i].value)
                             )
                         ));
                 }
@@ -149,12 +150,10 @@
         $('#receive_next').on('click', function () {
             getReceiveHistory(gChainID, last_receive)
         });
-        getAccount(gChainID);
-        getAccount(gChainID+1);
+        getAccount(gChainID, 0);
+        getAccount(gChainID + 1, 1);
         getSendHistory(gChainID, "")
         getReceiveHistory(gChainID, "")
     </script>
-
 </body>
-
 </html>
