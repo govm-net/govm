@@ -31,8 +31,6 @@ type TConfig struct {
 	ReliaRecalculation bool   `json:"relia_recalculation,omitempty"`
 	ForceMine          bool   `json:"force_mine,omitempty"`
 	IdentifyingCode    bool   `json:"identifying_code,omitempty"`
-	MinerIP            string `json:"miner_ip,omitempty"`
-	ForwardTrans       bool   `json:"forward_trans,omitempty"`
 }
 
 // DebugMod debug mode

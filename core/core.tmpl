@@ -1,6 +1,7 @@
 package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
 
 import (
+	"encoding/json"
 	"github.com/lengzhao/govm/runtime"
 	"os"
 )
@@ -159,6 +160,7 @@ const (
 	StatBroadcast
 	StatHateRatio
 	StatParentKey
+	StatUser
 )
 
 const (
@@ -191,9 +193,19 @@ func (h Hash) Empty() bool {
 	return h == (Hash{})
 }
 
+// MarshalJSON marshal by base64
+func (h Hash) MarshalJSON() ([]byte, error) {
+	return json.Marshal(h[:])
+}
+
 // Empty Check where Address is empty
 func (a Address) Empty() bool {
 	return a == (Address{})
+}
+
+// MarshalJSON marshal by base64
+func (a Address) MarshalJSON() ([]byte, error) {
+	return json.Marshal(a[:])
 }
 
 func assert(cond bool) {
@@ -290,8 +302,8 @@ func (d *DB) Set(key, value []byte, life uint64) {
 		value = nil
 		life = 0
 		gBS.ConsumeEnergy(gBS.BaseOpsEnergy)
-	} else if size > 100 {
-		assert(life <= 100*TimeYear)
+	} else if size > 200 {
+		assert(life <= 50*TimeYear)
 		t := gBS.BaseOpsEnergy * size * (life + TimeHour) / (TimeHour * 10)
 		gBS.ConsumeEnergy(t)
 	} else {

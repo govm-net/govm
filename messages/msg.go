@@ -55,6 +55,11 @@ type TransactionData struct {
 	Data  []byte
 }
 
+// Miner tell peer self is miner
+type Miner struct {
+	Chain uint64
+}
+
 func init() {
 	gob.Register(&ReqBlockInfo{})
 	gob.Register(&BlockInfo{})
@@ -63,4 +68,5 @@ func init() {
 	gob.Register(&TransactionInfo{})
 	gob.Register(&ReqTransaction{})
 	gob.Register(&TransactionData{})
+	gob.Register(&Miner{})
 }

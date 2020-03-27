@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lengzhao/govm/conf"
 	core "github.com/lengzhao/govm/core"
 	"github.com/lengzhao/govm/event"
 	"github.com/lengzhao/govm/messages"
@@ -23,7 +22,7 @@ type InternalPlugin struct {
 	network libp2p.Network
 	mu      sync.Mutex
 	reconn  map[string]string
-	minerIP string
+	miners  map[string]libp2p.Session
 }
 
 const (
@@ -41,7 +40,7 @@ func (p *InternalPlugin) Startup(n libp2p.Network) {
 
 	p.network = n
 	p.reconn = make(map[string]string)
-	p.minerIP = conf.GetConf().MinerIP
+	p.miners = make(map[string]libp2p.Session)
 	Nodes = make(map[string]bool)
 	event.RegisterConsumer(p.event)
 	time.AfterFunc(time.Minute*2, p.timeout)
@@ -78,13 +77,6 @@ func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 	if id == "" {
 		return
 	}
-	ip, _, _ := net.SplitHostPort(peer.Host())
-	if ip == "127.0.0.1" || ip == p.minerIP {
-		// not close session
-		s.SetEnv("inDHT", "true")
-		log.Println("local connect:", peer.String())
-		return
-	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if len(Nodes) < 20 {
@@ -100,22 +92,37 @@ func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 // PeerDisconnect peer disconnect
 func (p *InternalPlugin) PeerDisconnect(s libp2p.Session) {
 	peer := s.GetPeerAddr()
+	cid := s.GetEnv(libp2p.EnvConnectID)
 	addr := peer.String()
-	ip, _, _ := net.SplitHostPort(peer.Host())
-	if ip == "127.0.0.1" || ip == p.minerIP {
-		// not reconnect
-		log.Println("local disconnect:", addr)
-		return
-	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	delete(Nodes, addr)
+	delete(p.miners, cid)
 	if peer.IsServer() {
 		if len(p.reconn) > reconnNum {
 			return
 		}
 		p.reconn[peer.User()] = peer.String()
 	}
+}
+
+// Receive receive message
+func (p *InternalPlugin) Receive(ctx libp2p.Event) error {
+	switch ctx.GetMessage().(type) {
+	case *messages.Miner:
+		s := ctx.GetSession()
+		ip, _, _ := net.SplitHostPort(s.GetPeerAddr().Host())
+		if ip != "127.0.0.1" && ip != "::1" {
+			return nil
+		}
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		// not close this session
+		s.SetEnv("inDHT", "true")
+		cid := s.GetEnv(libp2p.EnvConnectID)
+		p.miners[cid] = s
+	}
+	return nil
 }
 
 // Event internal event
@@ -134,6 +141,10 @@ func (p *InternalPlugin) event(m event.Message) error {
 			core.DeleteTransaction(msg.Chain, msg.Key)
 			return err
 		}
+		info := messages.ReceiveTrans{}
+		info.Chain = msg.Chain
+		info.Key = msg.Key
+		event.Send(&info)
 		go func() {
 			defer recover()
 			trans := core.DecodeTrans(msg.Data)
@@ -225,6 +236,19 @@ func (p *InternalPlugin) event(m event.Message) error {
 		info.PreKey = rel.Previous[:]
 		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 
+	case *messages.ReceiveTrans:
+		var nodes []libp2p.Session
+		p.mu.Lock()
+		for _, s := range p.miners {
+			nodes = append(nodes, s)
+		}
+		p.mu.Unlock()
+		for _, s := range nodes {
+			m := &messages.TransactionInfo{}
+			m.Chain = msg.Chain
+			m.Key = msg.Key
+			s.Send(m)
+		}
 	}
 	return nil
 }

@@ -29,9 +29,15 @@ type EventFilter struct {
 }
 
 // Module go.mod
-var Module = "github.com/lengzhao/govm"
-var projectRoot = "app"
-var filter EventFilter
+var (
+	Module      = "github.com/lengzhao/govm"
+	projectRoot = "app"
+	filter      EventFilter
+	AppPath     = "."
+	RunDir      = "."
+	BuildDir    = "."
+	NotRebuild  bool
+)
 
 func init() {
 	loadEventFilter()
@@ -159,7 +165,7 @@ func RunApp(client *client.Client, flag []byte, chain uint64, mode string, appNa
 		panic("retry")
 	}
 	appPath := GetFullPathOfApp(chain, appName)
-	appPath = path.Join(appPath, "app.exe")
+	appPath = path.Join(AppPath, appPath, execName)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel()
@@ -171,6 +177,7 @@ func RunApp(client *client.Client, flag []byte, chain uint64, mode string, appNa
 		cmd = exec.CommandContext(ctx, appPath)
 	}
 
+	cmd.Dir = RunDir
 	cmd.Stdout = log.Writer()
 	cmd.Stderr = log.Writer()
 	err = cmd.Run()

@@ -1,6 +1,7 @@
 package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
 
 import (
+	"encoding/json"
 	"github.com/lengzhao/govm/runtime"
 )
 
@@ -162,7 +163,7 @@ const (
 	StatBroadcast
 	StatHateRatio
 	StatParentKey
-	StatSyncTime
+	StatUser
 )
 
 const (
@@ -195,9 +196,19 @@ func (h Hash) Empty() bool {
 	return h == (Hash{})
 }
 
+// MarshalJSON marshal by base64
+func (h Hash) MarshalJSON() ([]byte, error) {
+	return json.Marshal(h[:])
+}
+
 // Empty Check where Address is empty
 func (a Address) Empty() bool {
 	return a == (Address{})
+}
+
+// MarshalJSON marshal by base64
+func (a Address) MarshalJSON() ([]byte, error) {
+	return json.Marshal(a[:])
 }
 
 func assert(cond bool) {
@@ -205,6 +216,7 @@ func assert(cond bool) {
 		panic("error")
 	}
 }
+
 func assertMsg(cond bool, msg interface{}) {
 	if !cond {
 		panic(msg)
@@ -267,8 +279,8 @@ func (d *DB) Set(key, value []byte, life uint64) {
 	} else if life == 0 || len(value) == 0 {
 		value = nil
 		life = 0
-	} else if size > 100 {
-		assertMsg(life <= 100*TimeYear, "too long of life")
+	} else if size > 200 {
+		assertMsg(life <= 50*TimeYear, "too long of life")
 	}
 	life += d.p.Time
 	d.p.DbSet(d.owner, key, value, life)
@@ -929,6 +941,7 @@ func (p *processer) processTransaction(block BlockInfo, key Hash) uint64 {
 	assert(trans.Chain == p.Chain)
 	assert(trans.Energy > uint64(dataLen))
 	p.pDbStat.Set([]byte{StatTransKey}, key[:], defauldbLife)
+	p.pDbStat.Set([]byte{StatUser}, trans.User[:], defauldbLife)
 
 	info := TransInfo{}
 	info.BlockID = block.Index
@@ -1176,10 +1189,8 @@ func (p *processer) pRunApp(t Transaction) {
 	assertMsg(info != nil, "app not exist")
 	assertMsg(info.Flag&AppFlagRun != 0, "app unable run")
 	assertMsg(info.Life >= p.Time, "app expire")
-	val, _ := p.getAccount(t.User)
-	assertMsg(t.Cost <= val, "not enough cost")
-	p.RunApp(name[:], t.User[:], t.data[n:], t.Energy, t.Cost)
 	p.adminTransfer(t.User, info.Account, t.Cost)
+	p.RunApp(name[:], t.User[:], t.data[n:], t.Energy, t.Cost)
 }
 
 // UpdateInfo Information of update app life

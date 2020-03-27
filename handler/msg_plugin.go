@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/lengzhao/govm/event"
 	"io/ioutil"
 	"log"
 	"os"
@@ -472,6 +473,11 @@ func processTransaction(chain uint64, key, data []byte) error {
 		return nil
 	}
 
+	info := messages.ReceiveTrans{}
+	info.Chain = chain
+	info.Key = key
+	event.Send(&info)
+
 	if trans.Energy < c.EnergyOfTrans {
 		return nil
 	}
@@ -480,7 +486,7 @@ func processTransaction(chain uint64, key, data []byte) error {
 		return nil
 	}
 
-	if chain == c.ChainOfMine || c.ChainOfMine == 0 || c.ForwardTrans {
+	if chain == c.ChainOfMine || c.ChainOfMine == 0 {
 		info := transInfo{}
 		info.TransactionHead = trans.TransactionHead
 		runtime.Decode(trans.Key, &info.Key)

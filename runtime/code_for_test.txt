@@ -47,5 +47,7 @@ func GetCheckSum() byte{
 }
 
 func run(user, in []byte, cost uint64) {
-	runT.Event(tUser{},"do run",user,in)
+	if runT != nil{
+		runT.Event(tUser{},"do run",user,in)
+	}
 }
