@@ -16,6 +16,10 @@ import (
 
 var myHP *database.LRUCache
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 	var preKey []byte
 	var size uint64
@@ -150,7 +154,7 @@ func doMine(chain uint64, force bool) {
 	block.Size = uint32(size)
 	block.Nonce = rand.Uint64()
 
-	var oldRel core.TReliability
+	var oldRel TReliability
 
 	timeout := time.Now().Unix() + 20
 	var count uint64
@@ -183,11 +187,11 @@ func doMine(chain uint64, force bool) {
 			// log.Printf("drop hash:%x,data:%x\n", key, signData[:6])
 			continue
 		}
-		rel := block.GetReliability()
+		rel := getReliability(block)
 		if rel.Cmp(oldRel) > 0 {
 			oldRel = rel
 			core.WriteBlock(chain, data)
-			core.SaveBlockReliability(chain, block.Key[:], rel)
+			SaveBlockReliability(chain, block.Key[:], rel)
 			info := messages.BlockInfo{}
 			info.Chain = chain
 			info.Index = rel.Index
@@ -197,7 +201,7 @@ func doMine(chain uint64, force bool) {
 			network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 			log.Printf("mine one blok,chain:%d,index:%d,hashpower:%d,hp limit:%d,trans:%d,key:%x\n",
 				chain, rel.Index, rel.HashPower, block.HashpowerLimit, len(transList), rel.Key)
-			// setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+			setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
 			// break
 		}
 	}

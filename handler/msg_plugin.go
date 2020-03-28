@@ -5,9 +5,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"github.com/lengzhao/govm/event"
 	"log"
-	"os"
 	"time"
 
 	"github.com/lengzhao/govm/conf"
@@ -73,7 +72,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			return nil
 		}
 		log.Printf("<%x> ReqBlockInfo %d %d\n", ctx.GetPeerID(), msg.Chain, msg.Index)
-		rel := core.ReadBlockReliability(msg.Chain, key)
+		rel := ReadBlockReliability(msg.Chain, key)
 		resp := new(messages.BlockInfo)
 		resp.Chain = msg.Chain
 		resp.Index = msg.Index
@@ -95,7 +94,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		if index > msg.Index {
 			key := core.GetTheBlockKey(msg.Chain, index)
 			if len(key) > 0 {
-				rel := core.ReadBlockReliability(msg.Chain, key)
+				rel := ReadBlockReliability(msg.Chain, key)
 				ctx.Reply(&messages.BlockInfo{Chain: msg.Chain,
 					Index: rel.Index, Key: key, PreKey: rel.Previous[:], HashPower: rel.HashPower})
 			}
@@ -112,7 +111,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 
 		if core.IsExistBlock(msg.Chain, msg.Key) {
 			log.Println("block exist:", msg.Index, ",chain:", msg.Chain, ",self:", index)
-			rel := core.ReadBlockReliability(msg.Chain, msg.Key)
+			rel := ReadBlockReliability(msg.Chain, msg.Key)
 			if rel.HashPower == 0 {
 				err := processBlock(msg.Chain, msg.Key, nil)
 				if err != nil {
@@ -120,16 +119,13 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 					log.Printf("error hashpower of block,delete it.chain:%d,key:%x\n", msg.Chain, msg.Key)
 					return nil
 				}
+				rel = ReadBlockReliability(msg.Chain, msg.Key)
 			}
 			if !rel.Ready {
 				p.downloadBlockDepend(ctx, msg.Chain, msg.Key)
 			} else {
 				rel.Recalculation(msg.Chain)
-				var hpLimit uint64
-				getData(msg.Chain, ldbHPLimit, runtime.Encode(rel.Index-1), &hpLimit)
-				if rel.HashPower+hpAcceptRange >= hpLimit {
-					setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
-				}
+				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
 				go processEvent(msg.Chain)
 			}
 			return nil
@@ -141,8 +137,12 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		}
 
 		key := core.GetTheBlockKey(msg.Chain, 0)
-		rel := core.ReadBlockReliability(msg.Chain, key)
-		if msg.Index == rel.Index && msg.HashPower < rel.HashPower {
+		rel := ReadBlockReliability(msg.Chain, key)
+		peerRel := rel
+		runtime.Decode(msg.Key, &peerRel.Key)
+		runtime.Decode(msg.PreKey, &peerRel.Previous)
+		peerRel.Recalculation(msg.Chain)
+		if msg.Index == rel.Index && peerRel.HashPower < rel.HashPower {
 			ctx.Reply(&messages.BlockInfo{Chain: msg.Chain, Index: rel.Index,
 				Key: key, HashPower: rel.HashPower, PreKey: rel.Previous[:]})
 		}
@@ -259,12 +259,6 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 				ctx.Reply(&messages.ReqBlockInfo{Chain: 1, Index: index})
 			}
 			createSystemAPP(1)
-			c := conf.GetConf()
-			_, err := os.Stat("./db_dir/recalculation")
-			if c.ReliaRecalculation || os.IsNotExist(err) {
-				ioutil.WriteFile("./db_dir/recalculation", []byte("111"), 0666)
-				go reliaRecalculation(1)
-			}
 		}
 	}
 
@@ -327,8 +321,9 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 	// block已经处理过了，忽略
 	lKey := core.GetTheBlockKey(chain, block.Index)
 	if lKey != nil && bytes.Compare(key, lKey) == 0 {
-		rel := block.GetReliability()
-		core.SaveBlockReliability(chain, block.Key[:], rel)
+		rel := getReliability(block)
+		rel.Ready = true
+		SaveBlockReliability(chain, block.Key[:], rel)
 		return
 	}
 
@@ -339,15 +334,15 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 	}
 
 	if block.Index > 2 {
-		preRel := core.ReadBlockReliability(block.Chain, block.Previous[:])
+		preRel := ReadBlockReliability(block.Chain, block.Previous[:])
 		if block.Time < preRel.Time+core.GetBlockInterval(block.Chain)*9/10 {
 			return errors.New("error block.Time")
 		}
 	}
 
 	// 将数据写入db
-	rel := block.GetReliability()
-	core.SaveBlockReliability(chain, block.Key[:], rel)
+	rel := getReliability(block)
+	SaveBlockReliability(chain, block.Key[:], rel)
 	SaveTransList(chain, block.Key[:], block.TransList)
 	if needSave {
 		core.WriteBlock(chain, data)
@@ -365,7 +360,7 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 
 func (p *MsgPlugin) downloadBlockDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	log.Printf("downloadBlockDepend,chain:%d,key:%x\n", chain, key)
-	rel := core.ReadBlockReliability(chain, key)
+	rel := ReadBlockReliability(chain, key)
 	if rel.Ready {
 		ctx.GetSession().SetEnv(getEnvKey(chain, transOwner), "")
 		return
@@ -401,15 +396,11 @@ func (p *MsgPlugin) downloadBlockDepend(ctx libp2p.Event, chain uint64, key []by
 	}
 	rel.Recalculation(chain)
 	rel.Ready = true
-	core.SaveBlockReliability(chain, rel.Key[:], rel)
+	SaveBlockReliability(chain, rel.Key[:], rel)
 	ctx.GetSession().SetEnv(getEnvKey(chain, transOwner), "")
 
-	var hpLimit uint64
-	getData(chain, ldbHPLimit, runtime.Encode(rel.Index-1), &hpLimit)
-	if rel.HashPower+hpAcceptRange >= hpLimit {
-		// log.Printf("setBlockToIDBlocks,chain:%d,index:%d,key:%x,hp:%d\n", chain, rel.Index, rel.Key, rel.HashPower)
-		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
-	}
+	log.Printf("setBlockToIDBlocks,chain:%d,index:%d,key:%x,hp:%d\n", chain, rel.Index, rel.Key, rel.HashPower)
+	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
 
 	go processEvent(chain)
 	return
@@ -466,11 +457,26 @@ func processTransaction(chain uint64, key, data []byte) error {
 		ldb.LSet(chain, ldbInputTrans, k, trans.Key[:])
 	}
 
-	if (believable(chain, trans.User[:]) || bytes.Compare(trans.User[:], c.WalletAddr) == 0) &&
-		(chain == c.ChainOfMine || c.ChainOfMine == 0) &&
-		trans.Energy >= c.EnergyOfTrans &&
-		trans.Time <= now && trans.Time+transAcceptTime > now {
+	log.Printf("new transaction.chain%d, key:%x ,osp:%d\n", chain, key, trans.Ops)
 
+	if !believable(chain, trans.User[:]) && (bytes.Compare(trans.User[:], c.WalletAddr) != 0) {
+		return nil
+	}
+
+	info := messages.ReceiveTrans{}
+	info.Chain = chain
+	info.Key = key
+	event.Send(&info)
+
+	if trans.Energy < c.EnergyOfTrans {
+		return nil
+	}
+
+	if trans.Time > now && trans.Time+transAcceptTime < now {
+		return nil
+	}
+
+	if chain == c.ChainOfMine || c.ChainOfMine == 0 {
 		info := transInfo{}
 		info.TransactionHead = trans.TransactionHead
 		runtime.Decode(trans.Key, &info.Key)
@@ -486,8 +492,6 @@ func processTransaction(chain uint64, key, data []byte) error {
 			ldb.LSet(chain, ldbNewerTrans, k, runtime.Encode(info))
 		}
 	}
-
-	log.Printf("new transaction.chain%d, key:%x ,osp:%d\n", chain, key, trans.Ops)
 
 	return nil
 }

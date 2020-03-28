@@ -33,6 +33,7 @@ import (
 var inputString chan string
 
 func init() {
+	rand.Seed(time.Now().UnixNano())
 	inputString = make(chan string, 1)
 	go func() {
 		for {

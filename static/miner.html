@@ -17,81 +17,83 @@
         <div class="col-md-12 column">
             <div class="panel panel-default">
                 <div class="panel-heading">
-                    <h3 class="panel-title">
-                        Register
+                    <h3 class="panel-title" data-localize="reg_miner">
+                        Register Miner
                     </h3>
                 </div>
                 <div class="panel-body">
                     <form class="bs-example bs-example-form" role="form">
                         <div class="input-group">
-                            <span class="input-group-addon">Chain:</span>
+                            <label class="label label-info" data-localize="description">Description:</label>
+                            <label class="label label-primary" data-localize="desc_info">
+                                Registered miner(specified block), add a weighting of hash power when mining
+                                the block.The cost will be locked for 50,000 blocks of time.</label>
+                        </div>
+                        <div class="input-group">
+                            <span class="input-group-addon" data-localize="chain">Chain:</span>
                             <input type="number" min="1" class="form-control" name="chain" value="1">
                             <span class="input-group-addon label-success">*</span>
                         </div>
                         <br>
                         <div class="input-group">
-                            <span class="input-group-addon">Index:</span>
+                            <span class="input-group-addon" data-localize="index">Index:</span>
                             <input type="number" min="1000" class="form-control" name="index">
                             <span class="input-group-addon label-success">*</span>
                         </div>
                         <br>
                         <div class="input-group">
-                            <span class="input-group-addon">Cost:</span>
-                            <input type="number" class="form-control" name="cost" value="200000">
+                            <span class="input-group-addon" data-localize="cost">Cost:</span>
+                            <input type="number" class="form-control" name="cost">
                             <span class="input-group-addon" id="base_cost"></span>
                             <span class="input-group-addon label-success">*</span>
                         </div>
                         <br>
                         <div class="input-group">
-                            <span class="input-group-addon">Energy:</span>
+                            <span class="input-group-addon" data-localize="energy">Energy:</span>
                             <input type="number" class="form-control" name="energy">
                             <span class="input-group-addon" id="base_energy"></span>
                         </div>
                         <br>
-                        <button type="button" class="btn btn-success pull-right" id="submit">Submit</button>
-                        <br>
+                        <button type="button" class="btn btn-success pull-right" id="submit" data-localize="submit">Submit</button>
                     </form>
                 </div>
-                <div>
-                    <h3 id="result">
-                    </h3>
+                <div id="result">
                 </div>
             </div>
             <div class="panel panel-default">
                 <div class="panel-heading">
-                    <h3 class="panel-title">
+                    <h3 class="panel-title" data-localize="search">
                         Search
                     </h3>
                 </div>
                 <div class="panel-body">
                     <div class="input-group">
-                        <span class="input-group-addon">Chain:</span>
+                        <span class="input-group-addon" data-localize="chain">Chain:</span>
                         <input type="number" min="1" class="form-control" id="search_chain" value="1">
                         <span class="input-group-addon label-success">*</span>
                     </div>
                     <div class="input-group">
-                        <span class="input-group-addon">Index:</span>
+                        <span class="input-group-addon" data-localize="index">Index:</span>
                         <input type="number" min="1" class="form-control" id="search_id">
                         <span class="input-group-btn">
-                            <button class="btn btn-default" type="button" id="btn_key">Go!</button>
+                            <button class="btn btn-default" type="button" id="btn_key" data-localize="go">Go!</button>
                         </span>
                     </div>
                 </div>
             </div>
             <div class="panel panel-default">
                 <div class="panel-heading">
-                    <h3 class="panel-title">
-                        Miner Info(register)
+                    <h3 class="panel-title" data-localize="miner_info">
+                        Miner Info(registered)
                     </h3>
                 </div>
                 <div class="panel-body">
                     <div class="input-group">
-                        <span class="input-group-addon">Chain:</span>
+                        <span class="input-group-addon" data-localize="chain">Chain:</span>
                         <span class="form-control" id="s_chain"></span>
                     </div>
-                    <br>
                     <div class="input-group">
-                        <span class="input-group-addon">Index:</span>
+                        <span class="input-group-addon" data-localize="index">Index:</span>
                         <span class="form-control" id="s_index"></span>
                     </div>
                     <br>
@@ -109,19 +111,22 @@
     <script src="js/bootstrap.min.js"></script>
     <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
     <script src="js/jquery.localize.min.js"></script>
-    <script src="js/load.js?v=1"></script>
+    <script src="js/load.js?v=3"></script>
 
     <script type="text/javascript">
         $("#base_cost").html(gCostBase);
         $("#base_energy").html(gCostBase);
         $("#search_chain").val(gChainID);
         $("input[name='chain']").val(gChainID);
-        
+        var v = 100*getBaseByName("tc")/getBaseByName(gCostBase);
+        $("input[name='cost']").val(v);
+
         $.get("/api/v1/" + gChainID + "/block/info", function (data, status) {
-            $("input[name='index']").val(data.index+50);
+            $("input[name='index']").val(data.index + 50);
         });
 
         function getMiner(chain, query) {
+            $("#result").html("");
             $.get("/api/v1/" + chain + "/transaction/miner" + query, function (data, status) {
                 // console.log(data)
                 $("#s_chain").html("<b>" + chain + "</b>");
@@ -129,6 +134,9 @@
                 // var newRow = ""
                 $("#miners").html("");
                 for (i in data.Miner) {
+                    if (i > 0 && bytes2Str(data.Miner[i]) == "000000000000000000000000000000000000000000000000") {
+                        continue
+                    }
                     $("#miners").append(
                         $("<div class='input-group'>").append(
                             $("<span class='input-group-addon'>").append("Miner" + i)
@@ -142,16 +150,15 @@
                             $("<span class='input-group-addon'>").append("Cost" + i)
                         ).append(
                             $("<span class='form-control'>").append(
-                                getValueWithBase(data.Cost[i],gCostBase)
+                                getValueWithBase(data.Cost[i], gCostBase)
                             )
                         ).append(
                             $("<span class='input-group-addon'>").append(gCostBase)
                         )
                     ).append("<br>");
                 }
-                $("#result").html("");
             }).fail(function () {
-                $("#result").html("not found");
+                $("#result").html($("<h3>").append("not found"));
                 $("#s_chain").html("")
                 $("#s_index").html("")
                 $("#miners").html("");
@@ -164,13 +171,12 @@
             getMiner(chain, "?index=" + val)
         });
 
-
         $('#submit').on('click', function () {
             var data = $('form').serializeJSON()
             // console.log(data);
             base = getBaseByName(gCostBase)
-            data.energy = parseInt(data.energy*base)
-            data.cost = parseInt(data.cost*base)
+            data.energy = parseInt(data.energy * base)
+            data.cost = parseInt(data.cost * base)
             data.index = parseInt(data.index)
             var chain = data.chain
             data = JSON.stringify(data)

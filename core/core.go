@@ -162,7 +162,7 @@ const (
 	StatBroadcast
 	StatHateRatio
 	StatParentKey
-	StatSyncTime
+	StatUser
 )
 
 const (
@@ -205,6 +205,7 @@ func assert(cond bool) {
 		panic("error")
 	}
 }
+
 func assertMsg(cond bool, msg interface{}) {
 	if !cond {
 		panic(msg)
@@ -267,8 +268,8 @@ func (d *DB) Set(key, value []byte, life uint64) {
 	} else if life == 0 || len(value) == 0 {
 		value = nil
 		life = 0
-	} else if size > 100 {
-		assertMsg(life <= 100*TimeYear, "too long of life")
+	} else if size > 200 {
+		assertMsg(life <= 50*TimeYear, "too long of life")
 	}
 	life += d.p.Time
 	d.p.DbSet(d.owner, key, value, life)
@@ -738,7 +739,7 @@ type tSyncInfo struct {
 
 func (p *processer) processFirstBlock(block Block, transList []byte) {
 	assert(block.Chain == 0)
-	assert(block.Producer == author)
+	// assert(block.Producer == author)
 	assert(block.Previous.Empty())
 	assert(block.Parent.Empty())
 	assert(block.LeftChild.Empty())
@@ -931,6 +932,7 @@ func (p *processer) processTransaction(block BlockInfo, key Hash) uint64 {
 	assert(trans.Chain == p.Chain)
 	assert(trans.Energy > uint64(dataLen))
 	p.pDbStat.Set([]byte{StatTransKey}, key[:], defauldbLife)
+	p.pDbStat.Set([]byte{StatUser}, trans.User[:], defauldbLife)
 
 	info := TransInfo{}
 	info.BlockID = block.Index
@@ -1178,10 +1180,8 @@ func (p *processer) pRunApp(t Transaction) {
 	assertMsg(info != nil, "app not exist")
 	assertMsg(info.Flag&AppFlagRun != 0, "app unable run")
 	assertMsg(info.Life >= p.Time, "app expire")
-	val, _ := p.getAccount(t.User)
-	assertMsg(t.Cost <= val, "not enough cost")
-	p.RunApp(name[:], t.User[:], t.data[n:], t.Energy, t.Cost)
 	p.adminTransfer(t.User, info.Account, t.Cost)
+	p.RunApp(name[:], t.User[:], t.data[n:], t.Energy, t.Cost)
 }
 
 // UpdateInfo Information of update app life
@@ -1284,7 +1284,7 @@ func (p *processer) registerMiner(user Address, index, cost uint64) bool {
 
 func (p *processer) pRegisterMiner(t Transaction) {
 	guerdon := p.pDbStat.GetInt([]byte{StatGuerdon})
-	assert(t.Cost >= 3*guerdon)
+	assertMsg(t.Cost >= 3*guerdon, "not enough cost")
 	info := RegMiner{}
 	p.Decode(0, t.data, &info)
 
@@ -1299,8 +1299,8 @@ func (p *processer) pRegisterMiner(t Transaction) {
 		return
 	}
 
-	assert(info.Index > p.ID+20)
-	assert(p.ID+2*depositCycle > info.Index)
+	assertMsg(info.Index > p.ID+20, "index too small")
+	assertMsg(p.ID+2*depositCycle > info.Index, "index too big")
 
 	rst := p.registerMiner(t.User, info.Index, t.Cost)
 	if rst {

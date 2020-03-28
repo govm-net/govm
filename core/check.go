@@ -11,6 +11,9 @@ import (
 	"github.com/lengzhao/govm/runtime"
 )
 
+// MaxGuerdon MaxGuerdon
+const MaxGuerdon = maxGuerdon
+
 // CheckTransaction check trans for mine
 func CheckTransaction(chain uint64, tKey []byte) (err error) {
 	defer func() {
@@ -120,6 +123,7 @@ func (p *TransProc) ProcTrans(key []byte) uint64 {
 		err := recover()
 		if err != nil {
 			result = 0
+			log.Println("[mine]fail to process trans:", err)
 		}
 	}()
 	var h Hash

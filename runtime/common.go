@@ -28,17 +28,18 @@ type EventFilter struct {
 	mu sync.Mutex
 }
 
-// const module = "govm.net/lengzhao/govm"
-const module = "github.com/lengzhao/govm"
-
-var projectRoot string
-var packPath string
-var filter EventFilter
+// Module go.mod
+var (
+	Module      = "github.com/lengzhao/govm"
+	projectRoot = "app"
+	filter      EventFilter
+	AppPath     = "."
+	RunDir      = "."
+	BuildDir    = "."
+	NotRebuild  bool
+)
 
 func init() {
-	// projectRoot = path.Join(os.Getenv("GOPATH"), "src", module)
-	projectRoot = "app"
-	packPath = path.Join(module, "app")
 	loadEventFilter()
 }
 
@@ -120,7 +121,7 @@ func GobDecode(in []byte, out interface{}) int {
 func GetPackPath(chain uint64, name []byte) string {
 	nameStr := hex.EncodeToString(name)
 	nameStr = "a" + nameStr
-	return path.Join(packPath, fmt.Sprintf("chain%d", chain), nameStr)
+	return path.Join(Module, projectRoot, fmt.Sprintf("chain%d", chain), nameStr)
 }
 
 // GetFullPathOfApp get the full path of app
@@ -164,7 +165,7 @@ func RunApp(client *client.Client, flag []byte, chain uint64, mode string, appNa
 		panic("retry")
 	}
 	appPath := GetFullPathOfApp(chain, appName)
-	appPath = path.Join(appPath, "app.exe")
+	appPath = path.Join(AppPath, appPath, execName)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
 	defer cancel()
@@ -176,6 +177,7 @@ func RunApp(client *client.Client, flag []byte, chain uint64, mode string, appNa
 		cmd = exec.CommandContext(ctx, appPath)
 	}
 
+	cmd.Dir = RunDir
 	cmd.Stdout = log.Writer()
 	cmd.Stderr = log.Writer()
 	err = cmd.Run()
