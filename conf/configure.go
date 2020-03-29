@@ -12,25 +12,24 @@ import (
 
 // TConfig config of app
 type TConfig struct {
-	ServerHost         string `json:"server_host,omitempty"`
-	HTTPPort           int    `json:"http_port,omitempty"`
-	DbAddrType         string `json:"db_addr_type,omitempty"`
-	DbServerAddr       string `json:"db_server_addr,omitempty"`
-	CorePackName       []byte `json:"core_pack_name,omitempty"`
-	FirstTransName     []byte `json:"first_trans_name,omitempty"`
-	ChainOfMine        uint64 `json:"chain_of_mine,omitempty"`
-	EnergyOfTrans      uint64 `json:"energy_of_trans,omitempty"`
-	WalletAddr         []byte `json:"wallet_addr,omitempty"`
-	SignPrefix         []byte `json:"sign_prefix,omitempty"`
-	PrivateKey         []byte `json:"private_key,omitempty"`
-	Password           string `json:"password,omitempty"`
-	WalletFile         string `json:"wallet_file,omitempty"`
-	CostOfRegMiner     uint64 `json:"cost_of_reg_miner,omitempty"`
-	DoMine             bool   `json:"do_mine,omitempty"`
-	SaveLog            bool   `json:"save_log,omitempty"`
-	ReliaRecalculation bool   `json:"relia_recalculation,omitempty"`
-	ForceMine          bool   `json:"force_mine,omitempty"`
-	IdentifyingCode    bool   `json:"identifying_code,omitempty"`
+	ServerHost      string `json:"server_host,omitempty"`
+	HTTPPort        int    `json:"http_port,omitempty"`
+	DbAddrType      string `json:"db_addr_type,omitempty"`
+	DbServerAddr    string `json:"db_server_addr,omitempty"`
+	CorePackName    []byte `json:"core_pack_name,omitempty"`
+	FirstTransName  []byte `json:"first_trans_name,omitempty"`
+	ChainOfMine     uint64 `json:"chain_of_mine,omitempty"`
+	EnergyOfTrans   uint64 `json:"energy_of_trans,omitempty"`
+	WalletAddr      []byte `json:"wallet_addr,omitempty"`
+	SignPrefix      []byte `json:"sign_prefix,omitempty"`
+	PrivateKey      []byte `json:"private_key,omitempty"`
+	Password        string `json:"password,omitempty"`
+	WalletFile      string `json:"wallet_file,omitempty"`
+	CostOfRegMiner  uint64 `json:"cost_of_reg_miner,omitempty"`
+	DoMine          bool   `json:"do_mine,omitempty"`
+	SaveLog         bool   `json:"save_log,omitempty"`
+	ForceMine       bool   `json:"force_mine,omitempty"`
+	IdentifyingCode bool   `json:"identifying_code,omitempty"`
 }
 
 // DebugMod debug mode
@@ -41,7 +40,7 @@ const (
 var (
 	conf TConfig
 	// Version software version
-	Version string = "v0.4.2"
+	Version string = "v0.4.3"
 	// BuildTime build time
 	BuildTime string
 	// GitHead git head

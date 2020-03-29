@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"github.com/lengzhao/govm/database"
 	"log"
 	"net"
 	"sync"
@@ -34,9 +33,7 @@ var Nodes map[string]bool
 
 // Startup is called only once when the plugin is loaded
 func (p *InternalPlugin) Startup(n libp2p.Network) {
-	core.Init()
 	Init()
-	myHP = database.NewLRUCache(100 * blockHPNumber)
 
 	p.network = n
 	p.reconn = make(map[string]string)
@@ -49,7 +46,6 @@ func (p *InternalPlugin) Startup(n libp2p.Network) {
 // Cleanup plugin uninstall
 func (p *InternalPlugin) Cleanup(n libp2p.Network) {
 	ldb.Close()
-	core.Exit()
 }
 
 func (p *InternalPlugin) timeout() {
@@ -212,16 +208,18 @@ func (p *InternalPlugin) event(m event.Message) error {
 		}
 		err := processBlock(msg.Chain, msg.Key, msg.Data)
 		if err != nil {
+			log.Printf("error block,chain:%d,key:%x,err:%s\n",
+				msg.Chain, msg.Key, err)
 			return err
 		}
 		if msg.LockNum > 0 {
 			ldb.LSet(msg.Chain, ldbBlockLocked, msg.Key, runtime.Encode(msg.LockNum))
 		}
-		rel := core.ReadBlockReliability(msg.Chain, msg.Key)
+		rel := ReadBlockReliability(msg.Chain, msg.Key)
 		if rel.Index == 0 || rel.Key.Empty() {
 			return nil
 		}
-		if msg.LockNum > 0 && rel.Ready {
+		if msg.LockNum > 0 {
 			setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
 		}
 

@@ -201,6 +201,17 @@ func (h Hash) MarshalJSON() ([]byte, error) {
 	return json.Marshal(h[:])
 }
 
+// UnmarshalJSON UnmarshalJSON
+func (h *Hash) UnmarshalJSON(b []byte) error {
+	var v []byte
+	err := json.Unmarshal(b, &v)
+	if err != nil {
+		return err
+	}
+	copy(h[:], v)
+	return nil
+}
+
 // Empty Check where Address is empty
 func (a Address) Empty() bool {
 	return a == (Address{})
@@ -209,6 +220,17 @@ func (a Address) Empty() bool {
 // MarshalJSON marshal by base64
 func (a Address) MarshalJSON() ([]byte, error) {
 	return json.Marshal(a[:])
+}
+
+// UnmarshalJSON UnmarshalJSON
+func (a *Address) UnmarshalJSON(b []byte) error {
+	var v []byte
+	err := json.Unmarshal(b, &v)
+	if err != nil {
+		return err
+	}
+	copy(a[:], v)
+	return nil
 }
 
 func assert(cond bool) {

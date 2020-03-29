@@ -11,6 +11,9 @@ import (
 	"github.com/lengzhao/govm/runtime"
 )
 
+// MaxGuerdon MaxGuerdon
+const MaxGuerdon = maxGuerdon
+
 // CheckTransaction check trans for mine
 func CheckTransaction(chain uint64, tKey []byte) (err error) {
 	defer func() {

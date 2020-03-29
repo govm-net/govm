@@ -18,6 +18,7 @@ var myHP *database.LRUCache
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
+	myHP = database.NewLRUCache(100 * blockHPNumber)
 }
 
 func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
@@ -154,7 +155,7 @@ func doMine(chain uint64, force bool) {
 	block.Size = uint32(size)
 	block.Nonce = rand.Uint64()
 
-	var oldRel core.TReliability
+	var oldRel TReliability
 
 	timeout := time.Now().Unix() + 20
 	var count uint64
@@ -187,11 +188,11 @@ func doMine(chain uint64, force bool) {
 			// log.Printf("drop hash:%x,data:%x\n", key, signData[:6])
 			continue
 		}
-		rel := block.GetReliability()
+		rel := getReliability(block)
 		if rel.Cmp(oldRel) > 0 {
 			oldRel = rel
 			core.WriteBlock(chain, data)
-			core.SaveBlockReliability(chain, block.Key[:], rel)
+			SaveBlockReliability(chain, block.Key[:], rel)
 			info := messages.BlockInfo{}
 			info.Chain = chain
 			info.Index = rel.Index
@@ -274,13 +275,18 @@ func GetMyHashPower(chain uint64) uint64 {
 	procMgr.mu.Lock()
 	defer procMgr.mu.Unlock()
 	var sum uint64
+	var count uint64
 	hpi := time.Now().Unix() / 60
 	for i := hpi - blockHPNumber; i < hpi; i++ {
 		v, ok := myHP.Get(keyOfBlockHP{chain, i})
 		if ok {
 			sum += v.(uint64)
+			count++
 		}
 	}
+	if count == 0 {
+		return 0
+	}
 
-	return sum / blockHPNumber
+	return sum / count
 }
