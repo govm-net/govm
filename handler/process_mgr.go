@@ -89,6 +89,7 @@ func getBestBlock(chain, index uint64) TReliability {
 			core.DeleteBlock(chain, key)
 			continue
 		}
+
 		hp := rel.HashPower
 		if t+blockSyncTime > now {
 			if !rel.Parent.Empty() && !core.BlockOnTheChain(chain/2, rel.Parent[:]) {
@@ -231,6 +232,17 @@ func beforeProcBlock(chain uint64, rel TReliability) error {
 	if bytes.Compare(rel.Previous[:], preKey) == 0 {
 		return nil
 	}
+
+	if !rel.Previous.Empty() && !core.IsExistBlock(chain, rel.Previous[:]) {
+		log.Printf("not exist previous,chain:%d,index:%d,key:%x\n",
+			chain, rel.Index-1, rel.Previous)
+		rel.Index = 0
+		SaveBlockReliability(chain, rel.Key[:], rel)
+		setBlockToIDBlocks(chain, rel.Index, rel.Key, 0)
+		core.DeleteBlock(chain, rel.Key[:])
+		return errors.New("not previous")
+	}
+
 	bln := getBlockLockNum(chain, rel.Key[:])
 	setBlockLockNum(chain, rel.Previous[:], bln+1)
 	t := core.GetBlockTime(chain)
@@ -254,9 +266,9 @@ func beforeProcBlock(chain uint64, rel TReliability) error {
 	if checkAndRollback(chain, id, preKey) {
 		log.Printf("dbRollBack block. index:%d,key:%x,next block:%x\n", rel.Index, preKey, rel.Key)
 		ib := IDBlocks{}
-		it := ItemBlock{rel.Previous, rel.HashPower}
+		it := ItemBlock{rel.Previous, 1}
 		ib.Items = append(ib.Items, it)
-		SaveIDBlocks(chain, id, ib)
+		SaveIDBlocks(chain, rel.Index-1, ib)
 	}
 	go processEvent(chain)
 
@@ -272,6 +284,12 @@ func finishProcBlock(chain uint64, rel TReliability, rn int) error {
 	}
 	if !rel.RightChild.Empty() {
 		setBlockLockNum(chain*2+1, rel.RightChild[:], 10)
+	}
+
+	old := rel.HashPower
+	rel.Recalculation(chain)
+	if old != rel.HashPower {
+		SaveBlockReliability(chain, rel.Key[:], rel)
 	}
 	return nil
 }
@@ -317,7 +335,7 @@ func processEvent(chain uint64) {
 	defer func() { <-wait }()
 
 	cl <- 1
-	log.Println("start processEvent:", chain)
+	// log.Println("start processEvent:", chain)
 	defer func() {
 		log.Println("finish processEvent:", chain)
 		<-cl

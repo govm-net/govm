@@ -12,6 +12,8 @@ import (
 	"github.com/lengzhao/govm/wallet"
 )
 
+const minHPLimit = 15
+
 // StBlock StBlock
 type StBlock struct {
 	Block
@@ -50,10 +52,10 @@ func NewBlock(chain uint64, producer Address) *StBlock {
 			}
 		}
 	}
-	if hashPowerLimit > weight+10 {
+	if hashPowerLimit > weight+minHPLimit {
 		hashPowerLimit -= weight
 	} else {
-		hashPowerLimit = 10
+		hashPowerLimit = minHPLimit
 	}
 
 	out.HashpowerLimit = hashPowerLimit

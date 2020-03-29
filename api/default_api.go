@@ -1224,7 +1224,7 @@ func DataPost(w http.ResponseWriter, r *http.Request) {
 	keyStr := r.Form.Get("key")
 	isTrans := r.Form.Get("is_trans")
 	broadcast := r.Form.Get("broadcast")
-	lockNum := r.Form.Get("lockNum")
+	lockNum := r.Form.Get("lock_num")
 
 	chain, err := strconv.ParseUint(chainStr, 10, 64)
 	if err != nil {

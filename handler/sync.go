@@ -271,9 +271,14 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		return
 	}
 
+	rel.Recalculation(chain)
+	rel.Ready = true
+	SaveBlockReliability(chain, rel.Key[:], rel)
+
 	SetSyncBlock(chain, rel.Index, nil)
+	t := core.GetBlockTime(chain)
 	now := uint64(time.Now().Unix() * 1000)
-	if rel.Time < now {
+	if t+blockSyncTime < now {
 		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
 	}
 

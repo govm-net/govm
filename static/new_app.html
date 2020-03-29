@@ -43,7 +43,7 @@
                             <div class="input-group">
                                 <span class="input-group-addon" data-localize="energy">Energy</span>
                                 <input type="number" class="form-control" value="1" name="energy">
-                                <span class="input-group-addon" id="base_energy"></span>
+                                <span class="input-group-addon">t9</span>
                             </div>
                             <br>
                             <div class="input-group">
@@ -170,7 +170,7 @@
                                     <div class="input-group">
                                         <span class="input-group-addon" data-localize="energy">Energy</span>
                                         <input type="number" class="form-control" name="energy" value="5">
-                                        <span class="input-group-addon" id="alias_energy"></span>
+                                        <span class="input-group-addon">t9</span>
                                     </div>
                                     <button type="button" class="btn btn-success pull-right" id="btn_alias"
                                         data-localize="submit">Submit</button>
@@ -234,7 +234,7 @@
                                     <div class="input-group">
                                         <span class="input-group-addon" data-localize="energy">Energy</span>
                                         <input type="number" class="form-control" name="energy" value="5">
-                                        <span class="input-group-addon" id="rui_energy"></span>
+                                        <span class="input-group-addon">t9</span>
                                     </div>
                                     <div class="panel panel-default">
                                         <div class="panel-heading">
@@ -307,7 +307,7 @@
                                     <div class="input-group">
                                         <span class="input-group-addon" data-localize="energy">Energy</span>
                                         <input type="number" class="form-control" name="energy" value="5">
-                                        <span class="input-group-addon" id="wui_energy"></span>
+                                        <span class="input-group-addon">t9</span>
                                     </div>
                                     <div class="input-group">
                                         <span class="input-group-addon" data-localize="cost_of_run">Cost(UI Run)</span>
@@ -347,10 +347,6 @@
     <script src="js/encode.js?v=7"></script>
 
     <script type="text/javascript">
-        $("#base_energy").html(gCostBase);
-        $("#alias_energy").html(gCostBase);
-        $("#rui_energy").html(gCostBase);
-        $("#wui_energy").html(gCostBase);
         $("#search_chain").val(gChainID);
         $("input[name='chain']").val(gChainID);
         var tb1 = $('#edittable_rui').editTable({
@@ -436,8 +432,9 @@
         var tb3;
 
         $('#submit').on('click', function () {
+            $("#result").html("waiting...")
             var data = $('form').serializeJSON()
-            data.energy = parseInt(data.energy * getBaseByName(gCostBase))
+            data.energy = parseInt(data.energy * getBaseByName("t9"))
             if (data.is_private == "on") {
                 data.is_private = true
             }
@@ -573,7 +570,7 @@
             var data = $(this).parent().serializeJSON();
             data.app = dataEncode(data.app, "hex2bytes");
             var runParam = {};
-            base = getBaseByName(gCostBase)
+            base = getBaseByName("t9")
             runParam.cost = 1000000000;
             runParam.energy = parseInt(data.energy * base);
             delete data.energy;
@@ -595,7 +592,7 @@
                 success: function (data) {
                     console.log(data);
                     $("#result").html("<span class=\"label label-success\">transaction:<a href=\"transaction.html?key="
-                        + data.key + "\">" + data.key + "</a></span>");
+                        + data.trans_key + "\">" + data.trans_key + "</a></span>");
                 },
                 error: function (XMLHttpRequest, textStatus, errorThrown) {
                     console.log(XMLHttpRequest.status);
@@ -651,7 +648,7 @@
             });
             setUI["ui"] = ui;
             var runParam = {};
-            base = getBaseByName(gCostBase)
+            base = getBaseByName("t9")
             runParam.cost = 1000000000;
             runParam.energy = parseInt(data.energy * base);
             runParam.app_name = "c514cb497286b0ff206c6fae74634f6f546f43fab823fd87bf6fcb1616ce9665";
@@ -666,7 +663,7 @@
             console.log("btn_wui.click")
             var chain = $("#wui_chain").val()
             var data = $(this).parent().serializeJSON()
-            base = getBaseByName(gCostBase)
+            base = getBaseByName("t9")
             var setUI = {};
             setUI["index"] = parseInt(data.index);
             setUI["alias"] = data.alias;

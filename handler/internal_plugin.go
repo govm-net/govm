@@ -210,6 +210,8 @@ func (p *InternalPlugin) event(m event.Message) error {
 		}
 		err := processBlock(msg.Chain, msg.Key, msg.Data)
 		if err != nil {
+			log.Printf("error block,chain:%d,key:%x,err:%s\n",
+				msg.Chain, msg.Key, err)
 			return err
 		}
 		if msg.LockNum > 0 {
@@ -219,7 +221,7 @@ func (p *InternalPlugin) event(m event.Message) error {
 		if rel.Index == 0 || rel.Key.Empty() {
 			return nil
 		}
-		if msg.LockNum > 0 && rel.Ready {
+		if msg.LockNum > 0 {
 			setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
 		}
 
