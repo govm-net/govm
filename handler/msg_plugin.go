@@ -39,7 +39,7 @@ var network libp2p.Network
 var activeNode libp2p.Session
 var blockHP *database.LRUCache
 
-const blockHPNumber = 30
+const blockHPNumber = 120
 
 func init() {
 	blockHP = database.NewLRUCache(100 * blockHPNumber)
@@ -549,13 +549,18 @@ func GetHashPowerOfBlocks(chain uint64) uint64 {
 	procMgr.mu.Lock()
 	defer procMgr.mu.Unlock()
 	var sum uint64
+	var count uint64
 	hpi := time.Now().Unix() / 60
 	for i := hpi - blockHPNumber; i < hpi; i++ {
 		v, ok := blockHP.Get(keyOfBlockHP{chain, i})
 		if ok {
 			sum += v.(uint64)
+			count++
 		}
 	}
+	if count == 0 {
+		return 0
+	}
 
-	return sum / blockHPNumber
+	return sum / count
 }

@@ -18,6 +18,7 @@ var myHP *database.LRUCache
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
+	myHP = database.NewLRUCache(100 * blockHPNumber)
 }
 
 func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
@@ -276,13 +277,18 @@ func GetMyHashPower(chain uint64) uint64 {
 	procMgr.mu.Lock()
 	defer procMgr.mu.Unlock()
 	var sum uint64
+	var count uint64
 	hpi := time.Now().Unix() / 60
 	for i := hpi - blockHPNumber; i < hpi; i++ {
 		v, ok := myHP.Get(keyOfBlockHP{chain, i})
 		if ok {
 			sum += v.(uint64)
+			count++
 		}
 	}
+	if count == 0 {
+		return 0
+	}
 
-	return sum / blockHPNumber
+	return sum / count
 }

@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"github.com/lengzhao/govm/database"
 	"log"
 	"net"
 	"sync"
@@ -35,7 +34,6 @@ var Nodes map[string]bool
 // Startup is called only once when the plugin is loaded
 func (p *InternalPlugin) Startup(n libp2p.Network) {
 	Init()
-	myHP = database.NewLRUCache(100 * blockHPNumber)
 
 	p.network = n
 	p.reconn = make(map[string]string)
