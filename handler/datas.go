@@ -29,7 +29,6 @@ const (
 	ldbTransList    = "trans_list"     //blockKey:transList
 	ldbTransInfo    = "trans_info"     //transKey:info
 	ldbAllTransInfo = "all_trans_info" //transKey:info
-	ldbNewerTrans   = "newer_trans"    //timeKey:transKey
 	ldbInputTrans   = "input_trans"    //receive transfer,timeKey:transKey
 	ldbOutputTrans  = "output_trans"   //create by self,timeKey:transKey
 	ldbBlacklist    = "user_blacklist" //blacklist of user,user:info
@@ -54,12 +53,13 @@ func Init() {
 	ldb.SetNotDisk(ldbIDBlocks, 10000)
 	ldb.SetNotDisk(ldbSyncBlocks, 10000)
 	ldb.SetNotDisk(ldbBlacklist, 10000)
-	ldb.SetCache(ldbTransList)
-	ldb.SetCache(ldbTransInfo)
-	ldb.SetCache(ldbMiner)
+	ldb.SetNotDisk(ldbTransList, 1000)
+	ldb.SetNotDisk(ldbTransInfo, 10000)
+	ldb.SetNotDisk(ldbMiner, 1000)
 	ldb.SetNotDisk(ldbBlockLocked, 10000)
 	ldb.SetNotDisk(ldbDownloading, 2000)
 	ldb.SetNotDisk(ldbReliability, 50000)
+	ldb.SetNotDisk(ldbAllTransInfo, 50000)
 }
 
 // SaveBlockRunStat save block stat

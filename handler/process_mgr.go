@@ -26,16 +26,13 @@ type tProcessMgr struct {
 }
 
 const (
-	tSecond           = 1000
-	tMinute           = 60 * 1000
-	tHour             = 60 * tMinute
-	tDay              = 24 * tHour
-	blockAcceptTime   = 2 * tMinute
-	transAcceptTime   = 9 * tDay
-	blockSyncTime     = 5 * tMinute
-	hpAcceptRange     = 20
-	blockLockInterval = 6
-	lockBySelfChain   = 1
+	tSecond         = 1000
+	tMinute         = 60 * 1000
+	tHour           = 60 * tMinute
+	tDay            = 24 * tHour
+	blockAcceptTime = 2 * tMinute
+	transAcceptTime = 9 * tDay
+	blockSyncTime   = 5 * tMinute
 )
 
 var procMgr tProcessMgr
@@ -404,7 +401,7 @@ func processEvent(chain uint64) {
 		return
 	}
 	stat.RunTimes++
-	log.Printf("start to process block,chain:%d,index:%d,key:%x\n", chain, relia.Index, relia.Key)
+	log.Printf("process block,chain:%d,index:%d,key:%x\n", chain, relia.Index, relia.Key)
 	err = core.ProcessBlockOfChain(chain, relia.Key[:])
 	if err != nil {
 		log.Printf("fail to process block,chain:%d,index:%d,key:%x,error:%s\n", chain, index+1, relia.Key, err)

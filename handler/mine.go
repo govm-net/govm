@@ -57,7 +57,7 @@ func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 				continue
 			}
 			if size+uint64(trans.Size) > limit {
-				continue
+				return core.Hash{}
 			}
 			if !believable(chain, trans.User[:]) && bytes.Compare(trans.User[:], c.WalletAddr) != 0 {
 				continue
@@ -68,44 +68,8 @@ func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 	})
 	if err != nil {
 		deleteTransInfo(chain, trans.Key[:])
-		if err.Error() == "recover:trans_newer" {
-			t := uint64(time.Now().Unix()) + blockSyncTime
-			k := runtime.Encode(t)
-			k = append(k, trans.Key[:]...)
-			ldb.LSet(chain, ldbNewerTrans, k, runtime.Encode(trans))
-		} else {
-			saveBlackItem(chain, trans.User[:])
-		}
+		saveBlackItem(chain, trans.User[:])
 	}
-	go func() {
-		var next, value []byte
-		defer recover()
-		t = core.GetBlockTime(chain) / 1000
-		limitKey := runtime.Encode(t)
-		emptyKey := core.Hash{}
-		limitKey = append(limitKey, emptyKey[:]...)
-
-		for i := 0; i < 100000; i++ {
-			next, value = ldb.LGetNext(chain, ldbNewerTrans, next)
-			if len(next) == 0 {
-				break
-			}
-			if bytes.Compare(next, limitKey) > 0 {
-				break
-			}
-			ldb.LSet(chain, ldbNewerTrans, next, nil)
-			var info transInfo
-			runtime.Decode(value, &info)
-			if info.Key.Empty() {
-				continue
-			}
-			if info.Stat > 10 {
-				continue
-			}
-			info.Stat++
-			saveTransInfo(chain, info.Key[:], info)
-		}
-	}()
 
 	return out, size
 }

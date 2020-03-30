@@ -44,7 +44,7 @@ func init() {
 			}
 			select {
 			case <-inputString:
-				log.Println("drop old input of IdentifyingCode")
+				// log.Println("drop old input of IdentifyingCode")
 				inputString <- in
 			case inputString <- in:
 			}

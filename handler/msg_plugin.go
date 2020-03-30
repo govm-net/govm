@@ -213,6 +213,9 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		k := hex.EncodeToString(msg.Key)
 		if e == k {
 			ctx.GetSession().SetEnv(getEnvKey(msg.Chain, reqTrans), "")
+			if core.IsExistTransaction(msg.Chain, msg.Key) {
+				return nil
+			}
 			err := processTransaction(msg.Chain, msg.Key, msg.Data)
 			if err != nil {
 				return nil
@@ -391,7 +394,7 @@ func (p *MsgPlugin) downloadBlockDepend(ctx libp2p.Event, chain uint64, key []by
 		e = hex.EncodeToString(key)
 		ctx.GetSession().SetEnv(getEnvKey(chain, transOwner), e)
 		ctx.Reply(&messages.ReqTransaction{Chain: chain, Key: it[:]})
-		log.Printf("trans is not exist,chain:%d,key:%x\n", chain, it)
+		// log.Printf("trans is not exist,chain:%d,key:%x\n", chain, it)
 		return
 	}
 	rel.Recalculation(chain)
@@ -484,12 +487,6 @@ func processTransaction(chain uint64, key, data []byte) error {
 		rst := core.CheckTransaction(chain, trans.Key)
 		if rst == nil {
 			saveTransInfo(chain, trans.Key, info)
-		} else if rst.Error() == "recover:trans_newer" {
-			// newer transaction
-			t := uint64(time.Now().Unix()) + blockSyncTime
-			k := runtime.Encode(t)
-			k = append(k, trans.Key[:]...)
-			ldb.LSet(chain, ldbNewerTrans, k, runtime.Encode(info))
 		}
 	}
 
@@ -532,10 +529,13 @@ func dbRollBack(chain, index uint64, key []byte) error {
 		var lk core.Hash
 		runtime.Decode(lKey, &lk)
 		setBlockToIDBlocks(chain, nIndex, lk, 0)
-		transList := GetTransList(chain, lKey)
-		for _, trans := range transList {
-			v := ldb.LGet(chain, ldbAllTransInfo, trans[:])
-			ldb.LSet(chain, ldbTransInfo, trans[:], v)
+
+		if conf.GetConf().DoMine {
+			transList := GetTransList(chain, lKey)
+			for _, trans := range transList {
+				v := ldb.LGet(chain, ldbAllTransInfo, trans[:])
+				ldb.LSet(chain, ldbTransInfo, trans[:], v)
+			}
 		}
 		nIndex--
 		bln++
