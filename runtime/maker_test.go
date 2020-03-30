@@ -7,12 +7,23 @@ import (
 )
 
 func TestNewApp(t *testing.T) {
+	oldBD := BuildDir
+	oldRD := RunDir
+	oldAD := AppPath
+	BuildDir = ".."
+	RunDir = "."
+	AppPath = ".."
+	defer func() {
+		BuildDir = oldBD
+		RunDir = oldRD
+		AppPath = oldAD
+	}()
 	appName := []byte("app001")
 	realPath := GetFullPathOfApp(1, appName)
 	defer os.RemoveAll(realPath)
 	code, _ := ioutil.ReadFile("./code_for_test.txt")
 	nInfo := TAppNewInfo{}
-	nInfo.LineNum = 3
+	nInfo.LineNum = 4
 	nInfo.DependNum = 0
 	nInfo.Flag = AppFlagRun | AppFlagImport
 	head := Encode(nInfo.TAppNewHead)

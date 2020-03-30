@@ -31,6 +31,8 @@ func main() {
 			MaxAge:     10,   //days
 			Compress:   true, // disabled by default
 		})
+	} else {
+		log.SetOutput(ioutil.Discard)
 	}
 	database.ChangeClientNumber(10)
 	err := database.GetClient().Set(1, []byte("test"), []byte("test"), []byte("test"))

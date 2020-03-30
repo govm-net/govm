@@ -23,20 +23,19 @@ type BlockRunStat struct {
 }
 
 const (
-	ldbBlockRunStat = "block_run_stat"   //blockKey:stat
-	ldbIDBlocks     = "id_blocks"        //index:blocks
-	ldbSyncBlocks   = "sync_blocks"      //index:blockKey
-	ldbTransList    = "trans_list"       //blockKey:transList
-	ldbTransInfo    = "trans_info"       //transKey:info
-	ldbAllTransInfo = "all_trans_info"   //transKey:info
-	ldbNewerTrans   = "newer_trans"      //timeKey:transKey
-	ldbInputTrans   = "input_trans"      //receive transfer,timeKey:transKey
-	ldbOutputTrans  = "output_trans"     //create by self,timeKey:transKey
-	ldbBlacklist    = "user_blacklist"   //blacklist of user,user:info
-	ldbMiner        = "miner_register"   //chain:index
-	ldbHPLimit      = "hash_power_limit" //index:limit
-	ldbBlockLocked  = "block_locked"     //key:n
-	ldbDownloading  = "downloading"      //key:time
+	ldbBlockRunStat = "block_run_stat" //blockKey:stat
+	ldbIDBlocks     = "id_blocks"      //index:blocks
+	ldbSyncBlocks   = "sync_blocks"    //index:blockKey
+	ldbTransList    = "trans_list"     //blockKey:transList
+	ldbTransInfo    = "trans_info"     //transKey:info
+	ldbAllTransInfo = "all_trans_info" //transKey:info
+	ldbInputTrans   = "input_trans"    //receive transfer,timeKey:transKey
+	ldbOutputTrans  = "output_trans"   //create by self,timeKey:transKey
+	ldbBlacklist    = "user_blacklist" //blacklist of user,user:info
+	ldbMiner        = "miner_register" //chain:index
+	ldbBlockLocked  = "block_locked"   //key:n
+	ldbDownloading  = "downloading"    //key:time
+	ldbReliability  = "reliability"    //blockKey:relia
 )
 
 const downloadTimeout = 5
@@ -54,12 +53,13 @@ func Init() {
 	ldb.SetNotDisk(ldbIDBlocks, 10000)
 	ldb.SetNotDisk(ldbSyncBlocks, 10000)
 	ldb.SetNotDisk(ldbBlacklist, 10000)
-	ldb.SetCache(ldbTransList)
-	ldb.SetCache(ldbTransInfo)
-	ldb.SetCache(ldbMiner)
-	ldb.SetNotDisk(ldbHPLimit, 1000)
+	ldb.SetNotDisk(ldbTransList, 1000)
+	ldb.SetNotDisk(ldbTransInfo, 10000)
+	ldb.SetNotDisk(ldbMiner, 1000)
 	ldb.SetNotDisk(ldbBlockLocked, 10000)
 	ldb.SetNotDisk(ldbDownloading, 2000)
+	ldb.SetNotDisk(ldbReliability, 50000)
+	ldb.SetNotDisk(ldbAllTransInfo, 50000)
 }
 
 // SaveBlockRunStat save block stat
@@ -95,8 +95,8 @@ type ItemBlock struct {
 
 // IDBlocks the blocks of same index
 type IDBlocks struct {
-	Items     []ItemBlock
-	MaxHeight uint64
+	Items []ItemBlock
+	// MaxHeight uint64
 }
 
 // SaveIDBlocks save blocks of the index
@@ -323,4 +323,129 @@ func needDownload(chain uint64, key []byte) bool {
 // get the time of request, if fresh, return false
 func needRequstID(chain, index uint64) bool {
 	return needDownload(chain, runtime.Encode(index))
+}
+
+// TReliability Reliability of block
+type TReliability struct {
+	Key        core.Hash    `json:"key,omitempty"`
+	Previous   core.Hash    `json:"previous,omitempty"`
+	Parent     core.Hash    `json:"parent,omitempty"`
+	LeftChild  core.Hash    `json:"left_child,omitempty"`
+	RightChild core.Hash    `json:"right_child,omitempty"`
+	Producer   core.Address `json:"producer,omitempty"`
+	Time       uint64       `json:"time,omitempty"`
+	Index      uint64       `json:"index,omitempty"`
+	HashPower  uint64       `json:"hash_power,omitempty"`
+	Miner      bool         `json:"miner,omitempty"`
+	Ready      bool         `json:"ready,omitempty"`
+}
+
+// SaveBlockReliability save block reliability
+func SaveBlockReliability(chain uint64, key []byte, rb TReliability) {
+	if chain == 0 {
+		return
+	}
+	if rb.Index == 0 {
+		ldb.LSet(chain, ldbReliability, key, nil)
+	} else {
+		ldb.LSet(chain, ldbReliability, key, runtime.Encode(rb))
+	}
+}
+
+// ReadBlockReliability get Reliability of block from db
+func ReadBlockReliability(chain uint64, key []byte) TReliability {
+	var out TReliability
+	if chain == 0 {
+		return out
+	}
+	stream := ldb.LGet(chain, ldbReliability, key)
+	if stream != nil {
+		runtime.Decode(stream, &out)
+	}
+	return out
+}
+
+// Cmp compares x and y and returns:
+//
+//   +1 if x >  y
+//   -1 if x <  y
+//   0  if x =  y
+func (r TReliability) Cmp(y TReliability) int {
+	if r.HashPower > y.HashPower {
+		return 1
+	}
+	if r.HashPower < y.HashPower {
+		return -1
+	}
+	for i, b := range r.Key {
+		if b > y.Key[i] {
+			return -1
+		}
+		if b < y.Key[i] {
+			return 1
+		}
+	}
+
+	return 0
+}
+
+// Recalculation recalculation
+func (r *TReliability) Recalculation(chain uint64) {
+	var power uint64
+	var miner core.Miner
+	var parent, preRel TReliability
+
+	if r.Index > 1 {
+		preRel = ReadBlockReliability(chain, r.Previous[:])
+		if chain > 1 {
+			parent = ReadBlockReliability(chain/2, r.Parent[:])
+		}
+	}
+
+	miner = core.GetMinerInfo(chain, r.Index)
+
+	if r.Index == 1 {
+		power = 1000
+	}
+
+	hp := getHashPower(r.Key[:])
+	for i := 0; i < core.MinerNum; i++ {
+		if miner.Miner[i] == r.Producer {
+			hp = hp + hp*uint64(core.MinerNum-i+5)/50
+			weight := miner.Cost[i] / core.MaxGuerdon / 5
+			if weight < 100 {
+				hp += weight
+			} else {
+				hp += 100
+			}
+			r.Miner = true
+			break
+		}
+	}
+
+	power += hp
+	power += (parent.HashPower / 4)
+	power += preRel.HashPower
+	power -= (preRel.HashPower >> 40)
+	if r.Producer == preRel.Producer {
+		power -= 7
+	}
+
+	r.HashPower = power
+}
+
+func getReliability(b *core.StBlock) TReliability {
+	var selfRel TReliability
+
+	selfRel.Key = b.Key
+	selfRel.Index = b.Index
+	selfRel.Previous = b.Previous
+	selfRel.Time = b.Time
+	selfRel.Parent = b.Parent
+	selfRel.LeftChild = b.LeftChild
+	selfRel.RightChild = b.RightChild
+	selfRel.Producer = b.Producer
+
+	selfRel.Recalculation(b.Chain)
+	return selfRel
 }

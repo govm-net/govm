@@ -69,6 +69,13 @@ type RawData struct {
 	Data      []byte
 }
 
+// ReceiveTrans receive new transaction
+type ReceiveTrans struct {
+	BaseMsg
+	Chain uint64
+	Key   []byte
+}
+
 // Internal msg keys
 const (
 	BroadcastMsg = "broadcast"

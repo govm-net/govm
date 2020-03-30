@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	core "github.com/lengzhao/govm/core"
-	"github.com/lengzhao/govm/messages"
-	"github.com/lengzhao/govm/runtime"
-	"github.com/lengzhao/libp2p"
 	"log"
 	"runtime/debug"
 	"time"
+
+	core "github.com/lengzhao/govm/core"
+	"github.com/lengzhao/govm/messages"
+	"github.com/lengzhao/libp2p"
 )
 
 // SyncPlugin sync plugin
@@ -102,14 +102,14 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 			}
 		}
 		if core.IsExistBlock(msg.Chain, msg.Key) {
-			rel := core.ReadBlockReliability(msg.Chain, msg.Key)
+			rel := ReadBlockReliability(msg.Chain, msg.Key)
 			if !rel.Ready || rel.Index == 0 {
 				log.Printf("start sync,chain:%d,index:%d,block:%x\n", msg.Chain, msg.Index, msg.Key)
 				//start sync
 				ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncing), "true")
 				go p.syncDepend(ctx, msg.Chain, msg.Key)
 			} else {
-				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, core.BaseRelia)
+				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, 1)
 			}
 			return nil
 		}
@@ -187,22 +187,22 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		// log.Printf("syncDepend, ReqBlock,chain:%d,key:%x\n", chain, key)
 		return
 	}
-	rel := core.ReadBlockReliability(chain, key)
+	rel := ReadBlockReliability(chain, key)
 	if rel.Index == 0 {
 		err := processBlock(chain, key, nil)
 		if err != nil {
 			core.DeleteBlock(chain, key)
-			core.DeleteBlockReliability(chain, key)
+			SaveBlockReliability(chain, key, TReliability{})
 			ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), hex.EncodeToString(key))
 			ctx.Reply(&messages.ReqBlock{Chain: chain, Key: key})
 			return
 		}
-		rel = core.ReadBlockReliability(chain, key)
+		rel = ReadBlockReliability(chain, key)
 	}
 	id := core.GetLastBlockIndex(chain)
 	if id > rel.Index+1000 {
 		rel.Ready = true
-		core.SaveBlockReliability(chain, rel.Key[:], rel)
+		SaveBlockReliability(chain, rel.Key[:], rel)
 		newKey := GetSyncBlock(chain, rel.Index+1)
 		if len(newKey) > 0 {
 			// log.Printf("start next SyncBlock,chain:%d,key:%x,next:%x\n", chain, key, newKey)
@@ -218,7 +218,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	}
 	SetSyncBlock(chain, rel.Index, key)
 	if !rel.Previous.Empty() {
-		pRel := core.ReadBlockReliability(chain, rel.Previous[:])
+		pRel := ReadBlockReliability(chain, rel.Previous[:])
 		if !pRel.Ready {
 			// log.Printf("syncDepend previous,chain:%d,index:%d,preKey:%x\n", chain, rel.Index, rel.Previous)
 			go p.syncDepend(ctx, chain, rel.Previous[:])
@@ -226,7 +226,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		}
 	}
 	if !rel.Parent.Empty() {
-		pRel := core.ReadBlockReliability(chain/2, rel.Parent[:])
+		pRel := ReadBlockReliability(chain/2, rel.Parent[:])
 		if !pRel.Ready {
 			// log.Printf("syncDepend Parent,chain:%d,index:%d,Parent:%x\n", chain, rel.Index, rel.Parent)
 			go p.syncDepend(ctx, chain/2, rel.Parent[:])
@@ -234,7 +234,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		}
 	}
 	if !rel.LeftChild.Empty() {
-		lRel := core.ReadBlockReliability(chain*2, rel.LeftChild[:])
+		lRel := ReadBlockReliability(chain*2, rel.LeftChild[:])
 		if !lRel.Ready {
 			// log.Printf("syncDepend LeftChild,chain:%d,index:%d,LeftChild:%x\n", chain, rel.Index, rel.LeftChild)
 			go p.syncDepend(ctx, chain*2, rel.LeftChild[:])
@@ -242,7 +242,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		}
 	}
 	if !rel.RightChild.Empty() {
-		rRel := core.ReadBlockReliability(chain*2+1, rel.RightChild[:])
+		rRel := ReadBlockReliability(chain*2+1, rel.RightChild[:])
 		if !rRel.Ready {
 			// log.Printf("syncDepend RightChild,chain:%d,index:%d,RightChild:%x\n", chain, rel.Index, rel.RightChild)
 			go p.syncDepend(ctx, chain*2, rel.RightChild[:])
@@ -273,19 +273,13 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 
 	rel.Recalculation(chain)
 	rel.Ready = true
-	core.SaveBlockReliability(chain, rel.Key[:], rel)
+	SaveBlockReliability(chain, rel.Key[:], rel)
 
 	SetSyncBlock(chain, rel.Index, nil)
-	var hpLimit uint64
-	getData(chain, ldbHPLimit, runtime.Encode(rel.Index-1), &hpLimit)
-	if rel.HashPower+hpAcceptRange >= hpLimit {
+	t := core.GetBlockTime(chain)
+	now := uint64(time.Now().Unix() * 1000)
+	if t+blockSyncTime < now {
 		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
-	} else {
-		t := core.GetBlockTime(chain)
-		now := uint64(time.Now().Unix() * 1000)
-		if t+blockSyncTime < now {
-			setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
-		}
 	}
 
 	newKey := GetSyncBlock(chain, rel.Index+1)
@@ -308,7 +302,7 @@ func updateBLN(chain uint64, key []byte) {
 	if len(key) == 0 {
 		return
 	}
-	rel := core.ReadBlockReliability(chain, key)
+	rel := ReadBlockReliability(chain, key)
 	bln := getBlockLockNum(chain, key)
 	index := core.GetLastBlockIndex(chain)
 	for rel.Index > index {
@@ -324,6 +318,6 @@ func updateBLN(chain uint64, key []byte) {
 		if !rel.RightChild.Empty() {
 			setBlockLockNum(chain*2, rel.RightChild[:], 2*bln)
 		}
-		rel = core.ReadBlockReliability(chain, rel.Previous[:])
+		rel = ReadBlockReliability(chain, rel.Previous[:])
 	}
 }

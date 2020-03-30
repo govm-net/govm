@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
-	"os"
 	"runtime/debug"
 
 	"github.com/lengzhao/govm/conf"
@@ -13,6 +12,8 @@ import (
 	"github.com/lengzhao/govm/wallet"
 )
 
+const minHPLimit = 15
+
 // StBlock StBlock
 type StBlock struct {
 	Block
@@ -20,59 +21,6 @@ type StBlock struct {
 	sign           []byte
 	TransList      []Hash
 	HashpowerLimit uint64
-}
-
-// TReliability Reliability of block
-type TReliability struct {
-	Key        Hash    `json:"key,omitempty"`
-	Previous   Hash    `json:"previous,omitempty"`
-	Parent     Hash    `json:"parent,omitempty"`
-	LeftChild  Hash    `json:"left_child,omitempty"`
-	RightChild Hash    `json:"right_child,omitempty"`
-	Producer   Address `json:"producer,omitempty"`
-	Time       uint64  `json:"time,omitempty"`
-	Index      uint64  `json:"index,omitempty"`
-	HashPower  uint64  `json:"hash_power,omitempty"`
-	Miner      bool    `json:"miner,omitempty"`
-	Ready      bool    `json:"ready,omitempty"`
-}
-
-const ldbReliability = "reliability" //blockKey:relia
-var (
-	ldb *database.LDB
-)
-
-// Init init,open reliability.db and create core app
-func Init() {
-	ldb = database.NewLDB("reliability.db", 2000)
-	if ldb == nil {
-		log.Println("fail to open ldb,reliability.db")
-		os.Exit(2)
-	}
-	ldb.SetCache(ldbReliability)
-	lst := []uint64{1}
-	appName := runtime.GetAppName(dbStat{})
-	for len(lst) > 0 {
-		chain := lst[0]
-		lst = lst[1:]
-		filePath := runtime.GetFullPathOfApp(chain*2, appName)
-		if _, err := os.Stat(filePath); !os.IsNotExist(err) {
-			lst = append(lst, chain*2)
-		}
-		filePath = runtime.GetFullPathOfApp(chain*2+1, appName)
-		if _, err := os.Stat(filePath); !os.IsNotExist(err) {
-			lst = append(lst, chain*2+1)
-		}
-		runtime.NewApp(chain, appName, nil)
-	}
-}
-
-// Exit os exit
-func Exit() {
-	if ldb != nil{
-		ldb.Close()
-		ldb = nil
-	}
 }
 
 // NewBlock new block
@@ -104,10 +52,10 @@ func NewBlock(chain uint64, producer Address) *StBlock {
 			}
 		}
 	}
-	if hashPowerLimit > weight+10 {
+	if hashPowerLimit > weight+minHPLimit {
 		hashPowerLimit -= weight
 	} else {
-		hashPowerLimit = 10
+		hashPowerLimit = minHPLimit
 	}
 
 	out.HashpowerLimit = hashPowerLimit
@@ -316,101 +264,6 @@ func DecodeBlock(data []byte) *StBlock {
 	return out
 }
 
-const (
-	// BaseRelia base reliability
-	BaseRelia = 1000
-)
-
-// GetReliability get block reliability
-func (b *StBlock) GetReliability() TReliability {
-	var selfRel TReliability
-
-	selfRel.Key = b.Key
-	selfRel.Index = b.Index
-	selfRel.Previous = b.Previous
-	selfRel.Time = b.Time
-	selfRel.Parent = b.Parent
-	selfRel.LeftChild = b.LeftChild
-	selfRel.RightChild = b.RightChild
-	selfRel.Producer = b.Producer
-
-	selfRel.Recalculation(b.Chain)
-
-	return selfRel
-}
-
-// Cmp compares x and y and returns:
-//
-//   +1 if x >  y
-//   -1 if x <  y
-//   0  if x =  y
-func (r TReliability) Cmp(y TReliability) int {
-	if r.HashPower > y.HashPower {
-		return 1
-	}
-	if r.HashPower < y.HashPower {
-		return -1
-	}
-	for i, b := range r.Key {
-		if b > y.Key[i] {
-			return -1
-		}
-		if b < y.Key[i] {
-			return 1
-		}
-	}
-
-	return 0
-}
-
-// Recalculation recalculation
-func (r *TReliability) Recalculation(chain uint64) {
-	var power uint64
-	var miner Miner
-	var parent, preRel TReliability
-
-	if r.Index > 1 {
-		preRel = ReadBlockReliability(chain, r.Previous[:])
-		if chain > 1 {
-			parent = ReadBlockReliability(chain/2, r.Parent[:])
-		}
-	}
-
-	getDataFormDB(chain, dbMining{}, runtime.Encode(r.Index), &miner)
-
-	if r.Index == 1 {
-		power = BaseRelia
-	}
-
-	hp := getHashPower(r.Key)
-	for i := 0; i < minerNum; i++ {
-		if chain == 1 && r.Index < depositCycle {
-			break
-		}
-		if miner.Miner[i] == r.Producer {
-			hp = hp + hp*uint64(minerNum-i+5)/50
-			weight := miner.Cost[i] / maxGuerdon / 5
-			if weight < 100 {
-				hp += weight
-			} else {
-				hp += 100
-			}
-			r.Miner = true
-			break
-		}
-	}
-
-	power += hp
-	power += (parent.HashPower / 4)
-	power += preRel.HashPower
-	power -= (preRel.HashPower >> 40)
-	if r.Producer == preRel.Producer {
-		power -= 7
-	}
-
-	r.HashPower = power
-}
-
 // IsExistBlock Determine whether block exists
 func IsExistBlock(chain uint64, key []byte) bool {
 	return runtime.DbExist(dbBlockData{}, chain, key)
@@ -559,34 +412,6 @@ func ProcessBlockOfChain(chain uint64, key []byte) (err error) {
 	run(chain, key)
 	client.Commit(chain, key)
 	return err
-}
-
-// SaveBlockReliability save block reliability
-func SaveBlockReliability(chain uint64, key []byte, rb TReliability) {
-	if chain == 0 {
-		return
-	}
-	ldb.LSet(chain, ldbReliability, key, runtime.Encode(rb))
-}
-
-// ReadBlockReliability get Reliability of block from db
-func ReadBlockReliability(chain uint64, key []byte) (cl TReliability) {
-	if chain == 0 {
-		return
-	}
-	stream := ldb.LGet(chain, ldbReliability, key)
-	if stream != nil {
-		runtime.Decode(stream, &cl)
-	}
-	return
-}
-
-// DeleteBlockReliability delete reliability of block
-func DeleteBlockReliability(chain uint64, key []byte) {
-	if chain == 0 {
-		return
-	}
-	ldb.LSet(chain, ldbReliability, key, nil)
 }
 
 // GetBlockInterval get the interval time of between blocks

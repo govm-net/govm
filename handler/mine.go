@@ -18,6 +18,7 @@ var myHP *database.LRUCache
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
+	myHP = database.NewLRUCache(100 * blockHPNumber)
 }
 
 func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
@@ -56,7 +57,7 @@ func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 				continue
 			}
 			if size+uint64(trans.Size) > limit {
-				continue
+				return core.Hash{}
 			}
 			if !believable(chain, trans.User[:]) && bytes.Compare(trans.User[:], c.WalletAddr) != 0 {
 				continue
@@ -67,44 +68,8 @@ func getTransListForMine(chain uint64) ([]core.Hash, uint64) {
 	})
 	if err != nil {
 		deleteTransInfo(chain, trans.Key[:])
-		if err.Error() == "recover:trans_newer" {
-			t := uint64(time.Now().Unix()) + blockSyncTime
-			k := runtime.Encode(t)
-			k = append(k, trans.Key[:]...)
-			ldb.LSet(chain, ldbNewerTrans, k, runtime.Encode(trans))
-		} else {
-			saveBlackItem(chain, trans.User[:])
-		}
+		saveBlackItem(chain, trans.User[:])
 	}
-	go func() {
-		var next, value []byte
-		defer recover()
-		t = core.GetBlockTime(chain) / 1000
-		limitKey := runtime.Encode(t)
-		emptyKey := core.Hash{}
-		limitKey = append(limitKey, emptyKey[:]...)
-
-		for i := 0; i < 100000; i++ {
-			next, value = ldb.LGetNext(chain, ldbNewerTrans, next)
-			if len(next) == 0 {
-				break
-			}
-			if bytes.Compare(next, limitKey) > 0 {
-				break
-			}
-			ldb.LSet(chain, ldbNewerTrans, next, nil)
-			var info transInfo
-			runtime.Decode(value, &info)
-			if info.Key.Empty() {
-				continue
-			}
-			if info.Stat > 10 {
-				continue
-			}
-			info.Stat++
-			saveTransInfo(chain, info.Key[:], info)
-		}
-	}()
 
 	return out, size
 }
@@ -154,7 +119,7 @@ func doMine(chain uint64, force bool) {
 	block.Size = uint32(size)
 	block.Nonce = rand.Uint64()
 
-	var oldRel core.TReliability
+	var oldRel TReliability
 
 	timeout := time.Now().Unix() + 20
 	var count uint64
@@ -187,11 +152,11 @@ func doMine(chain uint64, force bool) {
 			// log.Printf("drop hash:%x,data:%x\n", key, signData[:6])
 			continue
 		}
-		rel := block.GetReliability()
+		rel := getReliability(block)
 		if rel.Cmp(oldRel) > 0 {
 			oldRel = rel
 			core.WriteBlock(chain, data)
-			core.SaveBlockReliability(chain, block.Key[:], rel)
+			SaveBlockReliability(chain, block.Key[:], rel)
 			info := messages.BlockInfo{}
 			info.Chain = chain
 			info.Index = rel.Index
@@ -274,13 +239,18 @@ func GetMyHashPower(chain uint64) uint64 {
 	procMgr.mu.Lock()
 	defer procMgr.mu.Unlock()
 	var sum uint64
+	var count uint64
 	hpi := time.Now().Unix() / 60
 	for i := hpi - blockHPNumber; i < hpi; i++ {
 		v, ok := myHP.Get(keyOfBlockHP{chain, i})
 		if ok {
 			sum += v.(uint64)
+			count++
 		}
 	}
+	if count == 0 {
+		return 0
+	}
 
-	return sum / blockHPNumber
+	return sum / count
 }
