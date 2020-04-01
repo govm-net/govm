@@ -350,7 +350,7 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 	if needSave {
 		core.WriteBlock(chain, data)
 		val := uint64(1) << hp
-		hpi := time.Now().Unix() / 60
+		hpi := int64(block.Time / 1000 / 60)
 		old, ok := blockHP.Get(keyOfBlockHP{chain, hpi})
 		if ok {
 			val += old.(uint64)
