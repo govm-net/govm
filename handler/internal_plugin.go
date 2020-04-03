@@ -219,14 +219,6 @@ func (p *InternalPlugin) event(m event.Message) error {
 		if rel.Index == 0 || rel.Key.Empty() {
 			return nil
 		}
-		hp := getHashPower(rel.Key[:])
-		val := uint64(1) << hp
-		hpi := int64(rel.Time / 1000 / 60)
-		old, ok := myHP.Get(keyOfBlockHP{msg.Chain, hpi})
-		if ok {
-			val += old.(uint64)
-		}
-		myHP.Set(keyOfBlockHP{msg.Chain, hpi}, val)
 
 		if msg.LockNum > 0 {
 			setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
