@@ -16,6 +16,8 @@ import (
 
 var myHP *database.LRUCache
 
+const regStep = 11
+
 func init() {
 	rand.Seed(time.Now().UnixNano())
 	myHP = database.NewLRUCache(100 * blockHPNumber)
@@ -181,6 +183,8 @@ func doMine(chain uint64, force bool) {
 	}
 }
 
+var lastReg int64
+
 func autoRegisterMiner(chain uint64) {
 	c := conf.GetConf()
 	if c.CostOfRegMiner < 100 {
@@ -189,26 +193,38 @@ func autoRegisterMiner(chain uint64) {
 	if chain != c.ChainOfMine && c.ChainOfMine != 0 {
 		return
 	}
+	if c.LuckyNumber == 0 {
+		c.LuckyNumber = rand.Uint64()
+	}
+	now := time.Now().Unix()
+	if lastReg+120 > now {
+		return
+	}
+	lastReg = now
 	cost := core.GetUserCoin(chain, c.WalletAddr)
 	if cost < c.CostOfRegMiner {
 		return
 	}
-	t := core.GetBlockTime(chain)
-	if t+5*tMinute < uint64(time.Now().Unix())*1000 {
+
+	index := core.GetLastBlockIndex(chain)
+	index += 50
+
+	id := runtime.Encode((index + c.LuckyNumber%regStep) / regStep)
+	stream := ldb.LGet(chain, ldbMiner, id)
+	if len(stream) > 0 {
 		return
 	}
-	index := core.GetLastBlockIndex(chain)
-	index += 35
+
+	t := core.GetBlockTime(chain)
+	if t+2*tMinute < uint64(now)*1000 {
+		return
+	}
+
 	miner := core.GetMinerInfo(chain, index)
 	if c.CostOfRegMiner < miner.Cost[core.MinerNum-1] {
 		return
 	}
 
-	id := runtime.Encode(index)
-	stream := ldb.LGet(chain, ldbMiner, id)
-	if len(stream) > 0 {
-		return
-	}
 	ldb.LSet(chain, ldbMiner, id, runtime.Encode(c.CostOfRegMiner))
 
 	cAddr := core.Address{}

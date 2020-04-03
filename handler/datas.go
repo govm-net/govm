@@ -418,6 +418,7 @@ func (r *TReliability) Recalculation(chain uint64) {
 			} else {
 				hp += 100
 			}
+			hp += 5
 			r.Miner = true
 			break
 		}

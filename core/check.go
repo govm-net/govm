@@ -124,6 +124,7 @@ func (p *TransProc) ProcTrans(key []byte) uint64 {
 		if err != nil {
 			result = 0
 			log.Println("[mine]fail to process trans:", err)
+			log.Println(string(debug.Stack()))
 		}
 	}()
 	var h Hash

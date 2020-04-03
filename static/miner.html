@@ -54,7 +54,8 @@
                             <span class="input-group-addon" id="base_energy"></span>
                         </div>
                         <br>
-                        <button type="button" class="btn btn-success pull-right" id="submit" data-localize="submit">Submit</button>
+                        <button type="button" class="btn btn-success pull-right" id="submit"
+                            data-localize="submit">Submit</button>
                     </form>
                 </div>
                 <div id="result">
@@ -95,7 +96,9 @@
                     <div class="input-group">
                         <span class="input-group-addon" data-localize="index">Index:</span>
                         <span class="form-control" id="s_index"></span>
-                    </div>
+                        <span class="input-group-btn">
+                            <button type="button" class="btn btn-success" id="next" data-localize="next">Next</button>
+                        </span></div>
                     <br>
                     <div id="miners"></div>
                 </div>
@@ -118,7 +121,8 @@
         $("#base_energy").html(gCostBase);
         $("#search_chain").val(gChainID);
         $("input[name='chain']").val(gChainID);
-        var v = 100*getBaseByName("tc")/getBaseByName(gCostBase);
+        var v = 100 * getBaseByName("tc") / getBaseByName(gCostBase);
+        var pre = 0;
         $("input[name='cost']").val(v);
 
         $.get("/api/v1/" + gChainID + "/block/info", function (data, status) {
@@ -168,6 +172,13 @@
         $('#btn_key').on('click', function () {
             var chain = $("#search_chain").val()
             var val = $("#search_id").val()
+            pre = val;
+            getMiner(chain, "?index=" + val)
+        });
+        $('#next').on('click', function () {
+            var chain = $("#search_chain").val()
+            var val = parseInt(pre) + 1;
+            pre = val;
             getMiner(chain, "?index=" + val)
         });
 

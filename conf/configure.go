@@ -30,6 +30,7 @@ type TConfig struct {
 	SaveLog         bool   `json:"save_log,omitempty"`
 	ForceMine       bool   `json:"force_mine,omitempty"`
 	IdentifyingCode bool   `json:"identifying_code,omitempty"`
+	LuckyNumber     uint64 `json:"lucky_number,omitempty"`
 }
 
 // DebugMod debug mode
@@ -40,7 +41,7 @@ const (
 var (
 	conf TConfig
 	// Version software version
-	Version string = "v0.4.3"
+	Version string = "v0.4.4"
 	// BuildTime build time
 	BuildTime string
 	// GitHead git head

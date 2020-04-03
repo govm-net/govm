@@ -105,7 +105,7 @@ func AccountGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var addr []byte
-	if addrStr == "" && identifyBeforeTransaction("AccountGet") == nil {
+	if addrStr == "" {
 		c := conf.GetConf()
 		addrStr = hex.EncodeToString(c.WalletAddr)
 	}
