@@ -2,6 +2,10 @@ package handler
 
 import (
 	"bytes"
+	"log"
+	"math/rand"
+	"time"
+
 	"github.com/lengzhao/govm/conf"
 	core "github.com/lengzhao/govm/core"
 	"github.com/lengzhao/govm/database"
@@ -9,9 +13,6 @@ import (
 	"github.com/lengzhao/govm/messages"
 	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/govm/wallet"
-	"log"
-	"math/rand"
-	"time"
 )
 
 var myHP *database.LRUCache
@@ -202,7 +203,7 @@ func autoRegisterMiner(chain uint64) {
 	}
 	lastReg = now
 	cost := core.GetUserCoin(chain, c.WalletAddr)
-	if cost < c.CostOfRegMiner {
+	if cost < c.CostOfRegMiner+core.MaxGuerdon {
 		return
 	}
 

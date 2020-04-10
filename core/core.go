@@ -2,6 +2,9 @@ package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
 
 import (
 	"encoding/json"
+	"math/big"
+	"time"
+
 	"github.com/lengzhao/govm/runtime"
 )
 
@@ -16,6 +19,9 @@ type dbDepend struct{}
 type dbMining struct{}
 type logBlockInfo struct{}
 type logSync struct{}
+type dbCoinLockStat struct{}
+type dbCoinUnlockStat struct{}
+type dbMiningStat struct{}
 
 // Hash The KEY of the block of transaction
 type Hash [HashLen]byte
@@ -191,6 +197,9 @@ var (
 	author      = Address{2, 152, 64, 16, 49, 156, 211, 70, 89, 247, 252, 178, 11, 49, 214, 21, 216, 80, 171, 50, 202, 147, 6, 24}
 )
 
+// EnableStat enable write status
+var EnableStat = true
+
 // Empty Check whether Hash is empty
 func (h Hash) Empty() bool {
 	return h == (Hash{})
@@ -293,7 +302,7 @@ func (p *processer) getHash(data []byte) Hash {
 
 // Set Storage data. the record will be deleted when life=0 or value=nil
 func (d *DB) Set(key, value []byte, life uint64) {
-	assertMsg(life <= maxDbLife, "too long of life")
+	// assertMsg(life <= maxDbLife, "too long of life")
 	assertMsg(len(key) > 0, "empty key")
 	assertMsg(len(value) < 40960, "value size over limit")
 	size := uint64(len(key) + len(value))
@@ -756,8 +765,29 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 	val := p.pDbCoin.GetInt(gPublicAddr[:]) / depositCycle
 	p.adminTransfer(gPublicAddr, author, val/100)
 	p.adminTransfer(gPublicAddr, block.Producer, val)
+	if EnableStat {
+		db := p.GetDB(dbMiningStat{})
+		t := time.Unix(int64(block.Time/1000), 0)
+		info := miningStat{}
+		data, _ := db.Get(block.Producer[:])
+		if len(data) > 0 {
+			runtime.Decode(data, &info)
+		}
+		if int16(t.Day()) != info.Day {
+			info.Day = int16(t.Day())
+			info.Yesterday = info.All
+		}
+		info.All++
+		db.Set(block.Previous[:], runtime.Encode(info), TimeYear/2)
+	}
 
 	p.Event(logBlockInfo{}, "finish_block", key[:])
+}
+
+type miningStat struct {
+	Day       int16
+	All       uint32
+	Yesterday uint32
 }
 
 type tSyncInfo struct {
@@ -1309,6 +1339,20 @@ func (p *processer) registerMiner(user Address, index, cost uint64) bool {
 			miner.Cost[i], c = c, miner.Cost[i]
 		}
 	}
+	if EnableStat {
+		db := p.GetDB(dbCoinLockStat{})
+		old := db.GetInt(user[:])
+		old += cost
+		db.SetInt(user[:], old, TimeYear)
+		all := big.Int{}
+		data, _ := db.Get(gPublicAddr[:])
+		if len(data) > 0 {
+			all.SetBytes(data)
+		}
+		all.Add(&all, big.NewInt(int64(cost)))
+		db.Set(gPublicAddr[:], all.Bytes(), TimeYear)
+	}
+
 	p.pDbMining.Set(p.Encode(0, index), p.Encode(0, miner), defauldbLife)
 	return true
 }
@@ -1407,6 +1451,19 @@ func (p *processer) syncInfos() {
 		for i := 0; i < minerNum; i++ {
 			p.Event(dbMining{}, "refund", stream)
 			p.adminTransfer(Address{}, mi.Miner[i], mi.Cost[i]+minGuerdon)
+			if EnableStat && !mi.Miner[i].Empty() {
+				db := p.GetDB(dbCoinUnlockStat{})
+				old := db.GetInt(mi.Miner[i][:])
+				old += mi.Cost[i]
+				db.SetInt(mi.Miner[i][:], old, TimeYear)
+				all := big.Int{}
+				data, _ := db.Get(gPublicAddr[:])
+				if len(data) > 0 {
+					all.SetBytes(data)
+				}
+				all.Add(&all, big.NewInt(int64(mi.Cost[i])))
+				db.Set(gPublicAddr[:], all.Bytes(), TimeYear)
+			}
 		}
 	}
 

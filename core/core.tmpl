@@ -313,7 +313,7 @@ func Recover(address, sign, msg []byte) bool {
 
 // Set Storage data. the record will be deleted when life=0 or value=nil
 func (d *DB) Set(key, value []byte, life uint64) {
-	assert(life <= maxDbLife)
+	// assert(life <= maxDbLife)
 	assert(len(key) > 0)
 	assert(len(key) < 200)
 	assert(len(value) < 40960)
