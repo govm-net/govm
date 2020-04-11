@@ -40,6 +40,15 @@
                         <span class="form-control" id="balance0"></span>
                         <span class="input-group-addon" id="base_cost0"></span>
                     </div>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="frozen">Frozen:</span>
+                        <span class="form-control" id="frozen0"></span>
+                        <span class="input-group-addon" id="base_frozen0"></span>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="mined">Mined:</span>
+                        <span class="form-control" id="mined0"></span>
+                    </div>
                     <br>
                     <div class="input-group">
                         <span class="input-group-addon" data-localize="chain">Chain:</span>
@@ -49,6 +58,15 @@
                         <span class="input-group-addon" data-localize="blance">Balance:</span>
                         <span class="form-control" id="balance1"></span>
                         <span class="input-group-addon" id="base_cost1"></span>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="frozen">Frozen:</span>
+                        <span class="form-control" id="frozen1"></span>
+                        <span class="input-group-addon" id="base_frozen1"></span>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="mined">Mined:</span>
+                        <span class="form-control" id="mined1"></span>
                     </div>
                 </div>
             </div>
@@ -90,17 +108,59 @@
         var last_receive = ""
         $("#base_cost0").html(gCostBase);
         $("#base_cost1").html(gCostBase);
+        $("#base_frozen0").html(gCostBase);
+        $("#base_frozen1").html(gCostBase);
         gChainID = parseInt(gChainID);
 
         function getAccount(chain, id) {
             $.get("/api/v1/" + chain + "/account", function (data, status) {
                 if (status != "success") {
                     alert("Chain:" + chain + ". Data: " + data + "\nStatus: " + status);
-                } else {
-                    $("#address").html("<b>" + data.address + "</b>");
-                    $("#chain" + id).html("<b>" + data.chain + "</b>");
-                    $("#balance" + id).html("<b><p title='" + fmoney(data.cost) + "'>" + getValueWithBase(data.cost, gCostBase) + "</p></b>");
+                    return;
                 }
+                // success to get account info
+                $("#address").html("<b>" + data.address + "</b>");
+                $("#chain" + id).html("<b>" + data.chain + "</b>");
+                $("#balance" + id).html("<b><p title='" + fmoney(data.cost) + "'>" + getValueWithBase(data.cost, gCostBase) + "</p></b>");
+
+                // get coinsLock
+                var urlStr = "/api/v1/" + chain + "/data?app_name=e4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c";
+                urlStr += "&is_db_data=true&key=" + data.address
+                $.get(urlStr + "&struct_name=dbCoinLockStat", function (data, status) {
+                    if (status != "success") {
+                        console.log("dbCoinLockStat,Data: " + data + "\nStatus: " + status);
+                        return;
+                    }
+                    console.log("dbCoinLockStat:", data.value)
+                    var lock = dataEncode(data.value, "hex2int")
+                    if (lock == 0) {
+                        return
+                    }
+                    $.get(urlStr + "&struct_name=dbCoinUnlockStat", function (data, status) {
+                        if (status != "success") {
+                            console.log("dbCoinUnlockStat,Data: " + data + "\nStatus: " + status);
+                            return;
+                        }
+                        console.log("dbCoinUnlockStat:", data.value)
+                        var unlock = dataEncode(data.value, "hex2int")
+                        $("#frozen" + id).html(getValueWithBase(lock - unlock, gCostBase))
+                    });
+                });
+
+                $.get(urlStr + "&struct_name=dbMingingStat", function (data, status) {
+                    if (status != "success") {
+                        console.log("dbMingingStat,Data: " + data + "\nStatus: " + status);
+                        return;
+                    }
+                    if (data.value === undefined) {
+                        console.log("dbMingingStat:undefined")
+                        return
+                    }
+                    console.log("dbMingingStat:", data.value, data.value.length)
+                    var all = dataEncode(data.value.slice(2, 5), "hex2int")
+                    // var lock = dataEncode(data.value, "hex2int")
+                    $("#mined" + id).html(all)
+                });
             });
         }
 
@@ -156,4 +216,5 @@
         getReceiveHistory(gChainID, "")
     </script>
 </body>
+
 </html>

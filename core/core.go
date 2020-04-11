@@ -778,7 +778,7 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 			info.Yesterday = info.All
 		}
 		info.All++
-		db.Set(block.Previous[:], runtime.Encode(info), TimeYear/2)
+		db.Set(block.Producer[:], runtime.Encode(info), TimeYear/2)
 	}
 
 	p.Event(logBlockInfo{}, "finish_block", key[:])

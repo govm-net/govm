@@ -30,7 +30,8 @@
                         <span class="input-group-addon" data-localize="def_chain">Default Chain:</span>
                         <input class="form-control" id="chain">
                         <div class="input-group-btn">
-                            <button type="button" class="btn btn-success" onclick="changeDfChain()" data-localize="change">Change
+                            <button type="button" class="btn btn-success" onclick="changeDfChain()"
+                                data-localize="change">Change
                             </button></div>
                     </div>
                     <br>
@@ -106,6 +107,12 @@
                         <span class="input-group-addon" data-localize="my_hp">My HashPower:</span>
                         <span class="form-control" id="my_hp"></span>
                     </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="net_frozen">Frozen Coins(net):</span>
+                        <span class="form-control" id="net_frozen"></span>
+                        <span class="input-group-addon" id="base_cost0"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -118,11 +125,13 @@
     <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
     <script src="js/jquery.localize.min.js"></script>
     <script src="js/load.js?v=3"></script>
+    <script src="js/encode.js?v=3"></script>
 
     <script type="text/javascript">
         $("#cost_base").html(gCostBase);
         $("#chain").val(gChainID);
-        
+        $("#base_cost0").html(gCostBase);
+
         function changeBase(name) {
             gCostBase = name;
             setCookie("cost_base", gCostBase);
@@ -143,8 +152,8 @@
                 $("#git_head").html("<b>" + data.GitHead + "</b>");
             }
         });
-        
-        $.get("/api/v1/"+gChainID+"/hashpower", function (data, status) {
+
+        $.get("/api/v1/" + gChainID + "/hashpower", function (data, status) {
             if (status != "success") {
                 alert("Data: " + data + "\nStatus: " + status);
             } else {
@@ -153,7 +162,32 @@
             }
         });
 
-        function changeLang(lg){
+        var urlStr = "/api/v1/" + gChainID + "/data?app_name=e4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c";
+        urlStr += "&is_db_data=true&key=ff0102030405060708090a0b0c0d0e0f1011121314151617"
+        $.get(urlStr + "&struct_name=dbCoinLockStat", function (data, status) {
+            if (status != "success") {
+                console.log("dbCoinLockStat,Data: " + data + "\nStatus: " + status);
+            } else {
+                console.log("dbCoinLockStat:", data.value)
+                var lock = dataEncode(data.value, "hex2int")
+                if (lock == 0){
+                    return
+                }
+                $.get(urlStr + "&struct_name=dbCoinUnlockStat", function (data, status) {
+                    if (status != "success") {
+                        console.log("dbCoinUnlockStat,Data: " + data + "\nStatus: " + status);
+                    } else {
+                        console.log("dbCoinUnlockStat:", data.value)
+                        var unlock = dataEncode(data.value, "hex2int")
+                        if (lock > unlock) {
+                            $("#net_frozen").html(getValueWithBase(lock - unlock, gCostBase))
+                        }
+                    }
+                });
+            }
+        });
+
+        function changeLang(lg) {
             gLanguage = lg;
             setCookie("language", lg);
             window.location.reload()
