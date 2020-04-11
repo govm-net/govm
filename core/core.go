@@ -22,6 +22,7 @@ type logSync struct{}
 type dbCoinLockStat struct{}
 type dbCoinUnlockStat struct{}
 type dbMiningStat struct{}
+type dbMinerHit struct{}
 
 // Hash The KEY of the block of transaction
 type Hash [HashLen]byte
@@ -673,6 +674,11 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 		for i := 0; i < minerNum; i++ {
 			if mi.Miner[i] == p.Producer {
 				weight = mi.Cost[i] / maxGuerdon / 5
+				if EnableStat {
+					db := p.GetDB(dbMinerHit{})
+					count := db.GetInt(p.Producer[:])
+					db.SetInt(p.Producer[:], count+1, TimeYear)
+				}
 			}
 		}
 	}

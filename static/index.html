@@ -41,12 +41,12 @@
                         <span class="input-group-addon" id="base_cost0"></span>
                     </div>
                     <div class="input-group">
-                        <span class="input-group-addon" data-localize="frozen">Frozen:</span>
+                        <span class="input-group-addon" data-localize="frozen">FrozenCoins:</span>
                         <span class="form-control" id="frozen0"></span>
                         <span class="input-group-addon" id="base_frozen0"></span>
                     </div>
                     <div class="input-group">
-                        <span class="input-group-addon" data-localize="mined">Mined:</span>
+                        <span class="input-group-addon" data-localize="mined">Blocks Mined:</span>
                         <span class="form-control" id="mined0"></span>
                     </div>
                     <br>
@@ -60,12 +60,12 @@
                         <span class="input-group-addon" id="base_cost1"></span>
                     </div>
                     <div class="input-group">
-                        <span class="input-group-addon" data-localize="frozen">Frozen:</span>
+                        <span class="input-group-addon" data-localize="frozen">FrozenCoins:</span>
                         <span class="form-control" id="frozen1"></span>
                         <span class="input-group-addon" id="base_frozen1"></span>
                     </div>
                     <div class="input-group">
-                        <span class="input-group-addon" data-localize="mined">Mined:</span>
+                        <span class="input-group-addon" data-localize="mined">Blocks Mined:</span>
                         <span class="form-control" id="mined1"></span>
                     </div>
                 </div>
@@ -102,6 +102,7 @@
     <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
     <script src="js/jquery.localize.min.js"></script>
     <script src="js/load.js?v=3"></script>
+    <script src="js/encode.js?v=4"></script>
 
     <script type="text/javascript">
         var last_send = ""
@@ -137,27 +138,27 @@
                         return
                     }
                     $.get(urlStr + "&struct_name=dbCoinUnlockStat", function (data, status) {
-                        if (status != "success") {
-                            console.log("dbCoinUnlockStat,Data: " + data + "\nStatus: " + status);
-                            return;
+                        var unlock = 0;
+                        if (status == "success") {
+                            console.log("dbCoinUnlockStat:", data.value)
+                            unlock = dataEncode(data.value, "hex2int")
                         }
-                        console.log("dbCoinUnlockStat:", data.value)
-                        var unlock = dataEncode(data.value, "hex2int")
+                        //console.log("id:",id,"lock:",lock,unlock)
                         $("#frozen" + id).html(getValueWithBase(lock - unlock, gCostBase))
                     });
                 });
 
-                $.get(urlStr + "&struct_name=dbMingingStat", function (data, status) {
+                $.get(urlStr + "&struct_name=dbMiningStat", function (data, status) {
                     if (status != "success") {
-                        console.log("dbMingingStat,Data: " + data + "\nStatus: " + status);
+                        console.log("dbMiningStat,Data: " + data + "\nStatus: " + status);
                         return;
                     }
                     if (data.value === undefined) {
-                        console.log("dbMingingStat:undefined")
+                        console.log("dbMiningStat:undefined")
                         return
                     }
-                    console.log("dbMingingStat:", data.value, data.value.length)
-                    var all = dataEncode(data.value.slice(2, 5), "hex2int")
+                    console.log("dbMiningStat:", data.value, data.value.length)
+                    var all = dataEncode(data.value.slice(4, 12), "hex2int")
                     // var lock = dataEncode(data.value, "hex2int")
                     $("#mined" + id).html(all)
                 });
