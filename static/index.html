@@ -101,7 +101,7 @@
     <script src="js/bootstrap.min.js"></script>
     <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
     <script src="js/jquery.localize.min.js"></script>
-    <script src="js/load.js?v=3"></script>
+    <script src="js/load.js?v=4"></script>
     <script src="js/encode.js?v=4"></script>
 
     <script type="text/javascript">
@@ -119,6 +119,9 @@
                     alert("Chain:" + chain + ". Data: " + data + "\nStatus: " + status);
                     return;
                 }
+                if (data.cost === undefined){
+                    data.cost = 0
+                }
                 // success to get account info
                 $("#address").html("<b>" + data.address + "</b>");
                 $("#chain" + id).html("<b>" + data.chain + "</b>");
@@ -127,20 +130,20 @@
                 // get coinsLock
                 var urlStr = "/api/v1/" + chain + "/data?app_name=e4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c";
                 urlStr += "&is_db_data=true&key=" + data.address
-                $.get(urlStr + "&struct_name=dbCoinLockStat", function (data, status) {
+                $.get(urlStr + "&struct_name=statCoinLock", function (data, status) {
                     if (status != "success") {
-                        console.log("dbCoinLockStat,Data: " + data + "\nStatus: " + status);
+                        console.log("statCoinLock,Data: " + data + "\nStatus: " + status);
                         return;
                     }
-                    console.log("dbCoinLockStat:", data.value)
+                    console.log("statCoinLock:", data.value)
                     var lock = dataEncode(data.value, "hex2int")
                     if (lock == 0) {
                         return
                     }
-                    $.get(urlStr + "&struct_name=dbCoinUnlockStat", function (data, status) {
+                    $.get(urlStr + "&struct_name=statCoinUnlock", function (data, status) {
                         var unlock = 0;
                         if (status == "success") {
-                            console.log("dbCoinUnlockStat:", data.value)
+                            console.log("statCoinUnlock:", data.value)
                             unlock = dataEncode(data.value, "hex2int")
                         }
                         //console.log("id:",id,"lock:",lock,unlock)
@@ -148,19 +151,16 @@
                     });
                 });
 
-                $.get(urlStr + "&struct_name=dbMiningStat", function (data, status) {
+                $.get(urlStr + "&struct_name=statMiningCount", function (data, status) {
                     if (status != "success") {
-                        console.log("dbMiningStat,Data: " + data + "\nStatus: " + status);
+                        console.log("statMiningCount,Data: " + data + "\nStatus: " + status);
                         return;
                     }
                     if (data.value === undefined) {
-                        console.log("dbMiningStat:undefined")
+                        console.log("statMiningCount:undefined")
                         return
                     }
-                    console.log("dbMiningStat:", data.value, data.value.length)
-                    var all = dataEncode(data.value.slice(4, 12), "hex2int")
-                    // var lock = dataEncode(data.value, "hex2int")
-                    $("#mined" + id).html(all)
+                    $("#mined" + id).html(dataEncode(data.value, "hex2int"))
                 });
             });
         }
