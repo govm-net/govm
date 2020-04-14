@@ -40,6 +40,15 @@
                         <span class="form-control" id="balance0"></span>
                         <span class="input-group-addon" id="base_cost0"></span>
                     </div>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="frozen">FrozenCoins:</span>
+                        <span class="form-control" id="frozen0"></span>
+                        <span class="input-group-addon" id="base_frozen0"></span>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="mined">Blocks Mined:</span>
+                        <span class="form-control" id="mined0"></span>
+                    </div>
                     <br>
                     <div class="input-group">
                         <span class="input-group-addon" data-localize="chain">Chain:</span>
@@ -49,6 +58,15 @@
                         <span class="input-group-addon" data-localize="blance">Balance:</span>
                         <span class="form-control" id="balance1"></span>
                         <span class="input-group-addon" id="base_cost1"></span>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="frozen">FrozenCoins:</span>
+                        <span class="form-control" id="frozen1"></span>
+                        <span class="input-group-addon" id="base_frozen1"></span>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="mined">Blocks Mined:</span>
+                        <span class="form-control" id="mined1"></span>
                     </div>
                 </div>
             </div>
@@ -83,24 +101,67 @@
     <script src="js/bootstrap.min.js"></script>
     <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
     <script src="js/jquery.localize.min.js"></script>
-    <script src="js/load.js?v=3"></script>
+    <script src="js/load.js?v=4"></script>
+    <script src="js/encode.js?v=4"></script>
 
     <script type="text/javascript">
         var last_send = ""
         var last_receive = ""
         $("#base_cost0").html(gCostBase);
         $("#base_cost1").html(gCostBase);
+        $("#base_frozen0").html(gCostBase);
+        $("#base_frozen1").html(gCostBase);
         gChainID = parseInt(gChainID);
 
         function getAccount(chain, id) {
             $.get("/api/v1/" + chain + "/account", function (data, status) {
                 if (status != "success") {
                     alert("Chain:" + chain + ". Data: " + data + "\nStatus: " + status);
-                } else {
-                    $("#address").html("<b>" + data.address + "</b>");
-                    $("#chain" + id).html("<b>" + data.chain + "</b>");
-                    $("#balance" + id).html("<b><p title='" + fmoney(data.cost) + "'>" + getValueWithBase(data.cost, gCostBase) + "</p></b>");
+                    return;
                 }
+                if (data.cost === undefined){
+                    data.cost = 0
+                }
+                // success to get account info
+                $("#address").html("<b>" + data.address + "</b>");
+                $("#chain" + id).html("<b>" + data.chain + "</b>");
+                $("#balance" + id).html("<b><p title='" + fmoney(data.cost) + "'>" + getValueWithBase(data.cost, gCostBase) + "</p></b>");
+
+                // get coinsLock
+                var urlStr = "/api/v1/" + chain + "/data?app_name=e4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c";
+                urlStr += "&is_db_data=true&key=" + data.address
+                $.get(urlStr + "&struct_name=statCoinLock", function (data, status) {
+                    if (status != "success") {
+                        console.log("statCoinLock,Data: " + data + "\nStatus: " + status);
+                        return;
+                    }
+                    console.log("statCoinLock:", data.value)
+                    var lock = dataEncode(data.value, "hex2int")
+                    if (lock == 0) {
+                        return
+                    }
+                    $.get(urlStr + "&struct_name=statCoinUnlock", function (data, status) {
+                        var unlock = 0;
+                        if (status == "success") {
+                            console.log("statCoinUnlock:", data.value)
+                            unlock = dataEncode(data.value, "hex2int")
+                        }
+                        //console.log("id:",id,"lock:",lock,unlock)
+                        $("#frozen" + id).html(getValueWithBase(lock - unlock, gCostBase))
+                    });
+                });
+
+                $.get(urlStr + "&struct_name=statMiningCount", function (data, status) {
+                    if (status != "success") {
+                        console.log("statMiningCount,Data: " + data + "\nStatus: " + status);
+                        return;
+                    }
+                    if (data.value === undefined) {
+                        console.log("statMiningCount:undefined")
+                        return
+                    }
+                    $("#mined" + id).html(dataEncode(data.value, "hex2int"))
+                });
             });
         }
 
@@ -156,4 +217,5 @@
         getReceiveHistory(gChainID, "")
     </script>
 </body>
+
 </html>

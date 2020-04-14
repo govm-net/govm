@@ -2,6 +2,7 @@ package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
 
 import (
 	"encoding/json"
+
 	"github.com/lengzhao/govm/runtime"
 )
 
@@ -16,6 +17,15 @@ type dbDepend struct{}
 type dbMining struct{}
 type logBlockInfo struct{}
 type logSync struct{}
+type statCoinLock struct{}
+type statCoinUnlock struct{}
+type statMiningCount struct{}
+type statMinerHit struct{}
+type statMinerReg struct{}
+type statTransferIn struct{}
+type statTransferOut struct{}
+type statMove struct{}
+type statAPPRun struct{}
 
 // Hash The KEY of the block of transaction
 type Hash [HashLen]byte
@@ -110,6 +120,23 @@ type processer struct {
 	pDbMining          *DB
 	pLogSync           *Log
 	pLogBlockInfo      *Log
+}
+
+// StatSwitch define switch of govm status
+type StatSwitch struct {
+	SWMiningCount bool
+	SWMinerHit    bool
+	SWMinerReg    bool
+	SWTransferOut bool
+	SWTransferIn  bool
+	SWAPPRun      bool
+	SWMove        bool
+	SWCoinLock    bool
+}
+
+// Switch switch of status
+var Switch StatSwitch = StatSwitch{
+	true, true, true, true, true, true, true, true,
 }
 
 // time
@@ -293,7 +320,7 @@ func (p *processer) getHash(data []byte) Hash {
 
 // Set Storage data. the record will be deleted when life=0 or value=nil
 func (d *DB) Set(key, value []byte, life uint64) {
-	assertMsg(life <= maxDbLife, "too long of life")
+	// assertMsg(life <= maxDbLife, "too long of life")
 	assertMsg(len(key) > 0, "empty key")
 	assertMsg(len(value) < 40960, "value size over limit")
 	size := uint64(len(key) + len(value))
@@ -456,15 +483,6 @@ func (p *processer) GetAppAccount(in interface{}) Address {
 }
 
 /*-------------------------------------Coin------------------------*/
-
-// TransferAccounts pTransfer based on the app private object
-func (p *processer) TransferAccounts(owner interface{}, payee Address, value uint64) {
-	payer := p.GetAppAccount(owner)
-	assert(!payee.Empty())
-	assert(!payer.Empty())
-	p.adminTransfer(payer, payee, value)
-}
-
 func (p *processer) getAccount(addr Address) (uint64, uint64) {
 	v, l := p.pDbCoin.Get(addr[:])
 	if v == nil {
@@ -606,6 +624,7 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 	p.Time = block.Time
 	p.Key = key
 	p.ID = block.Index
+	p.Producer = block.Producer
 	p.pDbStat.Set([]byte{StatBaseInfo}, p.Encode(0, p.BaseInfo), maxDbLife)
 
 	//sync info from other chains
@@ -664,6 +683,11 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 		for i := 0; i < minerNum; i++ {
 			if mi.Miner[i] == p.Producer {
 				weight = mi.Cost[i] / maxGuerdon / 5
+				if Switch.SWMinerHit {
+					db := p.GetDB(statMinerHit{})
+					count := db.GetInt(block.Producer[:])
+					db.SetInt(block.Producer[:], count+1, TimeYear)
+				}
 			}
 		}
 	}
@@ -756,6 +780,11 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 	val := p.pDbCoin.GetInt(gPublicAddr[:]) / depositCycle
 	p.adminTransfer(gPublicAddr, author, val/100)
 	p.adminTransfer(gPublicAddr, block.Producer, val)
+	if Switch.SWMiningCount {
+		db := p.GetDB(statMiningCount{})
+		count := db.GetInt(block.Producer[:])
+		db.SetInt(block.Producer[:], count+1, TimeYear/2)
+	}
 
 	p.Event(logBlockInfo{}, "finish_block", key[:])
 }
@@ -923,6 +952,7 @@ type TransactionHead struct {
 type Transaction struct {
 	TransactionHead
 	data []byte
+	key  Hash
 }
 
 // TransInfo the transaction info
@@ -950,6 +980,7 @@ func (p *processer) processTransaction(block BlockInfo, key Hash) uint64 {
 	n := p.Decode(0, signData, &trans.TransactionHead)
 	trans.data = signData[n:]
 	dataLen := len(trans.data)
+	trans.key = key
 
 	assert(p.Recover(trans.User[:], sign, signData))
 
@@ -1015,6 +1046,22 @@ func (p *processer) pTransfer(t Transaction) {
 	assert(t.Cost > 0)
 	assert(!payee.Empty())
 	p.adminTransfer(t.User, payee, t.Cost)
+
+	if Switch.SWTransferOut {
+		db := p.GetDB(statTransferOut{})
+		id := db.GetInt(t.User[:]) + 1
+		db.SetInt(t.User[:], id, TimeYear)
+		rk := append(t.User[:], runtime.Encode(id)...)
+		db.Set(rk, t.key[:], TimeMonth)
+	}
+
+	if Switch.SWTransferIn {
+		db := p.GetDB(statTransferIn{})
+		id := db.GetInt(payee[:]) + 1
+		db.SetInt(payee[:], id, TimeYear)
+		rk := append(payee[:], runtime.Encode(id)...)
+		db.Set(rk, t.key[:], TimeMonth)
+	}
 }
 
 // syncMoveInfo sync Information of move out
@@ -1043,6 +1090,14 @@ func (p *processer) pMove(t Transaction) {
 	p.adminTransfer(t.User, Address{}, t.Cost)
 	stru := syncMoveInfo{t.User, t.Cost}
 	p.addSyncInfo(chain, SyncOpsMoveCoin, p.Encode(0, stru))
+
+	if Switch.SWMove {
+		db := p.GetDB(statMove{})
+		id := db.GetInt(t.User[:]) + 1
+		db.SetInt(t.User[:], id, TimeYear)
+		rk := append(t.User[:], runtime.Encode(id)...)
+		db.Set(rk, t.key[:], TimeMonth)
+	}
 }
 
 /*********************** chain ****************************/
@@ -1213,6 +1268,20 @@ func (p *processer) pRunApp(t Transaction) {
 	assertMsg(info.Life >= p.Time, "app expire")
 	p.adminTransfer(t.User, info.Account, t.Cost)
 	p.RunApp(name[:], t.User[:], t.data[n:], t.Energy, t.Cost)
+
+	if Switch.SWAPPRun {
+		db := p.GetDB(statAPPRun{})
+		//user
+		id := db.GetInt(t.User[:]) + 1
+		db.SetInt(t.User[:], id, TimeYear)
+		rk := append(t.User[:], runtime.Encode(id)...)
+		db.Set(rk, t.key[:], TimeMonth)
+		//app
+		id = db.GetInt(name[:]) + 1
+		db.SetInt(name[:], id, TimeYear)
+		rk = append(name[:], runtime.Encode(id)...)
+		db.Set(rk, t.key[:], TimeMonth)
+	}
 }
 
 // UpdateInfo Information of update app life
@@ -1309,6 +1378,16 @@ func (p *processer) registerMiner(user Address, index, cost uint64) bool {
 			miner.Cost[i], c = c, miner.Cost[i]
 		}
 	}
+	if Switch.SWCoinLock {
+		db := p.GetDB(statCoinLock{})
+		old := db.GetInt(user[:])
+		old += cost
+		db.SetInt(user[:], old, TimeYear)
+		gOld := db.GetInt(gPublicAddr[:])
+		gOld += cost
+		db.SetInt(gPublicAddr[:], gOld, TimeYear)
+	}
+
 	p.pDbMining.Set(p.Encode(0, index), p.Encode(0, miner), defauldbLife)
 	return true
 }
@@ -1336,6 +1415,11 @@ func (p *processer) pRegisterMiner(t Transaction) {
 	rst := p.registerMiner(t.User, info.Index, t.Cost)
 	if rst {
 		p.adminTransfer(t.User, Address{}, t.Cost)
+		if Switch.SWMinerReg {
+			db := p.GetDB(statMinerReg{})
+			count := db.GetInt(t.User[:])
+			db.SetInt(t.User[:], count+1, TimeYear)
+		}
 	}
 }
 
@@ -1407,6 +1491,15 @@ func (p *processer) syncInfos() {
 		for i := 0; i < minerNum; i++ {
 			p.Event(dbMining{}, "refund", stream)
 			p.adminTransfer(Address{}, mi.Miner[i], mi.Cost[i]+minGuerdon)
+			if Switch.SWCoinLock && !mi.Miner[i].Empty() {
+				db := p.GetDB(statCoinUnlock{})
+				old := db.GetInt(mi.Miner[i][:])
+				old += mi.Cost[i]
+				db.SetInt(mi.Miner[i][:], old, TimeYear)
+				gOld := db.GetInt(gPublicAddr[:])
+				gOld += mi.Cost[i]
+				db.SetInt(gPublicAddr[:], gOld, TimeYear)
+			}
 		}
 	}
 
@@ -1545,6 +1638,13 @@ func (p *processer) syncInfo(from uint64, ops uint8, data []byte) {
 		var mi syncMoveInfo
 		p.Decode(0, data, &mi)
 		p.adminTransfer(Address{}, mi.User, mi.Value)
+		if Switch.SWMove {
+			db := p.GetDB(statMove{})
+			id := db.GetInt(mi.User[:]) + 1
+			db.SetInt(mi.User[:], id, TimeYear)
+			rk := append(mi.User[:], runtime.Encode(id)...)
+			db.Set(rk, runtime.Encode(p.ID), TimeMonth)
+		}
 	case SyncOpsNewChain:
 		var nc syncNewChain
 		p.Decode(0, data, &nc)

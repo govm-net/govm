@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
+	"log"
+	"time"
+
 	"github.com/lengzhao/govm/conf"
 	"github.com/lengzhao/govm/runtime"
 	"github.com/lengzhao/govm/wallet"
-	"log"
-	"time"
 )
 
 // StTrans 交易的结构体

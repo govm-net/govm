@@ -43,7 +43,7 @@ func main() {
 	conf.LoadWallet(c.WalletFile, c.Password)
 	// startHTTPServer
 	{
-		addr := fmt.Sprintf("127.0.0.1:%d", c.HTTPPort)
+		addr := fmt.Sprintf("%s:%d", c.HTTPAddress, c.HTTPPort)
 		router := api.NewRouter()
 		go func() {
 			err := http.ListenAndServe(addr, router)

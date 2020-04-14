@@ -1,21 +1,188 @@
 package a1000000000000000000000000000000000000000000000000000000000000000
 
 import (
+	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"github.com/lengzhao/govm/conf"
-	"github.com/lengzhao/govm/database"
-	"github.com/lengzhao/govm/runtime"
+	"io/ioutil"
+	"log"
+	"net"
+	"net/http"
+	"net/rpc"
+	"os"
+	"sync"
 	"testing"
-	"time"
+
+	"github.com/lengzhao/database/client"
+	"github.com/lengzhao/database/server"
+	core "github.com/lengzhao/govm/tools/debugger/ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c"
 )
 
 var blockKey = [32]byte{1, 2, 3, 4, 5}
 var chain uint64 = 1
+var conf Config
 
 func TestMain(m *testing.M) {
+	data, err := ioutil.ReadFile("./conf/conf.json")
+	if err != nil {
+		fmt.Println("fail to load conf.", err)
+		os.Exit(2)
+	}
+	json.Unmarshal(data, &conf)
+
+	db := server.NewRPCObj(".")
+	server.RegisterAPI(db, func(dir string, id uint64) server.DBApi {
+		return NewProxy(id)
+	})
+
+	rpc.Register(db)
+	rpc.HandleHTTP()
+	lis, err := net.Listen(conf.DbAddrType, conf.DbServerAddr)
+	if err != nil {
+		log.Fatalln("fatal error: ", err)
+	}
+	go http.Serve(lis, nil)
 	m.Run()
-	// database.Commit(chain, key)
+}
+
+// Config config of test
+type Config struct {
+	DbAddrType      string `json:"db_addr_type,omitempty"`
+	DbServerAddr    string `json:"db_server_addr,omitempty"`
+	RelDbAddrType   string `json:"rel_db_addr_type,omitempty"`
+	RelDbServerAddr string `json:"rel_db_server_addr,omitempty"`
+}
+
+type memKey struct {
+	TbName string
+	Key    string
+}
+
+// DBNWProxy proxy of database, not write data to database
+type DBNWProxy struct {
+	chain uint64
+	mu    sync.Mutex
+	flag  []byte
+	cache map[memKey][]byte
+	dbc   *client.Client
+}
+
+// NewProxy new proxy of database
+func NewProxy(chain uint64) server.DBApi {
+	out := new(DBNWProxy)
+	out.chain = chain
+	out.cache = make(map[memKey][]byte)
+	out.dbc = client.New(conf.RelDbAddrType, conf.RelDbServerAddr, 2)
+	return out
+}
+
+// Close close
+func (db *DBNWProxy) Close() {
+	db.dbc.Close()
+}
+
+// OpenFlag open flag
+func (db *DBNWProxy) OpenFlag(flag []byte) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	if len(db.flag) != 0 {
+		log.Println("fail to open flag, exist flag")
+		return fmt.Errorf("exist flag")
+	}
+	db.flag = flag
+	db.cache = make(map[memKey][]byte)
+	return nil
+}
+
+// GetLastFlag return opened flag or nil
+func (db *DBNWProxy) GetLastFlag() []byte {
+	return db.flag
+}
+
+// Commit not write, only reset cache
+func (db *DBNWProxy) Commit(flag []byte) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	db.cache = make(map[memKey][]byte)
+	db.flag = nil
+	return nil
+}
+
+// Cancel only reset cache
+func (db *DBNWProxy) Cancel(flag []byte) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	db.cache = make(map[memKey][]byte)
+	db.flag = nil
+	return nil
+}
+
+// Rollback only reset cache
+func (db *DBNWProxy) Rollback(flag []byte) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	db.cache = make(map[memKey][]byte)
+	db.flag = nil
+	return nil
+}
+
+// SetWithFlag set with flag, only write to cache
+func (db *DBNWProxy) SetWithFlag(flag, tbName, key, value []byte) error {
+	if bytes.Compare(db.flag, flag) != 0 {
+		return fmt.Errorf("different flag")
+	}
+	mk := memKey{}
+	mk.TbName = hex.EncodeToString(tbName)
+	mk.Key = hex.EncodeToString(key)
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	db.cache[mk] = value
+	return nil
+}
+
+// Set only write to cache
+func (db *DBNWProxy) Set(tbName, key, value []byte) error {
+	mk := memKey{}
+	mk.TbName = hex.EncodeToString(tbName)
+	mk.Key = hex.EncodeToString(key)
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	db.cache[mk] = value
+	return nil
+}
+
+// Get get from cache,if not exist, read from database server
+func (db *DBNWProxy) Get(tbName, key []byte) []byte {
+	mk := memKey{}
+	mk.TbName = hex.EncodeToString(tbName)
+	mk.Key = hex.EncodeToString(key)
+	db.mu.Lock()
+	v, ok := db.cache[mk]
+	db.mu.Unlock()
+	if ok {
+		return v
+	}
+	return db.dbc.Get(db.chain, tbName, key)
+}
+
+// Exist if exist return true
+func (db *DBNWProxy) Exist(tbName, key []byte) bool {
+	mk := memKey{}
+	mk.TbName = hex.EncodeToString(tbName)
+	mk.Key = hex.EncodeToString(key)
+	db.mu.Lock()
+	_, ok := db.cache[mk]
+	db.mu.Unlock()
+	if ok {
+		return true
+	}
+	return db.dbc.Exist(db.chain, tbName, key)
+}
+
+// GetNextKey get next key for visit
+func (db *DBNWProxy) GetNextKey(tbName, preKey []byte) []byte {
+	return db.dbc.GetNextKey(db.chain, tbName, preKey)
 }
 
 func hexToBytes(in string) []byte {
@@ -27,102 +194,10 @@ func hexToBytes(in string) []byte {
 	return out
 }
 
-func intToBytes(in uint64) []byte {
-	return runtime.Encode(in)
-}
-
-func appInfo() []byte {
-	type AppInfo struct {
-		Account [24]byte
-		LineSum uint64
-		Life    uint64
-		Flag    uint8
-	}
-	info := AppInfo{}
-	runtime.Decode(hexToBytes("ff0000000000000000000000000000000000000000000000"), &info.Account)
-	info.Life = uint64(time.Now().Add(time.Hour*24*365*2).Unix()) * 1000
-	info.Flag = 15
-	return runtime.Encode(info)
-}
-
-func blockInfo() []byte {
-	// TRunParam Run接口的入参
-	type BaseInfo struct {
-		Key           [32]byte
-		Time          uint64
-		Chain         uint64
-		ID            uint64
-		BaseOpsEnergy uint64
-		Producer      [24]byte
-		ParentID      uint64
-		LeftChildID   uint64
-		RightChildID  uint64
-	}
-	param := BaseInfo{blockKey,
-		uint64(time.Now().Unix() * 1000), 1, 100, 10,
-		[24]byte{1, 2}, 0, 0, 0}
-	return runtime.Encode(param)
-}
-
-type SubData struct {
-	Describe   string
-	Chain      uint64
-	AppName    string
-	StructName string
-	Key        []byte
-	Value      []byte
-	Life       uint64 //Hour
-}
-
-// TestImitateData imitate data to database
-func TestImitateData(t *testing.T) {
-	datas := []SubData{
-		{"2.set cost of app account",
-			chain, "ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c",
-			"dbCoin", hexToBytes("ff0000000000000000000000000000000000000000000000"),
-			intToBytes(1000000000000000), 100},
-		{"3.set app info",
-			chain, "ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c",
-			"dbApp", hexToBytes("1000000000000000000000000000000000000000000000000000000000000000"),
-			appInfo(), 100},
-		{"4.set block info",
-			chain, "ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c",
-			"dbStat", []byte{0}, blockInfo(), 100},
-	}
-	now := uint64(time.Now().Unix()) * 1000
-	for _, d := range datas {
-		if len(d.AppName) != 65 {
-			t.Fatal("error app name,len != 64:", d.AppName)
-		}
-		tbName := []byte(d.AppName + "." + d.StructName)
-		life := now + d.Life*3600*1000
-		value := append(d.Value, runtime.Encode(life)...)
-		tbName[0] = 'd'
-		err := database.GetClient().Set(d.Chain, tbName, d.Key, value)
-		if err != nil {
-			fmt.Println("fail to imitate data.", d.Describe)
-			t.Fatal(err)
-		}
-	}
-}
-
 func Test_run(t *testing.T) {
 	fmt.Println("testing start", t.Name())
-	c := conf.GetConf()
-	if c.DbServerAddr != "127.0.0.1:12345" {
-		// 为避免不小心测试是操作到正式的db server，增加了该限制。
-		t.Fatal("wrong db server address,error test dir?")
-	}
-	key := blockKey[:]
-	client := database.GetClient()
-	err := client.OpenFlag(chain, key)
-	if err != nil {
-		// fmt.Println("fail to open Flag,", err)
-		f := client.GetLastFlag(chain)
-		client.Cancel(chain, f)
-		client.OpenFlag(chain, key)
-	}
-	defer client.Cancel(chain, key)
-
+	core.ChainID = 1
+	core.InitForTest()
+	core.SetAppAccountForTest(tApp{}, 1<<45)
 	run(hexToBytes("02984010319cd34659f7fcb20b31d615d850ab32ca930618"), []byte("parament"), 10)
 }

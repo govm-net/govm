@@ -2,8 +2,8 @@ package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
 
 import (
 	"encoding/json"
+
 	"github.com/lengzhao/govm/runtime"
-	"os"
 )
 
 type dbBlockData struct{}
@@ -188,6 +188,9 @@ var (
 	gPublicAddr = Address{prefixOfPlublcAddr, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
 )
 
+// ChainID ChainID
+var ChainID uint64
+
 // Empty Check whether Hash is empty
 func (h Hash) Empty() bool {
 	return h == (Hash{})
@@ -236,7 +239,8 @@ func assert(cond bool) {
 	}
 }
 
-func init() {
+// InitForTest init for test
+func InitForTest() {
 	bit := 32 << (^uint(0) >> 63)
 	assert(bit == 64)
 	gBS.pDbBlockData = GetDB(dbBlockData{})
@@ -256,21 +260,36 @@ func init() {
 	gBS.pDbMining.free = true
 	gBS.pLogBlockInfo = GetLog(logBlockInfo{})
 	gBS.pLogSync = GetLog(logSync{})
-	
-	runt := runtime.NewRuntime("","")
-	for _,arg := range os.Args{
-		if arg == "-mode"{
-			runt.SetTestMode()
-		}
-	}
-	runt.SetInfo({{.ChainID}}, nil)
+
+	runt := runtime.NewRuntime("", "")
+	runt.SetTestMode()
+	runt.SetInfo(ChainID, nil)
 	gBS.iRuntime = runt
 	stream, _ := gBS.DbGet(gBS.pDbStat.owner, []byte{StatBaseInfo})
 	if len(stream) > 0 {
 		Decode(0, stream, &gBS.BaseInfo)
-		runt.SetInfo({{.ChainID}}, gBS.Key[:])
+		runt.SetInfo(ChainID, gBS.Key[:])
 		gBS.iRuntime = runt
 	}
+}
+
+// SetCostForTest SetCostForTest
+func SetCostForTest(account Address, value uint64) {
+	adminTransfer(Address{}, account, value)
+}
+
+// SetAppAccountForTest SetAppAccountForTest
+func SetAppAccountForTest(in interface{}, value uint64) {
+	app := GetAppName(in)
+	assert(!app.Empty())
+	info := GetAppInfo(app)
+	if info == nil {
+		info = &AppInfo{}
+		gBS.Decode(0, app[:], &info.Account)
+		info.Account[0] = prefixOfPlublcAddr
+		gBS.pDbApp.Set(app[:], gBS.Encode(0, info), TimeYear)
+	}
+	adminTransfer(Address{}, info.Account, value)
 }
 
 // GetHash get data hash

@@ -3,16 +3,18 @@ package conf
 import (
 	"encoding/hex"
 	"encoding/json"
-	"github.com/lengzhao/govm/wallet"
 	"io/ioutil"
 	"log"
 	"os"
 	"time"
+
+	"github.com/lengzhao/govm/wallet"
 )
 
 // TConfig config of app
 type TConfig struct {
 	ServerHost      string `json:"server_host,omitempty"`
+	HTTPAddress     string `json:"http_address,omitempty"`
 	HTTPPort        int    `json:"http_port,omitempty"`
 	DbAddrType      string `json:"db_addr_type,omitempty"`
 	DbServerAddr    string `json:"db_server_addr,omitempty"`
@@ -41,7 +43,7 @@ const (
 var (
 	conf TConfig
 	// Version software version
-	Version string = "v0.4.4"
+	Version string = "v0.4.5"
 	// BuildTime build time
 	BuildTime string
 	// GitHead git head
@@ -82,6 +84,9 @@ func loadConfig() error {
 	}
 	if conf.Password == "" {
 		conf.Password = "govm_pwd_2019"
+	}
+	if conf.HTTPAddress == "" {
+		conf.HTTPAddress = "127.0.0.1"
 	}
 
 	return nil

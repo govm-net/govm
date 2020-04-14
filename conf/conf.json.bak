@@ -1,5 +1,6 @@
 {
     "server_host":"s2s://0.0.0.0:17778,tcp://0.0.0.0:17778",
+    "http_address":"127.0.0.1",
     "http_port":9090,
     "db_addr_type":"tcp",
     "db_server_addr": "127.0.0.1:17777",
@@ -9,6 +10,6 @@
     "cost_of_reg_miner":0,
     "do_mine":true,
     "save_log":false,
-    "identifying_code":false,
+    "identifying_code":true,
     "password":"govm_pwd@2019"
 }

@@ -13,7 +13,7 @@ if (gCostBase == "") {
 }
 gLanguage = getCookie("language")
 
-$.get("navbar.page?v=3", function (data) {
+$.get("navbar.page?v=4", function (data) {
     $("#navbar").html(data);
     var url = window.location.pathname;
     if (url == "/") {

@@ -1,4 +1,6 @@
 {
     "db_addr_type":"tcp",
-    "db_server_addr": "127.0.0.1:12345"
+    "db_server_addr": "127.0.0.1:12345",
+    "rel_db_addr_type":"tcp",
+    "rel_db_server_addr":"127.0.0.1:17777"
 }
