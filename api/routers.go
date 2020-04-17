@@ -244,4 +244,10 @@ var routes = Routes{
 		"/api/v1/crypto/check",
 		CryptoCheck,
 	},
+	Route{
+		"TimeGet",
+		strings.ToUpper("Get"),
+		"/api/v1/time",
+		TimeGet,
+	},
 }

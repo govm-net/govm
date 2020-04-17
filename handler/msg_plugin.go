@@ -220,6 +220,10 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			if err != nil {
 				return nil
 			}
+			blockTime := core.GetBlockTime(msg.Chain)
+			if blockTime+processTransTime < getCoreTimeNow() {
+				return nil
+			}
 			head := readTransInfo(msg.Chain, msg.Key)
 			if head.Size == 0 {
 				return nil
@@ -316,8 +320,9 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 		}
 	}
 
-	now := uint64(time.Now().Unix()) * 1000
+	now := getCoreTimeNow()
 	if block.Index > 2 && block.Time > now+blockAcceptTime {
+		log.Printf("block too new,chain:%d,key:%x,Producer:%x\n", block.Chain, block.Key, block.Producer)
 		return errors.New("too new")
 	}
 
@@ -326,6 +331,7 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 	if lKey != nil && bytes.Compare(key, lKey) == 0 {
 		rel := getReliability(block)
 		rel.Ready = true
+		rel.HashPower = 200
 		SaveBlockReliability(chain, block.Key[:], rel)
 		return
 	}
@@ -439,7 +445,7 @@ func processTransaction(chain uint64, key, data []byte) error {
 		}
 	}
 
-	now := uint64(time.Now().Unix()) * 1000
+	now := getCoreTimeNow()
 	// future trans
 	if trans.Time > now+blockAcceptTime {
 		return errors.New("error time")
@@ -461,6 +467,11 @@ func processTransaction(chain uint64, key, data []byte) error {
 	}
 
 	log.Printf("new transaction.chain%d, key:%x ,osp:%d\n", chain, key, trans.Ops)
+
+	blockTime := core.GetBlockTime(chain)
+	if blockTime+processTransTime < getCoreTimeNow() {
+		return nil
+	}
 
 	if !believable(chain, trans.User[:]) && (bytes.Compare(trans.User[:], c.WalletAddr) != 0) {
 		return nil
@@ -528,7 +539,7 @@ func dbRollBack(chain, index uint64, key []byte) error {
 		// core.DeleteBlockReliability(chain, lKey)
 		var lk core.Hash
 		runtime.Decode(lKey, &lk)
-		setBlockToIDBlocks(chain, nIndex, lk, 0)
+		// setBlockToIDBlocks(chain, nIndex, lk, 0)
 
 		if conf.GetConf().DoMine {
 			transList := GetTransList(chain, lKey)

@@ -30,7 +30,10 @@ const (
 	sTimeout      = 40
 	acceptBlockID = 20
 	maxSyncNum    = 300
+	acceptOldID   = 10
 )
+
+var forceSync bool
 
 func getSyncEnvKey(chain uint64, typ byte) string {
 	return fmt.Sprintf("sync_%x_%x", chain, typ)
@@ -82,14 +85,14 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 		if ctx.GetSession().GetEnv(getSyncEnvKey(msg.Chain, eSyncing)) != "" {
 			return nil
 		}
-		if msg.Index > index+maxSyncNum {
+		if msg.Index > index+maxSyncNum+10 {
 			if p.syncCID == "" && needRequstID(msg.Chain, index+maxSyncNum) {
 				ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + maxSyncNum})
 			}
 			return nil
 		}
 		if msg.Index > index+acceptBlockID {
-			if core.GetBlockTime(msg.Chain)+tHour > uint64(time.Now().Unix())*1000 &&
+			if core.GetBlockTime(msg.Chain)+tHour > getCoreTimeNow() &&
 				needRequstID(msg.Chain, index+acceptBlockID) {
 				ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + acceptBlockID})
 				return nil
@@ -200,7 +203,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		rel = ReadBlockReliability(chain, key)
 	}
 	id := core.GetLastBlockIndex(chain)
-	if id > rel.Index+1000 {
+	if id > rel.Index+acceptOldID {
 		rel.Ready = true
 		SaveBlockReliability(chain, rel.Key[:], rel)
 		newKey := GetSyncBlock(chain, rel.Index+1)
@@ -277,11 +280,12 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 
 	SetSyncBlock(chain, rel.Index, nil)
 	t := core.GetBlockTime(chain)
-	now := uint64(time.Now().Unix() * 1000)
+	now := getCoreTimeNow()
+	updateBLN(chain, key)
 	if t+blockSyncTime < now {
-		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+		bln := getBlockLockNum(chain, key)
+		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower+bln)
 	}
-
 	newKey := GetSyncBlock(chain, rel.Index+1)
 	if len(newKey) > 0 {
 		// log.Printf("start next SyncBlock,chain:%d,key:%x,next:%x\n", chain, key, newKey)
@@ -293,7 +297,6 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		if p.syncCID == cid {
 			p.timeout = 0
 		}
-		updateBLN(chain, key)
 		go processEvent(chain)
 	}
 }
@@ -305,12 +308,17 @@ func updateBLN(chain uint64, key []byte) {
 	rel := ReadBlockReliability(chain, key)
 	bln := getBlockLockNum(chain, key)
 	index := core.GetLastBlockIndex(chain)
-	for rel.Index > index {
+	for rel.Index+3 >= index && rel.Index > 0 {
 		old := getBlockLockNum(chain, rel.Previous[:])
 		if old > bln {
 			break
 		}
-		bln++
+		if forceSync {
+			bln += getHashPower(rel.Key[:])
+		} else {
+			bln++
+		}
+
 		setBlockLockNum(chain, rel.Previous[:], bln)
 		if !rel.LeftChild.Empty() {
 			setBlockLockNum(chain*2, rel.LeftChild[:], 2*bln)

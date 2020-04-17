@@ -1489,9 +1489,11 @@ func (p *processer) syncInfos() {
 		mi := Miner{}
 		p.Decode(0, stream, &mi)
 		for i := 0; i < minerNum; i++ {
-			p.Event(dbMining{}, "refund", stream)
+			if mi.Miner[i].Empty() {
+				continue
+			}
 			p.adminTransfer(Address{}, mi.Miner[i], mi.Cost[i]+minGuerdon)
-			if Switch.SWCoinLock && !mi.Miner[i].Empty() {
+			if Switch.SWCoinLock {
 				db := p.GetDB(statCoinUnlock{})
 				old := db.GetInt(mi.Miner[i][:])
 				old += mi.Cost[i]
