@@ -308,7 +308,7 @@ func updateBLN(chain uint64, key []byte) {
 	rel := ReadBlockReliability(chain, key)
 	bln := getBlockLockNum(chain, key)
 	index := core.GetLastBlockIndex(chain)
-	for rel.Index >= index-2 && rel.Index > 0 {
+	for rel.Index+3 >= index && rel.Index > 0 {
 		old := getBlockLockNum(chain, rel.Previous[:])
 		if old > bln {
 			break
