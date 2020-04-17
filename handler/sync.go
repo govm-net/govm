@@ -82,7 +82,7 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 		if ctx.GetSession().GetEnv(getSyncEnvKey(msg.Chain, eSyncing)) != "" {
 			return nil
 		}
-		if msg.Index > index+maxSyncNum {
+		if msg.Index > index+maxSyncNum+10 {
 			if p.syncCID == "" && needRequstID(msg.Chain, index+maxSyncNum) {
 				ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + maxSyncNum})
 			}
@@ -281,7 +281,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	if t+blockSyncTime < now {
 		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
 	}
-
+	updateBLN(chain, key)
 	newKey := GetSyncBlock(chain, rel.Index+1)
 	if len(newKey) > 0 {
 		// log.Printf("start next SyncBlock,chain:%d,key:%x,next:%x\n", chain, key, newKey)
@@ -293,7 +293,6 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		if p.syncCID == cid {
 			p.timeout = 0
 		}
-		updateBLN(chain, key)
 		go processEvent(chain)
 	}
 }
@@ -305,7 +304,7 @@ func updateBLN(chain uint64, key []byte) {
 	rel := ReadBlockReliability(chain, key)
 	bln := getBlockLockNum(chain, key)
 	index := core.GetLastBlockIndex(chain)
-	for rel.Index > index {
+	for rel.Index >= index-2 && rel.Index > 0 {
 		old := getBlockLockNum(chain, rel.Previous[:])
 		if old > bln {
 			break

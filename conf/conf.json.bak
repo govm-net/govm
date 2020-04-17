@@ -9,7 +9,7 @@
     "wallet_file":"./conf/wallet.key",
     "cost_of_reg_miner":0,
     "do_mine":true,
-    "save_log":false,
+    "save_log":true,
     "identifying_code":true,
     "password":"govm_pwd@2019"
 }
