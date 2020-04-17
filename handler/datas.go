@@ -470,16 +470,17 @@ func getReliability(b *core.StBlock) TReliability {
 func updateTimeDifference() {
 	server := conf.GetConf().TimeSource
 	if server == "" {
+		log.Println("updateTimeDifference,server is null")
 		return
 	}
 	time.AfterFunc(time.Hour*25, updateTimeDifference)
-	start := time.Now().UnixNano()
+	start := time.Now().Unix()
 	resp, err := http.Get(server + "/api/v1/time")
 	if err != nil {
 		log.Println("fail to updateTimeDifference,", err)
 		return
 	}
-	end := time.Now().UnixNano()
+	end := time.Now().Unix()
 	if end < start {
 		end = start
 	}
@@ -489,19 +490,21 @@ func updateTimeDifference() {
 	}
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		log.Println("updateTimeDifference,fail to read body:", err)
 		return
 	}
 	serverTime, err := strconv.ParseInt(string(data), 10, 64)
 	if err != nil {
+		log.Println("updateTimeDifference error:", string(data), err)
 		return
 	}
 	selfTime := (start + end) / 2
-	sub := serverTime - selfTime
-	if sub > 5*60 || sub+5*60 < 0 {
-		log.Println("error, time difference too big.Please update the time manually.", sub)
+	if serverTime > selfTime+5*60 || selfTime > serverTime+5*60 {
+		log.Println("updateTimeDifference error, time difference over 300s.", serverTime, selfTime)
 		return
 	}
-	timeDifference = sub
+	timeDifference = serverTime - selfTime
+	log.Println("updateTimeDifference timeDifference", timeDifference, start, end)
 }
 
 func getCoreTimeNow() uint64 {
