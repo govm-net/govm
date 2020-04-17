@@ -26,13 +26,14 @@ type tProcessMgr struct {
 }
 
 const (
-	tSecond         = 1000
-	tMinute         = 60 * 1000
-	tHour           = 60 * tMinute
-	tDay            = 24 * tHour
-	blockAcceptTime = 2 * tMinute
-	transAcceptTime = 9 * tDay
-	blockSyncTime   = 5 * tMinute
+	tSecond          = 1000
+	tMinute          = 60 * 1000
+	tHour            = 60 * tMinute
+	tDay             = 24 * tHour
+	blockAcceptTime  = 2 * tMinute
+	transAcceptTime  = 9 * tDay
+	blockSyncTime    = 5 * tMinute
+	processTransTime = 5 * tMinute
 )
 
 var procMgr tProcessMgr
@@ -67,8 +68,9 @@ func processChains(chain uint64) {
 
 func getBestBlock(chain, index uint64) TReliability {
 	var relia TReliability
+	var maxHP TReliability
 	ib := ReadIDBlocks(chain, index)
-	now := uint64(time.Now().Unix() * 1000)
+	now := getCoreTimeNow()
 	t := core.GetBlockTime(chain)
 	for i, it := range ib.Items {
 		key := it.Key[:]
@@ -86,23 +88,28 @@ func getBestBlock(chain, index uint64) TReliability {
 			core.DeleteBlock(chain, key)
 			continue
 		}
-		hp := rel.HashPower
-		if t+blockSyncTime > now {
-			if !rel.Parent.Empty() && !core.BlockOnTheChain(chain/2, rel.Parent[:]) {
-				continue
-			}
-			if !rel.LeftChild.Empty() && !core.BlockOnTheChain(chain*2, rel.LeftChild[:]) {
-				continue
-			}
-			if !rel.RightChild.Empty() && !core.BlockOnTheChain(chain*2+1, rel.RightChild[:]) {
-				continue
-			}
+		if rel.HashPower > maxHP.HashPower {
+			maxHP = rel
 		}
+		hp := rel.HashPower
+		// if t+blockSyncTime > now {
+		if !rel.Parent.Empty() && !core.BlockOnTheChain(chain/2, rel.Parent[:]) {
+			continue
+		}
+		if !rel.LeftChild.Empty() && !core.BlockOnTheChain(chain*2, rel.LeftChild[:]) {
+			continue
+		}
+		if !rel.RightChild.Empty() && !core.BlockOnTheChain(chain*2+1, rel.RightChild[:]) {
+			continue
+		}
+		// }
 
 		stat := ReadBlockRunStat(chain, key)
 		if index > 1 && t+blockSyncTime < now {
 			bln := getBlockLockNum(chain, key)
 			hp += bln
+		} else {
+			forceSync = false
 		}
 
 		hp -= stat.SelectedCount / 5
@@ -119,9 +126,12 @@ func getBestBlock(chain, index uint64) TReliability {
 
 		if stat.SelectedCount > 1 || stat.RollbackCount > 1 {
 			log.Printf("getBestBlock,chain:%d,index:%d,key:%x,i:%d,hp:%d,"+
-				"rollback:%d,runTimes:%d,success:%d,selected:%d\n",
+				"rollback:%d,runTimes:%d,success:%d,selected:%d,hp1:%d\n",
 				chain, index, key, i, rel.HashPower, stat.RollbackCount,
-				stat.RunTimes, stat.RunSuccessCount, stat.SelectedCount)
+				stat.RunTimes, stat.RunSuccessCount, stat.SelectedCount, hp)
+			if (stat.RollbackCount > 20 && t+tHour < now) || t+5*tHour < now {
+				forceSync = true
+			}
 		}
 
 		rel.HashPower = hp
@@ -132,6 +142,11 @@ func getBestBlock(chain, index uint64) TReliability {
 	if !relia.Key.Empty() {
 		log.Printf("getBestBlock rst,num:%d,chain:%d,index:%d,hp:%d,key:%x\n", len(ib.Items),
 			chain, index, relia.HashPower, relia.Key)
+	}
+	if maxHP.HashPower > relia.HashPower+200 {
+		log.Printf("[warning]getBestBlock maxHP,num:%d,chain:%d,index:%d,hp:%d,key:%x\n", len(ib.Items),
+			chain, index, maxHP.HashPower, maxHP.Key)
+		return maxHP
 	}
 
 	return relia
@@ -243,7 +258,7 @@ func beforeProcBlock(chain uint64, rel TReliability) error {
 	setBlockLockNum(chain, rel.Previous[:], bln+1)
 	t := core.GetBlockTime(chain)
 	interval := core.GetBlockInterval(chain)
-	now := uint64(time.Now().Unix() * 1000)
+	now := getCoreTimeNow()
 	if t+interval*3/2 > now {
 		// Need rollback,it could not be the newest block. Prevention of attacks
 		return errors.New("need rollback,but block too new")
@@ -261,10 +276,9 @@ func beforeProcBlock(chain uint64, rel TReliability) error {
 
 	if checkAndRollback(chain, id, preKey) {
 		log.Printf("dbRollBack block. index:%d,key:%x,next block:%x\n", rel.Index, preKey, rel.Key)
-		ib := IDBlocks{}
-		it := ItemBlock{rel.Previous, 1}
-		ib.Items = append(ib.Items, it)
-		SaveIDBlocks(chain, rel.Index-1, ib)
+		bln := getBlockLockNum(chain, rel.Key[:])
+		preRel := ReadBlockReliability(chain, rel.Previous[:])
+		setBlockToIDBlocks(chain, preRel.Index, preRel.Key, preRel.HashPower+bln+1)
 	}
 	go processEvent(chain)
 
@@ -348,8 +362,7 @@ func processEvent(chain uint64) {
 	}
 
 	var relia TReliability
-	now := uint64(time.Now().Unix() * 1000)
-
+	now := getCoreTimeNow()
 	relia = getBestBlock(chain, index+1)
 	if relia.Key.Empty() {
 		relia = getBestBlock(chain, index)
@@ -408,6 +421,9 @@ func processEvent(chain uint64) {
 		SaveBlockRunStat(chain, relia.Key[:], stat)
 		setBlockToIDBlocks(chain, relia.Index, relia.Key, 0)
 		saveBlackItem(chain, relia.Producer[:])
+		relia.Ready = false
+		SaveBlockReliability(chain, relia.Key[:], relia)
+		core.DeleteBlock(chain, relia.Key[:])
 		return
 	}
 	procMgr.mu.Lock()

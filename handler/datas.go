@@ -3,8 +3,12 @@ package handler
 import (
 	"encoding/hex"
 	"encoding/json"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/lengzhao/govm/conf"
@@ -38,9 +42,10 @@ const (
 	ldbReliability  = "reliability"    //blockKey:relia
 )
 
-const downloadTimeout = 5
+const downloadTimeout = 15
 
 var ldb *database.LDB
+var timeDifference int64
 
 // Init init
 func Init() {
@@ -60,6 +65,7 @@ func Init() {
 	ldb.SetNotDisk(ldbDownloading, 2000)
 	ldb.SetNotDisk(ldbReliability, 50000)
 	ldb.SetNotDisk(ldbAllTransInfo, 50000)
+	time.AfterFunc(time.Second*5, updateTimeDifference)
 }
 
 // SaveBlockRunStat save block stat
@@ -298,17 +304,26 @@ func setBlockLockNum(chain uint64, key []byte, val uint64) {
 	}
 }
 
+var dlMutex sync.Mutex
+
 // get the time of download, if fresh, return false
 func needDownload(chain uint64, key []byte) bool {
 	type record struct {
 		Time [3]int64
 	}
 	var info record
+	dlMutex.Lock()
+	defer dlMutex.Unlock()
 	rst := ldb.LGet(chain, ldbDownloading, key)
 	if len(rst) > 0 {
 		json.Unmarshal(rst, &info)
 	}
 	now := time.Now().Unix()
+	for _, t := range info.Time {
+		if t+3 >= now {
+			return false
+		}
+	}
 	for i := range info.Time {
 		if info.Time[i]+downloadTimeout < now {
 			info.Time[i] = now
@@ -449,4 +464,47 @@ func getReliability(b *core.StBlock) TReliability {
 
 	selfRel.Recalculation(b.Chain)
 	return selfRel
+}
+
+// some node time is not right, if it have
+func updateTimeDifference() {
+	server := conf.GetConf().TimeSource
+	if server == "" {
+		return
+	}
+	time.AfterFunc(time.Hour*25, updateTimeDifference)
+	start := time.Now().UnixNano()
+	resp, err := http.Get(server + "/api/v1/time")
+	if err != nil {
+		log.Println("fail to updateTimeDifference,", err)
+		return
+	}
+	end := time.Now().UnixNano()
+	if end < start {
+		end = start
+	}
+	if resp.StatusCode != http.StatusOK {
+		log.Println("error response of updateTimeDifference,", resp.Status)
+		return
+	}
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	serverTime, err := strconv.ParseInt(string(data), 10, 64)
+	if err != nil {
+		return
+	}
+	selfTime := (start + end) / 2
+	sub := serverTime - selfTime
+	if sub > 5*60 || sub+5*60 < 0 {
+		log.Println("error, time difference too big.Please update the time manually.", sub)
+		return
+	}
+	timeDifference = sub
+}
+
+func getCoreTimeNow() uint64 {
+	now := time.Now().Unix() + timeDifference
+	return uint64(now) * 1000
 }

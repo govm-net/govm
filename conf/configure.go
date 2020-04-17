@@ -33,6 +33,7 @@ type TConfig struct {
 	ForceMine       bool   `json:"force_mine,omitempty"`
 	IdentifyingCode bool   `json:"identifying_code,omitempty"`
 	LuckyNumber     uint64 `json:"lucky_number,omitempty"`
+	TimeSource      string `json:"time_source,omitempty"`
 }
 
 // DebugMod debug mode
@@ -43,7 +44,7 @@ const (
 var (
 	conf TConfig
 	// Version software version
-	Version string = "v0.4.5"
+	Version string = "v0.4.6"
 	// BuildTime build time
 	BuildTime string
 	// GitHead git head
@@ -87,6 +88,9 @@ func loadConfig() error {
 	}
 	if conf.HTTPAddress == "" {
 		conf.HTTPAddress = "127.0.0.1"
+	}
+	if conf.TimeSource == "" {
+		conf.TimeSource = "http://govm.net:9090"
 	}
 
 	return nil

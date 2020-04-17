@@ -1603,3 +1603,9 @@ func HashPowerGet(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
 	enc.Encode(out)
 }
+
+// TimeGet get the node time(Unix)
+func TimeGet(w http.ResponseWriter, r *http.Request) {
+	t := time.Now().Unix()
+	fmt.Fprintf(w, "%d", t)
+}
