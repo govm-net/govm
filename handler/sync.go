@@ -279,13 +279,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	SaveBlockReliability(chain, rel.Key[:], rel)
 
 	SetSyncBlock(chain, rel.Index, nil)
-	t := core.GetBlockTime(chain)
-	now := getCoreTimeNow()
-	updateBLN(chain, key)
-	if t+blockSyncTime < now {
-		bln := getBlockLockNum(chain, key)
-		setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower+bln)
-	}
+
 	newKey := GetSyncBlock(chain, rel.Index+1)
 	if len(newKey) > 0 {
 		// log.Printf("start next SyncBlock,chain:%d,key:%x,next:%x\n", chain, key, newKey)
@@ -297,6 +291,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		if p.syncCID == cid {
 			p.timeout = 0
 		}
+		updateBLN(chain, key)
 		go processEvent(chain)
 	}
 }
@@ -308,6 +303,8 @@ func updateBLN(chain uint64, key []byte) {
 	rel := ReadBlockReliability(chain, key)
 	bln := getBlockLockNum(chain, key)
 	index := core.GetLastBlockIndex(chain)
+	t := core.GetBlockTime(chain)
+	now := getCoreTimeNow()
 	for rel.Index+3 >= index && rel.Index > 0 {
 		old := getBlockLockNum(chain, rel.Previous[:])
 		if old > bln {
@@ -325,6 +322,9 @@ func updateBLN(chain uint64, key []byte) {
 		}
 		if !rel.RightChild.Empty() {
 			setBlockLockNum(chain*2, rel.RightChild[:], 2*bln)
+		}
+		if t+blockSyncTime < now {
+			setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower+bln)
 		}
 		rel = ReadBlockReliability(chain, rel.Previous[:])
 	}
