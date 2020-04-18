@@ -30,7 +30,7 @@ const (
 	tMinute          = 60 * 1000
 	tHour            = 60 * tMinute
 	tDay             = 24 * tHour
-	blockAcceptTime  = 2 * tMinute
+	blockAcceptTime  = tMinute
 	transAcceptTime  = 9 * tDay
 	blockSyncTime    = 5 * tMinute
 	processTransTime = 5 * tMinute
@@ -129,6 +129,9 @@ func getBestBlock(chain, index uint64) TReliability {
 				"rollback:%d,runTimes:%d,success:%d,selected:%d,hp1:%d\n",
 				chain, index, key, i, rel.HashPower, stat.RollbackCount,
 				stat.RunTimes, stat.RunSuccessCount, stat.SelectedCount, hp)
+			if stat.RollbackCount > 100 {
+				setBlockToIDBlocks(chain, index, rel.Key, 0)
+			}
 			if (stat.RollbackCount > 20 && t+tHour < now) || t+5*tHour < now {
 				forceSync = true
 			}
@@ -143,11 +146,11 @@ func getBestBlock(chain, index uint64) TReliability {
 		log.Printf("getBestBlock rst,num:%d,chain:%d,index:%d,hp:%d,key:%x\n", len(ib.Items),
 			chain, index, relia.HashPower, relia.Key)
 	}
-	if maxHP.HashPower > relia.HashPower+200 {
-		log.Printf("[warning]getBestBlock maxHP,num:%d,chain:%d,index:%d,hp:%d,key:%x\n", len(ib.Items),
-			chain, index, maxHP.HashPower, maxHP.Key)
-		return maxHP
-	}
+	// if maxHP.HashPower > relia.HashPower+200 {
+	// 	log.Printf("[warning]getBestBlock maxHP,num:%d,chain:%d,index:%d,hp:%d,key:%x\n", len(ib.Items),
+	// 		chain, index, maxHP.HashPower, maxHP.Key)
+	// 	return maxHP
+	// }
 
 	return relia
 }
