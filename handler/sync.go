@@ -310,19 +310,20 @@ func updateBLN(chain uint64, key []byte) {
 		if old > bln {
 			break
 		}
+
+		if !rel.LeftChild.Empty() {
+			setBlockLockNum(chain*2, rel.LeftChild[:], bln+1)
+		}
+		if !rel.RightChild.Empty() {
+			setBlockLockNum(chain*2, rel.RightChild[:], bln+1)
+		}
+
 		if forceSync {
 			bln += getHashPower(rel.Key[:])
 		} else {
 			bln++
 		}
-
 		setBlockLockNum(chain, rel.Previous[:], bln)
-		if !rel.LeftChild.Empty() {
-			setBlockLockNum(chain*2, rel.LeftChild[:], 2*bln)
-		}
-		if !rel.RightChild.Empty() {
-			setBlockLockNum(chain*2, rel.RightChild[:], 2*bln)
-		}
 		if t+blockSyncTime < now {
 			setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower+bln)
 		}
