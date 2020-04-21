@@ -11,5 +11,6 @@
     "do_mine":true,
     "save_log":true,
     "identifying_code":true,
+    "time_source":"http://govm.net:9090",
     "password":"govm_pwd@2019"
 }

@@ -5,9 +5,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/lengzhao/govm/event"
 	"log"
+	"os"
 	"time"
+
+	"github.com/lengzhao/govm/event"
 
 	"github.com/lengzhao/govm/conf"
 	core "github.com/lengzhao/govm/core"
@@ -125,7 +127,8 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 				p.downloadBlockDepend(ctx, msg.Chain, msg.Key)
 			} else {
 				rel.Recalculation(msg.Chain)
-				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
+				bln := getBlockLockNum(msg.Chain, rel.Key[:])
+				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower+bln)
 				go processEvent(msg.Chain)
 			}
 			return nil
@@ -264,6 +267,13 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 				ctx.Reply(&messages.ReqTransaction{Chain: 1, Key: conf.GetConf().FirstTransName})
 			} else if needRequstID(1, index) {
 				ctx.Reply(&messages.ReqBlockInfo{Chain: 1, Index: index})
+				if index > 293000 {
+					key := core.GetTheBlockKey(1, 293000)
+					if hex.EncodeToString(key) != "00000afb80bcfb899dd7eb5ca4124c71c3acd2690e55cd18cdca9e897947928b" {
+						fmt.Println("you are in the branch,please replace database data")
+						os.Exit(2)
+					}
+				}
 			}
 			createSystemAPP(1)
 		}
@@ -408,8 +418,9 @@ func (p *MsgPlugin) downloadBlockDepend(ctx libp2p.Event, chain uint64, key []by
 	SaveBlockReliability(chain, rel.Key[:], rel)
 	ctx.GetSession().SetEnv(getEnvKey(chain, transOwner), "")
 
-	log.Printf("setBlockToIDBlocks,chain:%d,index:%d,key:%x,hp:%d\n", chain, rel.Index, rel.Key, rel.HashPower)
-	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+	bln := getBlockLockNum(chain, rel.Key[:])
+	log.Printf("setBlockToIDBlocks,chain:%d,index:%d,key:%x,hp:%d,bln:%d\n", chain, rel.Index, rel.Key, rel.HashPower, bln)
+	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower+bln)
 
 	go processEvent(chain)
 	return

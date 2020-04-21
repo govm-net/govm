@@ -157,6 +157,10 @@ func doMine(chain uint64, force bool) {
 		}
 		rel := getReliability(block)
 		if rel.Cmp(oldRel) > 0 {
+			preRel := ReadBlockReliability(chain, rel.Previous[:])
+			if rel.Producer == preRel.Producer {
+				break
+			}
 			oldRel = rel
 			core.WriteBlock(chain, data)
 			SaveBlockReliability(chain, block.Key[:], rel)
