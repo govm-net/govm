@@ -219,6 +219,10 @@ func (p *InternalPlugin) event(m event.Message) error {
 		if rel.Index == 0 || rel.Key.Empty() {
 			return nil
 		}
+		preRel := ReadBlockReliability(msg.Chain, rel.Previous[:])
+		if rel.Producer == preRel.Producer {
+			return nil
+		}
 
 		if msg.LockNum > 0 {
 			setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
