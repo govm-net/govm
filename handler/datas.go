@@ -97,7 +97,7 @@ func check() {
 	}
 	ok := core.BlockOnTheChain(1, key)
 	if !ok {
-		log.Printf("The local block is inconsistent with the server.%x\n", key)
+		fmt.Printf("The local block is different from the server.%x\n", key)
 		os.Exit(3)
 	}
 	log.Printf("the trusted block is on the chain,%x\n", key)
