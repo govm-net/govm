@@ -333,7 +333,7 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 	if lKey != nil && bytes.Compare(key, lKey) == 0 {
 		rel := getReliability(block)
 		rel.Ready = true
-		rel.HashPower = 200
+		rel.HashPower = getHashPower(key)
 		SaveBlockReliability(chain, block.Key[:], rel)
 		return
 	}
