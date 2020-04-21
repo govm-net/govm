@@ -68,6 +68,39 @@ func Init() {
 	ldb.SetNotDisk(ldbReliability, 50000)
 	ldb.SetNotDisk(ldbAllTransInfo, 50000)
 	time.AfterFunc(time.Second*5, updateTimeDifference)
+	time.AfterFunc(time.Second*2, check)
+}
+
+func check() {
+	c := conf.GetConf()
+	if c.TrustedServer == "" {
+		log.Println("check block,server is null")
+		return
+	}
+	if !c.CheckBlock {
+		return
+	}
+
+	resp, err := http.Get(c.TrustedServer + "/api/v1/1/block/trusted")
+	if err != nil {
+		log.Println("fail to check block,", err)
+		return
+	}
+	if resp.StatusCode != http.StatusOK {
+		log.Println("error response of check block,", resp.Status)
+		return
+	}
+	key, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Println("check block,fail to read body:", err)
+		return
+	}
+	ok := core.BlockOnTheChain(1, key)
+	if !ok {
+		log.Printf("The local block is inconsistent with the server.%x\n", key)
+		os.Exit(3)
+	}
+	log.Printf("the trusted block is on the chain,%x\n", key)
 }
 
 // SaveBlockRunStat save block stat
@@ -470,7 +503,7 @@ func getReliability(b *core.StBlock) TReliability {
 
 // some node time is not right, if it have
 func updateTimeDifference() {
-	server := conf.GetConf().TimeSource
+	server := conf.GetConf().TrustedServer
 	if server == "" {
 		log.Println("updateTimeDifference,server is null")
 		return

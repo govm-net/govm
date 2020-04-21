@@ -33,7 +33,8 @@ type TConfig struct {
 	ForceMine       bool   `json:"force_mine,omitempty"`
 	IdentifyingCode bool   `json:"identifying_code,omitempty"`
 	LuckyNumber     uint64 `json:"lucky_number,omitempty"`
-	TimeSource      string `json:"time_source,omitempty"`
+	TrustedServer   string `json:"trusted_server,omitempty"`
+	CheckBlock      bool   `json:"check_block,omitempty"`
 }
 
 // DebugMod debug mode
@@ -66,6 +67,7 @@ func init() {
 }
 
 func loadConfig() error {
+	conf.CheckBlock = true
 	data, err := ioutil.ReadFile("./conf/conf.json")
 	if err != nil {
 		log.Println("fail to read file,conf.json")
@@ -89,8 +91,8 @@ func loadConfig() error {
 	if conf.HTTPAddress == "" {
 		conf.HTTPAddress = "127.0.0.1"
 	}
-	if conf.TimeSource == "" {
-		conf.TimeSource = "http://govm.net:9090"
+	if conf.TrustedServer == "" {
+		conf.TrustedServer = "http://govm.net:9090"
 	}
 
 	return nil
