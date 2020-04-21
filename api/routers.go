@@ -174,6 +174,13 @@ var routes = Routes{
 	},
 
 	Route{
+		"TrustedBlockGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/block/trusted",
+		TrustedBlockGet,
+	},
+
+	Route{
 		"ChainNew",
 		strings.ToUpper("Post"),
 		"/api/v1/{chain}/chain",

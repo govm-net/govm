@@ -1609,3 +1609,26 @@ func TimeGet(w http.ResponseWriter, r *http.Request) {
 	t := time.Now().Unix()
 	fmt.Fprintf(w, "%d", t)
 }
+
+// TrustedBlockGet get the trusted blocks
+func TrustedBlockGet(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	r.ParseForm()
+	chainStr := vars["chain"]
+	chain, err := strconv.ParseUint(chainStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("error chain"))
+		return
+	}
+	id := core.GetLastBlockIndex(chain)
+	id -= 30
+	key := core.GetTheBlockKey(chain, id)
+	if len(key) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("not blocks"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write(key)
+}
