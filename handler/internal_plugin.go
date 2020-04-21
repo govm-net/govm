@@ -227,6 +227,9 @@ func (p *InternalPlugin) event(m event.Message) error {
 		if msg.LockNum > 0 {
 			setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
 		}
+		if rel.Time+2*tMinute < getCoreTimeNow() {
+			return nil
+		}
 
 		if !msg.Broadcast {
 			return nil
