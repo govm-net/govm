@@ -80,8 +80,12 @@ func check() {
 	if !c.CheckBlock {
 		return
 	}
-
-	resp, err := http.Get(c.TrustedServer + "/api/v1/1/block/trusted")
+	id := core.GetLastBlockIndex(1)
+	if id < 100 {
+		return
+	}
+	urlStr := fmt.Sprintf("%s/api/v1/1/block/trusted?index=%d", c.TrustedServer, id-30)
+	resp, err := http.Get(urlStr)
 	if err != nil {
 		log.Println("fail to check block,", err)
 		return
