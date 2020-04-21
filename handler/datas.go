@@ -509,6 +509,7 @@ func updateTimeDifference() {
 		}
 		return
 	}
+	firstUpdateTime = false
 	timeDifference = serverTime - selfTime
 	log.Println("updateTimeDifference", timeDifference, start, end)
 }
