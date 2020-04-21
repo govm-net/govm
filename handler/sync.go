@@ -112,7 +112,8 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 				ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncing), "true")
 				go p.syncDepend(ctx, msg.Chain, msg.Key)
 			} else {
-				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, 1)
+				bln := getBlockLockNum(msg.Chain, rel.Key[:])
+				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower+bln)
 			}
 			return nil
 		}
@@ -315,7 +316,7 @@ func updateBLN(chain uint64, key []byte) {
 			setBlockLockNum(chain*2, rel.LeftChild[:], bln+1)
 		}
 		if !rel.RightChild.Empty() {
-			setBlockLockNum(chain*2, rel.RightChild[:], bln+1)
+			setBlockLockNum(chain*2+1, rel.RightChild[:], bln+1)
 		}
 
 		if forceSync {

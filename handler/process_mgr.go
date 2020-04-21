@@ -388,7 +388,7 @@ func processEvent(chain uint64) {
 		if procTime+blockSyncTime < now {
 			// not next block long time,rollback
 			procMgr.mu.Lock()
-			procMgr.procTime[chain] = now - blockSyncTime + tMinute
+			procMgr.procTime[chain] = now - blockSyncTime + tSecond
 			procMgr.mu.Unlock()
 			dbRollBack(chain, index, nowKey)
 			go processEvent(chain)

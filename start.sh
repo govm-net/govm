@@ -4,7 +4,7 @@ file="conf/conf.json"
 if [ ! -e "$file" ]
 then
     echo not exist the config file
-    cp "conf/conf.json.bak" $file
+    cp "conf/conf.bak.json" $file
 fi
 
 echo start govm. you can use \"Ctrl + c\" to exit

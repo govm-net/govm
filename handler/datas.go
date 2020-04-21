@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -46,6 +47,7 @@ const downloadTimeout = 15
 
 var ldb *database.LDB
 var timeDifference int64
+var firstUpdateTime bool = true
 
 // Init init
 func Init() {
@@ -501,10 +503,14 @@ func updateTimeDifference() {
 	selfTime := (start + end) / 2
 	if serverTime > selfTime+5*60 || selfTime > serverTime+5*60 {
 		log.Println("updateTimeDifference error, time difference over 300s.", serverTime, selfTime)
+		if firstUpdateTime {
+			fmt.Println("error: system time error,update system time or change time_source in conf/conf")
+			os.Exit(2)
+		}
 		return
 	}
 	timeDifference = serverTime - selfTime
-	log.Println("updateTimeDifference timeDifference", timeDifference, start, end)
+	log.Println("updateTimeDifference", timeDifference, start, end)
 }
 
 func getCoreTimeNow() uint64 {
