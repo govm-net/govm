@@ -1615,14 +1615,24 @@ func TrustedBlockGet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	r.ParseForm()
 	chainStr := vars["chain"]
+	indexStr := r.Form.Get("index")
 	chain, err := strconv.ParseUint(chainStr, 10, 64)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("error chain"))
 		return
 	}
-	id := core.GetLastBlockIndex(chain)
-	id -= 30
+	var id uint64
+	if indexStr != "" {
+		id, err = strconv.ParseUint(indexStr, 10, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("error index"))
+			return
+		}
+	} else {
+		id = core.GetLastBlockIndex(chain) - 30
+	}
 	key := core.GetTheBlockKey(chain, id)
 	if len(key) == 0 {
 		w.WriteHeader(http.StatusBadRequest)
