@@ -35,13 +35,16 @@ func NewLDB(name string, cacheCap int) *LDB {
 	out.cacheTB = make(map[string]bool)
 	out.memoryTB = make(map[string]*LRUCache)
 	out.lru = NewLRUCache(cacheCap)
-	var err error
-	fn := path.Join(gDbRoot, name)
-	out.ldb, err = bolt.Open(fn, 0600, nil)
-	if err != nil {
-		log.Println("fail to open file(ldb):", fn, err)
-		return nil
+	if name != "" {
+		var err error
+		fn := path.Join(gDbRoot, name)
+		out.ldb, err = bolt.Open(fn, 0600, nil)
+		if err != nil {
+			log.Println("fail to open file(ldb):", fn, err)
+			return nil
+		}
 	}
+
 	return &out
 }
 

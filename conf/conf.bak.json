@@ -11,7 +11,9 @@
     "do_mine":true,
     "save_log":true,
     "identifying_code":true,
-    "time_source":"http://govm.net:9090",
+    "trusted_server":"http://govm.net:9090",
     "check_block":true,
+    "auto_rollback":true,
+    "save_node_info":false,
     "password":"govm_pwd@2019"
 }

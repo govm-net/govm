@@ -16,8 +16,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/lengzhao/govm/conf"
-	"github.com/lengzhao/govm/counter"
+	"github.com/govm-net/govm/conf"
+	"github.com/govm-net/govm/counter"
 )
 
 // TDependItem app的依赖信息
@@ -71,10 +71,12 @@ func NewApp(chain uint64, name []byte, code []byte) {
 	c := conf.GetConf()
 	if bytes.Compare(c.CorePackName, name) == 0 {
 		filePath := GetFullPathOfApp(chain, name)
+		filePath = path.Join(BuildDir, filePath)
 		dstFileName := path.Join(filePath, "core.go")
 		os.RemoveAll(filePath)
 		createDir(filePath)
-		s1, err := template.ParseFiles("./core/core.tmpl")
+		coreFile := path.Join(BuildDir, "./core/core.tmpl")
+		s1, err := template.ParseFiles(coreFile)
 		if err != nil {
 			log.Println("fail to ParseFiles core.tmpl:", err)
 			panic(err)
@@ -84,6 +86,7 @@ func NewApp(chain uint64, name []byte, code []byte) {
 			log.Println("fail to create run file:", dstFileName, err)
 			panic(err)
 		}
+		defer f.Close()
 		packPath := GetPackPath(chain, name)
 		info := TAppInfo{hexToPackageName(name), packPath, filePath, chain}
 		err = s1.Execute(f, info)
@@ -92,7 +95,6 @@ func NewApp(chain uint64, name []byte, code []byte) {
 			f.Close()
 			panic(err)
 		}
-		f.Close()
 		return
 	}
 

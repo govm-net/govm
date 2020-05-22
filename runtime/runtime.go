@@ -3,10 +3,10 @@ package runtime
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/govm-net/govm/counter"
+	db "github.com/govm-net/govm/database"
+	"github.com/govm-net/govm/wallet"
 	"github.com/lengzhao/database/client"
-	"github.com/lengzhao/govm/counter"
-	db "github.com/lengzhao/govm/database"
-	"github.com/lengzhao/govm/wallet"
 	"log"
 	"reflect"
 	"strings"
@@ -160,7 +160,10 @@ func (r *TRuntime) DbSet(owner interface{}, key, value []byte, life uint64) {
 	assert(r.Chain > 0)
 	assert(r.Flag != nil)
 	tbName := GetStructName(owner)
-	value = append(value, r.Encode(0, life)...)
+	if len(value) > 0 {
+		value = append(value, r.Encode(0, life)...)
+	}
+
 	if r.testMode {
 		k := fmt.Sprintf("%s_%x", tbName, key)
 		r.dbData[k] = value

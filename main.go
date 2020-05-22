@@ -9,11 +9,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/lengzhao/govm/api"
-	"github.com/lengzhao/govm/conf"
-	"github.com/lengzhao/govm/database"
-	"github.com/lengzhao/govm/handler"
-	"github.com/lengzhao/govm/wallet"
+	"github.com/govm-net/govm/api"
+	"github.com/govm-net/govm/conf"
+	"github.com/govm-net/govm/database"
+	"github.com/govm-net/govm/handler"
+	"github.com/govm-net/govm/wallet"
 	"github.com/lengzhao/libp2p/crypto"
 	"github.com/lengzhao/libp2p/network"
 	"github.com/lengzhao/libp2p/plugins"
@@ -94,6 +94,9 @@ func main() {
 }
 
 func loadNodeKey() []byte {
+	if !conf.GetConf().SaveNodeInfo {
+		return wallet.NewPrivateKey()
+	}
 	const (
 		nodeKeyFile = "./conf/node_key.dat"
 		passwd      = "10293847561029384756"

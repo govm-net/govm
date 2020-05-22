@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/lengzhao/govm/database"
+	"github.com/govm-net/govm/database"
 	"github.com/lengzhao/libp2p"
 	"github.com/lengzhao/libp2p/plugins"
 	"net/url"
@@ -27,6 +27,9 @@ type addressInfo struct {
 }
 
 const keyMyAddr = "report_my_address"
+
+// SelfAddress node address
+var SelfAddress string
 
 // Startup is called only once when the plugin is loaded
 func (p *NATTPlugin) Startup(n libp2p.Network) {
@@ -103,6 +106,7 @@ func (p *NATTPlugin) Receive(ctx libp2p.Event) error {
 			p.info = *info
 			p.info.count++
 			p.myAddress = msg.ToAddr
+			SelfAddress = msg.ToAddr
 			// log.Println("myAddress:", p.myAddress, info.count)
 		}
 	case plugins.NatTraversal:

@@ -3,7 +3,7 @@ package wallet
 import (
 	"encoding/hex"
 	"encoding/json"
-	"github.com/lengzhao/govm/encrypt"
+	"github.com/govm-net/govm/encrypt"
 	"io/ioutil"
 	"log"
 	"os"

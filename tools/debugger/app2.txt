@@ -1,6 +1,6 @@
 package a1000000000000000000000000000000000000000000000000000000000000000
 
-import core "github.com/lengzhao/govm/app/chain1/ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c"
+import core "github.com/govm-net/govm/app/chain1/zff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
 
 type tApp struct {
 	Key   string `json:"key,omitempty"`

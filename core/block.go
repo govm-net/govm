@@ -1,25 +1,25 @@
-package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
+package zff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
 
 import (
-	"encoding/hex"
 	"fmt"
 	"log"
 	"runtime/debug"
 
-	"github.com/lengzhao/govm/conf"
-	"github.com/lengzhao/govm/database"
-	"github.com/lengzhao/govm/runtime"
-	"github.com/lengzhao/govm/wallet"
+	"github.com/govm-net/govm/conf"
+	"github.com/govm-net/govm/database"
+	"github.com/govm-net/govm/runtime"
+	"github.com/govm-net/govm/wallet"
 )
 
-const minHPLimit = 15
+// const minHPLimit = 15
+// todo
+const minHPLimit = 2
 
 // StBlock StBlock
 type StBlock struct {
 	Block
 	Key            Hash
 	sign           []byte
-	TransList      []Hash
 	HashpowerLimit uint64
 }
 
@@ -35,33 +35,21 @@ type StBlock struct {
 func NewBlock(chain uint64, producer Address) *StBlock {
 	var hashPowerLimit uint64
 	var blockInterval uint64
-	var weight uint64
 	var pStat BaseInfo
-	var miner Miner
 	out := new(StBlock)
 	getDataFormDB(chain, dbStat{}, []byte{StatBaseInfo}, &pStat)
 	getDataFormDB(chain, dbStat{}, []byte{StatHashPower}, &hashPowerLimit)
 	getDataFormDB(chain, dbStat{}, []byte{StatBlockInterval}, &blockInterval)
-	getDataFormDB(chain, dbMining{}, runtime.Encode(pStat.ID+1), &miner)
 
-	hashPowerLimit = hashPowerLimit*8/10000 + 1
-	if pStat.ID > 1 {
-		for i := 0; i < minerNum; i++ {
-			if miner.Miner[i] == producer {
-				weight = miner.Cost[i] / maxGuerdon / 5
-			}
-		}
-	}
-	if hashPowerLimit > weight+minHPLimit {
-		hashPowerLimit -= weight
-	} else {
+	hashPowerLimit = hashPowerLimit / 1000
+	if hashPowerLimit < minHPLimit {
 		hashPowerLimit = minHPLimit
 	}
 
 	out.HashpowerLimit = hashPowerLimit
 
 	if pStat.ID == 1 && chain > 1 {
-		pStat.Time = pStat.Time + blockSyncMax + blockSyncMin + maxBlockInterval
+		pStat.Time = pStat.Time + blockSyncMax + blockSyncMin + TimeSecond
 	} else {
 		pStat.Time += blockInterval
 	}
@@ -72,8 +60,6 @@ func NewBlock(chain uint64, producer Address) *StBlock {
 
 	out.Chain = chain
 	out.Index = pStat.ID + 1
-
-	out.TransList = make([]Hash, 0)
 
 	if pStat.Chain > 1 {
 		var key Hash
@@ -154,38 +140,23 @@ func getTransHash(t1, t2 Hash) Hash {
 }
 
 // SetTransList SetTransList
-func (b *StBlock) SetTransList(list []Hash) {
-	n := len(list)
-	if n == 0 {
-		b.TransListHash = Hash{}
-		return
-	}
-	b.TransList = make([]Hash, n)
-	for i, t := range list {
-		b.TransList[i] = t
-	}
-	tmpList := list
-	for len(tmpList) > 1 {
-		n := len(tmpList)
-		if n%2 != 0 {
-			tmpList = append(tmpList, Hash{})
-			n++
-			// log.Println("list number++:", n)
-		}
-		for i := 0; i < n/2; i++ {
-			tmpList[i] = getTransHash(tmpList[2*i], tmpList[2*i+1])
-		}
-		tmpList = tmpList[:n/2]
-	}
-	b.TransListHash = tmpList[0]
-	// log.Printf("TransListHash:%x", b.TransListHash)
-}
+// func (b *StBlock) SetTransList(list []Hash) {
+// 	if len(list) == 0 {
+// 		return
+// 	}
+// 	hk := GetHashOfTransList(list)
+// 	b.TransListHash = hk
+// 	var data []byte
+// 	for _, it := range list {
+// 		data = append(data, it[:]...)
+// 	}
+// 	runtime.AdminDbSet(dbTransList{}, b.Chain, hk[:], data, 2<<50)
+// }
 
 //GetSignData GetSignData
 func (b *StBlock) GetSignData() []byte {
 	b.Nonce++
 	data := runtime.Encode(b.Block)
-	data = append(data, b.streamTransList()...)
 	return data
 }
 
@@ -196,35 +167,63 @@ func (b *StBlock) SetSign(sign []byte) error {
 	return nil
 }
 
-func (b *StBlock) streamTransList() []byte {
-	var out []byte
-	for _, t := range b.TransList {
-		out = append(out, t[:]...)
-	}
-	//log.Printf("streamTransList.chain:%d,trans:%d,%x\n", b.Chain, len(b.TransList), out)
-	return out
-}
-
 // Output Output
 func (b *StBlock) Output() []byte {
 	data := make([]byte, 1, 1000)
 	data[0] = uint8(len(b.sign))
 	data = append(data, b.sign...)
 	data = append(data, runtime.Encode(b.Block)...)
-	data = append(data, b.streamTransList()...)
 	k := runtime.GetHash(data)
 	runtime.Decode(k, &b.Key)
 	return data
 }
 
-// GetTransList GetTransList
-func (b *StBlock) GetTransList() []string {
-	var out []string
-	for _, key := range b.TransList {
-		keyStr := hex.EncodeToString(key[:])
-		out = append(out, keyStr)
+// ParseTransList parse transaction list
+func ParseTransList(data []byte) []Hash {
+	if len(data) == 0 {
+		return nil
+	}
+	size := len(data)
+	num := size / HashLen
+	if num*HashLen != size {
+		return nil
+	}
+
+	transList := make([]Hash, num)
+	for i := 0; i < num; i++ {
+		n := runtime.Decode(data, &transList[i])
+		data = data[n:]
+	}
+	return transList
+}
+
+// TransListToBytes transList to bytes
+func TransListToBytes(in []Hash) []byte {
+	if len(in) == 0 {
+		return nil
+	}
+	var out []byte
+	for _, it := range in {
+		out = append(out, it[:]...)
 	}
 	return out
+}
+
+// WriteTransList write transList to db
+func WriteTransList(chain uint64, transList []Hash) error {
+	// transList := ParseTransList(data)
+	// if len(transList) == 0 {
+	// 	return fmt.Errorf("fail to parse transList")
+	// }
+	hk := GetHashOfTransList(transList)
+	data := TransListToBytes(transList)
+	return runtime.AdminDbSet(dbTransList{}, chain, hk[:], data, 2<<50)
+}
+
+// ReadTransList read trans list from db
+func ReadTransList(chain uint64, key []byte) []byte {
+	data, _ := runtime.DbGet(dbTransList{}, chain, key)
+	return data
 }
 
 // DecodeBlock decode data and check sign, check hash
@@ -248,18 +247,6 @@ func DecodeBlock(data []byte) *StBlock {
 	}
 	h := runtime.GetHash(data)
 	runtime.Decode(h, &out.Key)
-	transList := make([]Hash, len(stream)/HashLen)
-	for i := 0; i < len(transList); i++ {
-		n = runtime.Decode(stream, &transList[i])
-		stream = stream[n:]
-	}
-	listKey := Hash{}
-	copy(listKey[:], out.TransListHash[:])
-
-	out.SetTransList(transList)
-	if listKey != out.TransListHash {
-		return nil
-	}
 
 	return out
 }
@@ -290,7 +277,7 @@ func getDataFormLog(chain uint64, db interface{}, key []byte, out interface{}) {
 		return
 	}
 	stream, _ := runtime.LogRead(db, chain, key)
-	if stream != nil {
+	if len(stream) > 0 {
 		runtime.Decode(stream, out)
 	}
 }
@@ -341,38 +328,31 @@ func GetBlockTime(chain uint64) uint64 {
 }
 
 // IsMiner check miner
-func IsMiner(chain, index uint64, user []byte) bool {
-	var miner Miner
-	var addr Address
-	if len(user) != AddressLen {
-		return false
-	}
-	runtime.Decode(user, &addr)
-	getDataFormDB(chain, dbMining{}, runtime.Encode(index), &miner)
+func IsMiner(chain uint64, user []byte) bool {
+	var startBlock uint64
+	var pStat BaseInfo
+	getDataFormDB(chain, dbStat{}, []byte{StatBaseInfo}, &pStat)
+	getDataFormDB(chain, dbMiner{}, user, &startBlock)
 
-	for i := 0; i < minerNum; i++ {
-		if miner.Miner[i] == addr {
-			return true
-		}
+	if startBlock > 0 && startBlock <= pStat.ID {
+		return true
 	}
 
 	return false
 }
 
-// GetMinerInfo get miner info
-func GetMinerInfo(chain, index uint64) Miner {
-	var miner Miner
-	var guerdon uint64
-	getDataFormDB(chain, dbStat{}, []byte{StatGuerdon}, &guerdon)
-	getDataFormDB(chain, dbMining{}, runtime.Encode(index), &miner)
-	guerdon = 3*guerdon - 1
-	for i := 0; i < minerNum; i++ {
-		if miner.Cost[i] == 0 {
-			miner.Cost[i] = guerdon
+// IsAdmin is admin
+func IsAdmin(chain uint64, user []byte) bool {
+	var adminList [AdminNum]Address
+	var a Address
+	runtime.Decode(user, &a)
+	getDataFormDB(chain, dbMiner{}, []byte{StatAdmin}, &adminList)
+	for _, it := range adminList {
+		if it == a {
+			return true
 		}
 	}
-
-	return miner
+	return false
 }
 
 // BlockOnTheChain return true if the block is on the chain

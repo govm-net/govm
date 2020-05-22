@@ -8,8 +8,8 @@ import (
 	"runtime/debug"
 	"time"
 
-	core "github.com/lengzhao/govm/core"
-	"github.com/lengzhao/govm/messages"
+	core "github.com/govm-net/govm/core"
+	"github.com/govm-net/govm/messages"
 	"github.com/lengzhao/libp2p"
 )
 
@@ -33,7 +33,7 @@ const (
 	acceptOldID   = 10
 )
 
-var forceSync bool
+var forceSync bool = true
 
 func getSyncEnvKey(chain uint64, typ byte) string {
 	return fmt.Sprintf("sync_%x_%x", chain, typ)

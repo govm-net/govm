@@ -2,7 +2,6 @@ package zff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
 
 import (
 	"encoding/json"
-	"os"
 
 	"github.com/govm-net/govm/runtime"
 )
@@ -11,9 +10,11 @@ type dbBlockData struct{}
 type dbTransactionData struct{}
 type dbTransInfo struct{}
 type dbCoin struct{}
+type dbAdmin struct{}
 type dbStat struct{}
 type dbApp struct{}
 type dbDepend struct{}
+type dbMining struct{}
 type logBlockInfo struct{}
 type logSync struct{}
 
@@ -102,9 +103,11 @@ type processer struct {
 	pDbTransactionData *DB
 	pDbTransInfo       *DB
 	pDbCoin            *DB
+	pDbAdmin           *DB
 	pDbStat            *DB
 	pDbApp             *DB
 	pDbDepend          *DB
+	pDbMining          *DB
 	pLogSync           *Log
 	pLogBlockInfo      *Log
 }
@@ -155,10 +158,9 @@ const (
 	StatFirstBlockKey
 	StatChangingConfig
 	StatBroadcast
+	StatHateRatio
 	StatParentKey
 	StatUser
-	StatAdmin
-	StatTotalVotes
 )
 
 const (
@@ -176,14 +178,8 @@ const (
 	OpsUpdateAppLife
 	// OpsRegisterMiner Registered as a miner
 	OpsRegisterMiner
-	// OpsRegisterAdmin Registered as a admin
-	OpsRegisterAdmin
-	// OpsVote vote admin
-	OpsVote
-	// OpsCancelVote cancel vote
-	OpsCancelVote
-	// OpsReportError error block
-	OpsReportError
+	// OpsDisableAdmin disable admin
+	OpsDisableAdmin
 )
 
 var (
@@ -191,6 +187,9 @@ var (
 	// gPublicAddr The address of a public account for the preservation of additional rewards.
 	gPublicAddr = Address{prefixOfPlublcAddr, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
 )
+
+// ChainID ChainID
+var ChainID uint64
 
 // Empty Check whether Hash is empty
 func (h Hash) Empty() bool {
@@ -240,7 +239,8 @@ func assert(cond bool) {
 	}
 }
 
-func init() {
+// InitForTest init for test
+func InitForTest() {
 	bit := 32 << (^uint(0) >> 63)
 	assert(bit == 64)
 	gBS.pDbBlockData = GetDB(dbBlockData{})
@@ -248,38 +248,57 @@ func init() {
 	gBS.pDbTransInfo = GetDB(dbTransInfo{})
 	gBS.pDbCoin = GetDB(dbCoin{})
 	gBS.pDbCoin.free = true
+	gBS.pDbAdmin = GetDB(dbAdmin{})
+	gBS.pDbAdmin.free = true
 	gBS.pDbStat = GetDB(dbStat{})
 	gBS.pDbStat.free = true
 	gBS.pDbApp = GetDB(dbApp{})
 	gBS.pDbApp.free = true
 	gBS.pDbDepend = GetDB(dbDepend{})
 	gBS.pDbDepend.free = true
+	gBS.pDbMining = GetDB(dbMining{})
+	gBS.pDbMining.free = true
 	gBS.pLogBlockInfo = GetLog(logBlockInfo{})
 	gBS.pLogSync = GetLog(logSync{})
 
 	runt := runtime.NewRuntime("", "")
-	for _, arg := range os.Args {
-		if arg == "-mode" {
-			runt.SetTestMode()
-		}
-	}
-	runt.SetInfo({{.ChainID}}, nil)
+	runt.SetTestMode()
+	runt.SetInfo(ChainID, nil)
 	gBS.iRuntime = runt
 	stream, _ := gBS.DbGet(gBS.pDbStat.owner, []byte{StatBaseInfo})
 	if len(stream) > 0 {
 		Decode(0, stream, &gBS.BaseInfo)
-		runt.SetInfo({{.ChainID}}, gBS.Key[:])
+		runt.SetInfo(ChainID, gBS.Key[:])
 		gBS.iRuntime = runt
 	}
+}
+
+// SetCostForTest SetCostForTest
+func SetCostForTest(account Address, value uint64) {
+	adminTransfer(Address{}, account, value)
+}
+
+// SetAppAccountForTest SetAppAccountForTest
+func SetAppAccountForTest(in interface{}, value uint64) {
+	app := GetAppName(in)
+	assert(!app.Empty())
+	info := GetAppInfo(app)
+	if info == nil {
+		info = &AppInfo{}
+		gBS.Decode(0, app[:], &info.Account)
+		info.Account[0] = prefixOfPlublcAddr
+		gBS.pDbApp.Set(app[:], gBS.Encode(0, info), TimeYear)
+	}
+	adminTransfer(Address{}, info.Account, value)
 }
 
 // GetHash get data hash
 func GetHash(data []byte) Hash {
 	hashKey := Hash{}
-	if len(data) == 0 {
+	if data == nil {
 		return hashKey
 	}
-	gBS.ConsumeEnergy(gBS.BaseOpsEnergy * 10)
+	gBS.ConsumeEnergy(gBS.BaseOpsEnergy * 20)
 	hash := gBS.GetHash(data)
 	n := Decode(0, hash, &hashKey)
 	assert(n == HashLen)
@@ -305,7 +324,7 @@ func Decode(typ uint8, in []byte, out interface{}) int {
 
 // Recover recover sign
 func Recover(address, sign, msg []byte) bool {
-	gBS.ConsumeEnergy(gBS.BaseOpsEnergy * 10)
+	gBS.ConsumeEnergy(gBS.BaseOpsEnergy * 50)
 	return gBS.Recover(address, sign, msg)
 }
 
@@ -325,8 +344,8 @@ func (d *DB) Set(key, value []byte, life uint64) {
 		life = 0
 		gBS.ConsumeEnergy(gBS.BaseOpsEnergy)
 	} else if size > 200 {
-		// assert(life <= 50*TimeYear)
-		t := gBS.BaseOpsEnergy * size * (life + TimeHour - 1) / (TimeHour * 50)
+		assert(life <= 50*TimeYear)
+		t := gBS.BaseOpsEnergy * size * (life + TimeHour) / (TimeHour * 10)
 		gBS.ConsumeEnergy(t)
 	} else {
 		l := gBS.DbGetLife(d.owner, key)
@@ -337,9 +356,9 @@ func (d *DB) Set(key, value []byte, life uint64) {
 		}
 		var t uint64
 		if life > l {
-			t = gBS.BaseOpsEnergy * (life + TimeHour - l) / TimeHour
+			t = gBS.BaseOpsEnergy * 10 * (life + TimeHour - l) / TimeHour
 		} else {
-			t = gBS.BaseOpsEnergy
+			t = gBS.BaseOpsEnergy * 10
 		}
 		gBS.ConsumeEnergy(t)
 	}
@@ -467,7 +486,7 @@ func GetAppAccount(in interface{}) Address {
 func GetAppInfo(name Hash) *AppInfo {
 	out := AppInfo{}
 	val, _ := gBS.pDbApp.Get(name[:])
-	if len(val) == 0 {
+	if val == nil {
 		return nil
 	}
 	Decode(0, val, &out)
@@ -486,7 +505,7 @@ func TransferAccounts(owner interface{}, payee Address, value uint64) {
 
 func getAccount(addr Address) (uint64, uint64) {
 	v, l := gBS.pDbCoin.Get(addr[:])
-	if len(v) == 0 {
+	if v == nil {
 		return 0, 0
 	}
 	var val uint64
@@ -607,13 +626,163 @@ func UpdateAppLife(AppName Hash, life uint64) {
 
 /*------------------------------api---------------------------------------*/
 
+// AdminInfo register as a admin
+type AdminInfo struct {
+	App   Hash
+	Cost  uint64
+	Index uint8
+}
+
+// RegisterAdmin app register as a admin
+func RegisterAdmin(app interface{}, index uint8, cost uint64) {
+	info := AdminInfo{}
+	guerdon := gBS.pDbStat.GetInt([]byte{StatGuerdon})
+
+	c := (adminLife/TimeDay)*guerdon + maxGuerdon
+	assert(cost > c)
+
+	owner := GetAppAccount(app)
+	assert(owner[0] == prefixOfPlublcAddr)
+
+	adminTransfer(owner, gPublicAddr, cost)
+	info.App = GetAppName(app)
+	info.Index = index
+	info.Cost = cost
+	stream, _ := gBS.pDbAdmin.Get([]byte{index})
+	if len(stream) > 0 {
+		older := AdminInfo{}
+		Decode(0, stream, &older)
+		if older.App != info.App {
+			assert(info.Cost > older.Cost+guerdon)
+			gBS.pDbAdmin.Set(older.App[:], nil, 0)
+		} else {
+			info.Cost += older.Cost / 2
+		}
+	}
+
+	gBS.pDbAdmin.Set([]byte{index}, Encode(0, info), adminLife)
+	gBS.pDbAdmin.SetInt(info.App[:], 1, adminLife)
+	Event(dbAdmin{}, "new_admin", info.App[:])
+}
+
 // Event send event
 func Event(user interface{}, event string, param ...[]byte) {
 	gBS.Event(user, event, param...)
 }
 
+// UpdateConfig admin change the config
+func UpdateConfig(user interface{}, ops uint8, newSize uint32) {
+	app := GetAppName(user)
+	assert(gBS.pDbAdmin.GetInt(app[:]) == 1)
+	assert(gBS.pDbStat.GetInt([]byte{StatChangingConfig}) == 0)
+	gBS.pDbStat.SetInt([]byte{StatChangingConfig}, 1, TimeMillisecond)
+	var min, max uint64
+	switch ops {
+	case StatBlockSizeLimit:
+		min = blockSizeLimit
+		max = 1<<32 - 1
+	case StatBlockInterval:
+		min = minBlockInterval
+		max = maxBlockInterval
+	case StatHateRatio:
+		assert(gBS.Chain == 1)
+		min = 50
+		max = hateRatioMax
+	default:
+		assert(false)
+	}
+	v := uint64(newSize)
+	s := gBS.pDbStat.GetInt([]byte{ops})
+	if s == 0 {
+		s = max + min/2
+	}
+	rangeVal := s/100 + 1
+	assert(v <= s+rangeVal)
+	assert(v >= s-rangeVal)
+	assert(v >= min)
+	assert(v <= max)
+	gBS.pDbStat.SetInt([]byte{ops}, v, maxDbLife)
+
+	owner := GetAppAccount(user)
+	guerdon := gBS.pDbStat.GetInt([]byte{StatGuerdon})
+	adminTransfer(owner, gPublicAddr, maxGuerdon+guerdon*(defauldbLife/TimeDay))
+	if ops == StatHateRatio {
+		if gBS.LeftChildID > 0 {
+			addSyncInfo(2, ops, Encode(0, v))
+		}
+		if gBS.RightChildID > 0 {
+			addSyncInfo(3, ops, Encode(0, v))
+		}
+	}
+	Event(dbStat{}, "ChangeConfig", []byte{ops}, Encode(0, v))
+}
+
+// BroadcastInfo broadcase info
+type BroadcastInfo struct {
+	BlockKey Hash
+	App      Hash
+	LFlag    byte
+	RFlag    byte
+	// Other   []byte
+}
+
+// Broadcast admin broadcast info to all chain from first chain
+func Broadcast(user interface{}, msg []byte) {
+	app := GetAppName(user)
+	assert(gBS.pDbAdmin.GetInt(app[:]) == 1)
+	assert(gBS.Chain == 1)
+	data, _ := gBS.pDbStat.Get([]byte{StatBroadcast})
+	assert(len(data) == 0)
+	assert(gBS.LeftChildID > 0)
+	gBS.ConsumeEnergy(maxGuerdon)
+	info := BroadcastInfo{}
+	info.BlockKey = gBS.Key
+	info.App = app
+	if gBS.RightChildID == 0 {
+		info.RFlag = 1
+	}
+	d := Encode(0, info)
+	d = append(d, msg...)
+	addSyncInfo(2, SyncOpsBroadcast, d)
+	if gBS.RightChildID > 0 {
+		addSyncInfo(3, SyncOpsBroadcast, d)
+	}
+	gBS.pDbStat.Set([]byte{StatBroadcast}, d, logLockTime*2)
+}
+
+// DeleteAccount Delete long unused accounts(more than 5 years),call by admin
+func DeleteAccount(user interface{}, addr Address) {
+	app := GetAppName(user)
+	assert(gBS.pDbAdmin.GetInt(app[:]) == 1)
+	assert(!addr.Empty())
+	val, life := getAccount(addr)
+	if life+5*TimeYear > maxDbLife {
+		return
+	}
+	l := maxDbLife - life
+	t := gBS.BaseOpsEnergy << (l / TimeYear)
+	if t < val {
+		return
+	}
+	adminTransfer(addr, gPublicAddr, t)
+	Event(dbStat{}, "DeleteAccount", addr[:])
+}
+
+// IHateYou It's just a joke.
+func IHateYou(user interface{}, peer Address, cost uint64) {
+	app := GetAppName(user)
+	assert(gBS.pDbAdmin.GetInt(app[:]) == 1)
+	assert(!peer.Empty())
+	ratio := gBS.pDbStat.GetInt([]byte{StatHateRatio})
+	pc := cost / ratio
+	assert(pc > 0)
+	TransferAccounts(user, gPublicAddr, cost)
+	adminTransfer(peer, gPublicAddr, pc)
+	Event(dbAdmin{}, "IHateYou", peer[:], Encode(0, cost))
+}
+
 // GetDBData get data by name.
-// name list:dbTransInfo,dbCoin,dbStat,dbApp,logBlockInfo,logSync
+// name list:dbTransInfo,dbCoin,dbAdmin,dbStat,dbApp,dbHate,dbMining,depend,logBlockInfo,logSync
 func GetDBData(name string, key []byte) ([]byte, uint64) {
 	var db *DB
 	switch name {
@@ -621,10 +790,16 @@ func GetDBData(name string, key []byte) ([]byte, uint64) {
 		db = gBS.pDbTransInfo
 	case "dbCoin":
 		db = gBS.pDbCoin
+	case "dbAdmin":
+		db = gBS.pDbAdmin
 	case "dbStat":
 		db = gBS.pDbStat
 	case "dbApp":
 		db = gBS.pDbApp
+	case "dbMining":
+		db = gBS.pDbMining
+	case "depend":
+		db = gBS.pDbDepend
 	case "logBlockInfo":
 		return gBS.pLogBlockInfo.Read(0, key), 0
 	case "logSync":

@@ -128,7 +128,7 @@
                 $("#balance" + id).html("<b><p title='" + fmoney(data.cost) + "'>" + getValueWithBase(data.cost, gCostBase) + "</p></b>");
 
                 // get coinsLock
-                var urlStr = "/api/v1/" + chain + "/data?app_name=e4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c";
+                var urlStr = "/api/v1/" + chain + "/data?app_name=ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
                 urlStr += "&is_db_data=true&key=" + data.address
                 $.get(urlStr + "&struct_name=statCoinLock", function (data, status) {
                     if (status != "success") {

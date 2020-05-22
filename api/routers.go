@@ -90,13 +90,6 @@ var routes = Routes{
 	},
 
 	Route{
-		"TransactionMinerGet",
-		strings.ToUpper("Get"),
-		"/api/v1/{chain}/transaction/miner",
-		TransactionMinerGet,
-	},
-
-	Route{
 		"TransactionMinerPost",
 		strings.ToUpper("Post"),
 		"/api/v1/{chain}/transaction/miner",
@@ -167,17 +160,17 @@ var routes = Routes{
 	},
 
 	Route{
-		"BlockRollback",
-		strings.ToUpper("Delete"),
-		"/api/v1/{chain}/block/rollback",
-		BlockRollback,
-	},
-
-	Route{
 		"TrustedBlockGet",
 		strings.ToUpper("Get"),
 		"/api/v1/{chain}/block/trusted",
 		TrustedBlockGet,
+	},
+
+	Route{
+		"MiningBlockGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/block/mining",
+		MiningBlockGet,
 	},
 
 	Route{
@@ -232,6 +225,12 @@ var routes = Routes{
 		strings.ToUpper("Get"),
 		"/api/v1/nodes",
 		NodesGet,
+	},
+	Route{
+		"NodeAddressGet",
+		strings.ToUpper("Get"),
+		"/api/v1/node_addr",
+		NodeAddressGet,
 	},
 	Route{
 		"VersionGet",

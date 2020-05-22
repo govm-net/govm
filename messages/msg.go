@@ -42,6 +42,19 @@ type TransactionInfo struct {
 	User  []byte
 }
 
+// ReqTransList request transaction list
+type ReqTransList struct {
+	Chain uint64
+	Key   []byte
+}
+
+// TransactionList response transaction list
+type TransactionList struct {
+	Chain uint64
+	Key   []byte
+	Data  []byte
+}
+
 // ReqTransaction request transaction data
 type ReqTransaction struct {
 	Chain uint64
@@ -55,18 +68,14 @@ type TransactionData struct {
 	Data  []byte
 }
 
-// Miner tell peer self is miner
-type Miner struct {
-	Chain uint64
-}
-
 func init() {
 	gob.Register(&ReqBlockInfo{})
 	gob.Register(&BlockInfo{})
 	gob.Register(&ReqBlock{})
 	gob.Register(&BlockData{})
+	gob.Register(&ReqTransList{})
+	gob.Register(&TransactionList{})
 	gob.Register(&TransactionInfo{})
 	gob.Register(&ReqTransaction{})
 	gob.Register(&TransactionData{})
-	gob.Register(&Miner{})
 }

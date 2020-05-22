@@ -1,15 +1,13 @@
-package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
+package zff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
 
 import (
-	"bytes"
 	"encoding/hex"
 	"errors"
 	"log"
 	"time"
 
-	"github.com/lengzhao/govm/conf"
-	"github.com/lengzhao/govm/runtime"
-	"github.com/lengzhao/govm/wallet"
+	"github.com/govm-net/govm/runtime"
+	"github.com/govm-net/govm/wallet"
 )
 
 // StTrans 交易的结构体
@@ -95,7 +93,7 @@ func (t *StTrans) CreateRunApp(app Hash, cost uint64, data []byte) {
 	t.Cost = cost
 	t.Ops = OpsRunApp
 	t.Data = app[:]
-	if data != nil {
+	if len(data) > 0 {
 		t.Data = append(t.Data, data...)
 	}
 	energy := 20*uint64(len(t.Data)) + 10000
@@ -114,17 +112,29 @@ func (t *StTrans) CreateUpdateAppLife(app Hash, life uint64) {
 	t.Data = runtime.Encode(info)
 }
 
-const (
-	// MinerNum number of miner pre block
-	MinerNum = 11
-)
-
 // CreateRegisterMiner RegisterMiner
-func (t *StTrans) CreateRegisterMiner(chain, index, cost uint64) {
-	info := RegMiner{chain, index}
+func (t *StTrans) CreateRegisterMiner(chain, cost uint64, peer []byte) {
 	t.Cost = cost
 	t.Ops = OpsRegisterMiner
-	t.Data = runtime.Encode(info)
+	if chain != 0 && chain != t.Chain {
+		t.Data = runtime.Encode(chain)
+	} else if len(peer) > 0 {
+		t.Data = runtime.Encode(chain)
+		t.Data = append(t.Data, peer...)
+	}
+}
+
+// CreateRegisterAdmin RegisterAdmin
+func (t *StTrans) CreateRegisterAdmin(cost uint64) {
+	t.Cost = cost
+	t.Ops = OpsRegisterAdmin
+}
+
+// VoteAdmin VoteAdmin
+func (t *StTrans) VoteAdmin(cost uint64, admin []byte) {
+	t.Cost = cost
+	t.Ops = OpsVote
+	t.Data = admin
 }
 
 // DecodeTrans decode transaction data
@@ -166,25 +176,19 @@ func IsExistTransaction(chain uint64, key []byte) bool {
 
 // WriteTransaction write transaction data to database
 func WriteTransaction(chain uint64, data []byte) error {
-	key := runtime.GetHash(data)
-
-	exist := runtime.DbExist(dbTransactionData{}, chain, key)
-	if exist {
-		return nil
-	}
 	trans := DecodeTrans(data)
 	if trans == nil {
 		return errors.New("error trans")
 	}
-
+	exist := runtime.DbExist(dbTransactionData{}, chain, trans.Key)
+	if exist {
+		return nil
+	}
 	if trans.Chain != chain {
-		c := conf.GetConf()
-		if bytes.Compare(key, c.FirstTransName) != 0 {
-			return errors.New("error trans")
-		}
+		return errors.New("error chain")
 	}
 
-	return runtime.AdminDbSet(dbTransactionData{}, chain, key, data, 2<<50)
+	return runtime.AdminDbSet(dbTransactionData{}, chain, trans.Key, data, 2<<50)
 }
 
 // DeleteTransaction delete Transaction
@@ -285,12 +289,19 @@ func GetTransInfo(chain uint64, key []byte) TransInfo {
 	return out
 }
 
+// GetAdminList get admin list
+func GetAdminList(chain uint64) [AdminNum]Address {
+	var out [AdminNum]Address
+	getDataFormDB(chain, dbStat{}, []byte{StatAdmin}, &out)
+	return out
+}
+
 func getDataFormDB(chain uint64, db interface{}, key []byte, out interface{}) {
 	if chain == 0 {
 		return
 	}
 	stream, _ := runtime.DbGet(db, chain, key)
-	if stream != nil {
+	if len(stream) > 0 {
 		runtime.Decode(stream, out)
 	}
 }
