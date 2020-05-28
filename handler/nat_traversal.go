@@ -1,12 +1,13 @@
 package handler
 
 import (
-	"github.com/govm-net/govm/database"
-	"github.com/lengzhao/libp2p"
-	"github.com/lengzhao/libp2p/plugins"
 	"net/url"
 	"sync"
 	"time"
+
+	"github.com/govm-net/govm/database"
+	"github.com/lengzhao/libp2p"
+	"github.com/lengzhao/libp2p/plugins"
 )
 
 // NATTPlugin nat traversal
@@ -38,6 +39,7 @@ func (p *NATTPlugin) Startup(n libp2p.Network) {
 	p.addrs = database.NewLRUCache(1000)
 	u, _ := url.Parse(n.GetAddress())
 	p.sid = u.User.Username()
+	SelfAddress = n.GetAddress()
 }
 
 // PeerConnect peer connect

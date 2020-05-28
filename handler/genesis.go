@@ -2,18 +2,14 @@ package handler
 
 import (
 	"fmt"
-	"github.com/govm-net/govm/wallet"
 	"os"
 	"time"
 
 	"github.com/govm-net/govm/conf"
 	core "github.com/govm-net/govm/core"
 	"github.com/govm-net/govm/runtime"
+	"github.com/govm-net/govm/wallet"
 )
-
-// func init() {
-// 	time.AfterFunc(time.Second*10, createFirstBlock)
-// }
 
 func createFirstBlock() {
 	t := time.Date(2020, 5, 22, 0, 0, 0, 0, time.UTC)
@@ -23,7 +19,10 @@ func createFirstBlock() {
 		return
 	}
 	fmt.Println("start to create first block")
+
 	c := conf.GetConf()
+	conf.LoadWallet(c.WalletFile, c.Password)
+
 	block := new(core.StBlock)
 	block.Index = 1
 	// block.Time = uint64(time.Now().Unix()-10) * 1000
@@ -51,7 +50,7 @@ func createFirstBlock() {
 		rel := getReliability(block)
 		core.WriteBlock(1, data)
 		SaveBlockReliability(1, block.Key[:], rel)
-		setBlockToIDBlocks(1, 1, block.Key, 100)
+		setIDBlocks(1, 1, block.Key, 100)
 
 		fmt.Printf("create first block.key:%x\n", block.Key)
 		go processEvent(1)

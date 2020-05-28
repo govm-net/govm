@@ -16,9 +16,10 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"golang.org/x/net/websocket"
 )
 
-// Route 单个http路由信息的结构体
+// Route route item
 type Route struct {
 	Name        string
 	Method      string
@@ -26,8 +27,18 @@ type Route struct {
 	HandlerFunc http.HandlerFunc
 }
 
-// Routes 路由列表
+// WSRoute websocket route item
+type WSRoute struct {
+	Name        string
+	Pattern     string
+	HandlerFunc websocket.Handler
+}
+
+// Routes route list
 type Routes []Route
+
+// WSRoutes websocket route list
+type WSRoutes []WSRoute
 
 // NewRouter 创建http路由
 func NewRouter() *mux.Router {
@@ -44,6 +55,10 @@ func NewRouter() *mux.Router {
 			Name(route.Name).
 			Handler(handler)
 	}
+	for _, route := range wsRoutes {
+		router.Handle(route.Pattern, websocket.Handler(route.HandlerFunc))
+	}
+	// http.Handle("/readWrite", websocket.Handler(WSBlockForMining))
 
 	router.Methods("GET").Path("/api/v1/").Name("Index").HandlerFunc(Index)
 	router.Handle("/debug/vars", Logger(expvar.Handler(), "expvar"))
@@ -52,7 +67,7 @@ func NewRouter() *mux.Router {
 	return router
 }
 
-// Index api接口的默认的处理函数
+// Index api for test
 func Index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello World!\n")
 	for _, route := range routes {
@@ -215,6 +230,20 @@ var routes = Routes{
 	},
 
 	Route{
+		"AdminsGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/admins",
+		AdminsGet,
+	},
+
+	Route{
+		"AdminInfoGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/admin",
+		AdminInfoGet,
+	},
+
+	Route{
 		"AddNode",
 		strings.ToUpper("Post"),
 		"/api/v1/node",
@@ -255,5 +284,13 @@ var routes = Routes{
 		strings.ToUpper("Get"),
 		"/api/v1/time",
 		TimeGet,
+	},
+}
+
+var wsRoutes = WSRoutes{
+	WSRoute{
+		"blockForMining",
+		"/api/v1/{chain}/ws/mining",
+		WSBlockForMining,
 	},
 }

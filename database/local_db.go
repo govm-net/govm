@@ -3,11 +3,12 @@ package database
 import (
 	"bytes"
 	"fmt"
-	"github.com/boltdb/bolt"
 	"log"
 	"os"
 	"path"
 	"sync"
+
+	"github.com/boltdb/bolt"
 )
 
 type table map[string][]byte

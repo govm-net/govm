@@ -30,8 +30,8 @@ func NewTransaction(chain uint64, user Address) *StTrans {
 	out := StTrans{}
 	out.Chain = chain
 	out.User = user
-	out.Time = uint64(time.Now().Unix()*1000) - blockSyncMax
-	out.Energy = 10000000
+	out.Time = uint64(time.Now().Unix() * 1000)
+	out.Energy = 1000000
 	return &out
 }
 
@@ -112,20 +112,21 @@ func (t *StTrans) CreateUpdateAppLife(app Hash, life uint64) {
 	t.Data = runtime.Encode(info)
 }
 
-// CreateRegisterMiner RegisterMiner
-func (t *StTrans) CreateRegisterMiner(chain, cost uint64, peer []byte) {
+// RegisterMiner RegisterMiner
+func (t *StTrans) RegisterMiner(chain, cost uint64, peer []byte) {
 	t.Cost = cost
 	t.Ops = OpsRegisterMiner
 	if chain != 0 && chain != t.Chain {
 		t.Data = runtime.Encode(chain)
-	} else if len(peer) > 0 {
+	}
+	if len(peer) > 0 {
 		t.Data = runtime.Encode(chain)
 		t.Data = append(t.Data, peer...)
 	}
 }
 
-// CreateRegisterAdmin RegisterAdmin
-func (t *StTrans) CreateRegisterAdmin(cost uint64) {
+// RegisterAdmin RegisterAdmin(candidates)
+func (t *StTrans) RegisterAdmin(cost uint64) {
 	t.Cost = cost
 	t.Ops = OpsRegisterAdmin
 }
@@ -214,17 +215,18 @@ func DecodeOpsDataOfTrans(ops uint8, data []byte) map[string]interface{} {
 	out := make(map[string]interface{})
 	switch ops {
 	case OpsTransfer:
-		peer := Address{}
-		runtime.Decode(data, &peer)
-		out["peer"] = peer
+		out["ops"] = "Transfer"
+		// peer := Address{}
+		// runtime.Decode(data, &peer)
+		out["peer"] = hex.EncodeToString(data[:AddressLen])
 		out["info"] = hex.EncodeToString(data[AddressLen:])
-		return out
 	case OpsMove:
+		out["ops"] = "Move"
 		var chain uint64
 		runtime.Decode(data, &chain)
 		out["peer"] = chain
-		return out
 	case OpsNewApp:
+		out["ops"] = "NewAPP"
 		ni := newAppInfo{}
 		runtime.Decode(data, &ni)
 		key := runtime.GetHash(data)
@@ -247,32 +249,49 @@ func DecodeOpsDataOfTrans(ops uint8, data []byte) map[string]interface{} {
 		}
 		out["depend_num"] = ni.DependNum
 		out["line_num"] = ni.LineNum
-		return out
 	case OpsRunApp:
+		out["ops"] = "RunAPP"
 		name := Hash{}
 		n := runtime.Decode(data, &name)
-		out["name"] = name
+		out["name"] = hex.EncodeToString(name[:])
 		out["data"] = hex.EncodeToString(data[n:])
-		return out
 	case OpsNewChain:
+		out["ops"] = "NewChain"
 		var chain uint64
 		runtime.Decode(data, &chain)
 		out["peer"] = chain
-		return out
 	case OpsUpdateAppLife:
 		info := UpdateInfo{}
 		runtime.Decode(data, &info)
-		out["Name"] = info.Name
+		out["Name"] = hex.EncodeToString(info.Name[:])
 		out["Life"] = info.Life
-		return out
 	case OpsRegisterMiner:
-		info := RegMiner{}
-		runtime.Decode(data, &info)
-		out["index"] = info.Index
-		out["chain"] = info.Chain
-		return out
+		out["ops"] = "RegisterMiner"
+		var dstChain uint64
+		if len(data) > 0 {
+			n := runtime.Decode(data, &dstChain)
+			if len(data) > AddressLen {
+				var miner Address
+				runtime.Decode(data[n:], &miner)
+				out["miner"] = hex.EncodeToString(miner[:])
+			}
+		}
+		out["chain"] = dstChain
+	case OpsRegisterAdmin:
+		out["ops"] = "RegisterAdmin"
+	case OpsUnvote:
+		out["ops"] = "Unvote"
+		if len(data) > 0 {
+			out["voter"] = hex.EncodeToString(data)
+		}
+	case OpsVote:
+		out["ops"] = "Vote"
+		if len(data) < AddressLen {
+			break
+		}
+		out["admin"] = hex.EncodeToString(data[:AddressLen])
 	}
-	return nil
+	return out
 }
 
 // GetAppInfoOfChain get app information
@@ -290,9 +309,16 @@ func GetTransInfo(chain uint64, key []byte) TransInfo {
 }
 
 // GetAdminList get admin list
-func GetAdminList(chain uint64) [AdminNum]Address {
+func GetAdminList(chain uint64) []Address {
 	var out [AdminNum]Address
 	getDataFormDB(chain, dbStat{}, []byte{StatAdmin}, &out)
+	return out[:]
+}
+
+// GetAdminInfo get admin info
+func GetAdminInfo(chain uint64, addr Address) AdminInfo {
+	var out AdminInfo
+	getDataFormDB(chain, dbAdmin{}, addr[:], &out)
 	return out
 }
 

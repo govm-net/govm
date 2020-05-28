@@ -31,12 +31,14 @@ type TConfig struct {
 	CheckBlock      bool   `json:"check_block,omitempty"`
 	AutoRollback    bool   `json:"auto_rollback,omitempty"`
 	SaveNodeInfo    bool   `json:"save_node_info,omitempty"`
+	NetID           string `json:"net_id,omitempty"`
+	OneConnPerMiner bool   `json:"one_conn_per_miner,omitempty"`
 }
 
 var (
 	conf TConfig
 	// Version software version
-	Version string = "v0.4.6"
+	Version string = "v0.5.0"
 	// BuildTime build time
 	BuildTime string
 	// GitHead git head
@@ -60,7 +62,14 @@ func init() {
 func loadConfig() error {
 	conf.CheckBlock = true
 	conf.AutoRollback = true
-	data, err := ioutil.ReadFile("./conf/conf.json")
+	fn := "./conf/conf.json"
+	if _, err := os.Stat(fn); os.IsNotExist(err) {
+		data, _ := ioutil.ReadFile("./conf/conf.bak.json")
+		if len(data) > 0 {
+			ioutil.WriteFile(fn, data, 0666)
+		}
+	}
+	data, err := ioutil.ReadFile(fn)
 	if err != nil {
 		log.Println("fail to read file,conf.json")
 		return err

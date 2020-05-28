@@ -7,8 +7,6 @@ import (
 	"github.com/govm-net/govm/runtime"
 )
 
-type dbBlockData struct{}
-type dbTransactionData struct{}
 type dbTransInfo struct{}
 type dbCoin struct{}
 type dbStat struct{}
@@ -98,8 +96,6 @@ type BaseInfo struct {
 type processer struct {
 	BaseInfo
 	iRuntime
-	pDbBlockData       *DB
-	pDbTransactionData *DB
 	pDbTransInfo       *DB
 	pDbCoin            *DB
 	pDbStat            *DB
@@ -180,8 +176,8 @@ const (
 	OpsRegisterAdmin
 	// OpsVote vote admin
 	OpsVote
-	// OpsCancelVote cancel vote
-	OpsCancelVote
+	// OpsUnvote unvote
+	OpsUnvote
 	// OpsReportError error block
 	OpsReportError
 )
@@ -199,6 +195,9 @@ func (h Hash) Empty() bool {
 
 // MarshalJSON marshal by base64
 func (h Hash) MarshalJSON() ([]byte, error) {
+	if h.Empty() {
+		return json.Marshal(nil)
+	}
 	return json.Marshal(h[:])
 }
 
@@ -220,6 +219,9 @@ func (a Address) Empty() bool {
 
 // MarshalJSON marshal by base64
 func (a Address) MarshalJSON() ([]byte, error) {
+	if a.Empty() {
+		return json.Marshal(nil)
+	}
 	return json.Marshal(a[:])
 }
 
@@ -243,8 +245,6 @@ func assert(cond bool) {
 func init() {
 	bit := 32 << (^uint(0) >> 63)
 	assert(bit == 64)
-	gBS.pDbBlockData = GetDB(dbBlockData{})
-	gBS.pDbTransactionData = GetDB(dbTransactionData{})
 	gBS.pDbTransInfo = GetDB(dbTransInfo{})
 	gBS.pDbCoin = GetDB(dbCoin{})
 	gBS.pDbCoin.free = true
@@ -551,7 +551,7 @@ func MoveCost(user interface{}, chain, cost uint64) {
 			assert(gBS.RightChildID > 0)
 		}
 	}
-	gBS.ConsumeEnergy(1000 * gBS.BaseOpsEnergy)
+	gBS.ConsumeEnergy(500 * gBS.BaseOpsEnergy)
 	addr := GetAppAccount(user)
 	adminTransfer(addr, Address{}, cost)
 	stru := syncMoveInfo{addr, cost}

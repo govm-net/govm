@@ -19,8 +19,8 @@ const minHPLimit = 2
 type StBlock struct {
 	Block
 	Key            Hash
-	sign           []byte
 	HashpowerLimit uint64
+	sign           []byte
 }
 
 // NewBlock new block
@@ -226,6 +226,11 @@ func ReadTransList(chain uint64, key []byte) []byte {
 	return data
 }
 
+// TransListExist return true when transList exist
+func TransListExist(chain uint64, key []byte) bool {
+	return runtime.DbExist(dbTransList{}, chain, key)
+}
+
 // DecodeBlock decode data and check sign, check hash
 func DecodeBlock(data []byte) *StBlock {
 	out := new(StBlock)
@@ -346,7 +351,7 @@ func IsAdmin(chain uint64, user []byte) bool {
 	var adminList [AdminNum]Address
 	var a Address
 	runtime.Decode(user, &a)
-	getDataFormDB(chain, dbMiner{}, []byte{StatAdmin}, &adminList)
+	getDataFormDB(chain, dbStat{}, []byte{StatAdmin}, &adminList)
 	for _, it := range adminList {
 		if it == a {
 			return true

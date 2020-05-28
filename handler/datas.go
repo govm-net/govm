@@ -15,6 +15,8 @@ import (
 	"github.com/govm-net/govm/conf"
 	core "github.com/govm-net/govm/core"
 	"github.com/govm-net/govm/database"
+	"github.com/govm-net/govm/event"
+	"github.com/govm-net/govm/messages"
 	"github.com/govm-net/govm/runtime"
 )
 
@@ -32,11 +34,9 @@ const (
 	ldbIDBlocks       = "id_blocks"       //index:blocks
 	ldbSyncBlocks     = "sync_blocks"     //index:blockKey
 	ldbTransList      = "trans_list"      //blockKey:transList
-	ldbTransInfo      = "trans_info"      //transKey:info
 	ldbAllTransInfo   = "all_trans_info"  //transKey:info
 	ldbInputTrans     = "input_trans"     //receive transfer,timeKey:transKey
 	ldbOutputTrans    = "output_trans"    //create by self,timeKey:transKey
-	ldbBlockLocked    = "block_locked"    //key:n
 	ldbDownloading    = "downloading"     //key:time
 	ldbReliability    = "reliability"     //blockKey:relia
 	ldbBroadcastTrans = "broadcast_trans" //key:1
@@ -49,10 +49,11 @@ const acceptTimeDeference = 120
 var ldb *database.LDB
 var timeDifference int64
 var firstUpdateTime bool = true
+var transForMinging map[uint64][]*transInfo
 
 // Init init
 func Init() {
-	ldb = database.NewLDB("", 10000)
+	ldb = database.NewLDB("local.db", 10000)
 	if ldb == nil {
 		log.Println("fail to open ldb,local.db")
 		os.Exit(2)
@@ -61,13 +62,12 @@ func Init() {
 	ldb.SetNotDisk(ldbIDBlocks, 10000)
 	ldb.SetNotDisk(ldbSyncBlocks, 10000)
 	ldb.SetNotDisk(ldbTransList, 1000)
-	ldb.SetNotDisk(ldbTransInfo, 10000)
-	ldb.SetNotDisk(ldbBlockLocked, 10000)
 	ldb.SetNotDisk(ldbDownloading, 2000)
 	ldb.SetNotDisk(ldbReliability, 50000)
 	ldb.SetNotDisk(ldbAllTransInfo, 50000)
 	ldb.SetNotDisk(ldbBroadcastTrans, 50000)
 	ldb.SetNotDisk(ldbStatus, 10000)
+	transForMinging = make(map[uint64][]*transInfo)
 	time.AfterFunc(time.Second*5, updateTimeDifference)
 	time.AfterFunc(time.Second*2, startCheckBlock)
 }
@@ -164,6 +164,7 @@ func GetTransList(chain uint64, key []byte) []core.Hash {
 type transInfo struct {
 	core.TransactionHead
 	Key      core.Hash
+	Flag     int64
 	Size     uint32
 	Stat     uint32
 	Selected uint32
@@ -171,8 +172,8 @@ type transInfo struct {
 
 func saveTransInfo(chain uint64, key []byte, info transInfo) {
 	value := runtime.Encode(info)
-	ldb.LSet(chain, ldbTransInfo, key, value)
 	ldb.LSet(chain, ldbAllTransInfo, key, value)
+	pushTransInfo(chain, &info)
 }
 
 func readTransInfo(chain uint64, key []byte) transInfo {
@@ -184,17 +185,29 @@ func readTransInfo(chain uint64, key []byte) transInfo {
 	return out
 }
 
-func getNextTransInfo(chain uint64, preKey []byte) transInfo {
-	out := transInfo{}
-	_, v := ldb.LGetNext(chain, ldbTransInfo, preKey)
-	if len(v) > 0 {
-		runtime.Decode(v, &out)
+func pushTransInfo(chain uint64, info *transInfo) {
+	procMgr.mu.Lock()
+	defer procMgr.mu.Unlock()
+	lst := transForMinging[chain]
+	if lst == nil {
+		lst = make([]*transInfo, 0)
 	}
-	return out
+	lst = append(lst, info)
+	transForMinging[chain] = lst
+	// log.Println("transInfo list1:", len(lst))
 }
 
-func deleteTransInfo(chain uint64, key []byte) {
-	ldb.LSet(chain, ldbTransInfo, key, nil)
+func popTransInfo(chain uint64) *transInfo {
+	procMgr.mu.Lock()
+	defer procMgr.mu.Unlock()
+	lst := transForMinging[chain]
+	// log.Println("transInfo list2:", len(lst))
+	if len(lst) == 0 {
+		return nil
+	}
+	out := lst[0]
+	transForMinging[chain] = lst[1:]
+	return out
 }
 
 // HistoryItem history item
@@ -245,26 +258,6 @@ func getData(chain uint64, tb string, key []byte, value interface{}) {
 		return
 	}
 	runtime.Decode(v, value)
-}
-
-func getBlockLockNum(chain uint64, key []byte) uint64 {
-	var out uint64
-	rst := ldb.LGet(chain, ldbBlockLocked, key)
-	if len(rst) >= 8 {
-		runtime.Decode(rst, &out)
-	}
-	return out
-}
-
-func setBlockLockNum(chain uint64, key []byte, val uint64) {
-	var old uint64
-	rst := ldb.LGet(chain, ldbBlockLocked, key)
-	if len(rst) >= 8 {
-		runtime.Decode(rst, &old)
-	}
-	if val > old {
-		ldb.LSet(chain, ldbBlockLocked, key, runtime.Encode(val))
-	}
 }
 
 var dlMutex sync.Mutex
@@ -344,9 +337,6 @@ func (r TReliability) Cmp(y TReliability) int {
 	if r.HashPower < y.HashPower {
 		return -1
 	}
-	if r.Miner {
-		return 0
-	}
 	for i, b := range r.Key {
 		if b > y.Key[i] {
 			return -1
@@ -383,7 +373,7 @@ func (r *TReliability) Recalculation(chain uint64) {
 			if id < uint64(i) {
 				id += core.AdminNum
 			}
-			hp = id - uint64(i)
+			hp = id - uint64(i) + 50
 			r.Miner = true
 			break
 		}
@@ -393,9 +383,10 @@ func (r *TReliability) Recalculation(chain uint64) {
 	power += (parent.HashPower / 4)
 	power += preRel.HashPower
 	power -= (preRel.HashPower >> 40)
-	if r.Producer == preRel.Producer {
-		power = 1
+	if r.Producer == preRel.Producer && power > core.AdminNum {
+		power -= core.AdminNum
 	}
+	// log.Printf("rel,chain:%d,key:%x,index:%d,hp:%d\n", chain, r.Key, r.Index, power)
 
 	r.HashPower = power
 }
@@ -489,29 +480,44 @@ func needBroadcastBlock(chain uint64, rel TReliability) bool {
 	if rel.Cmp(best) <= 0 {
 		return false
 	}
+
+	log.Printf("new best,chain:%d,key:%x,index:%d,hp:%d,old hp:%d,old_id:%d,old_key:%x\n",
+		chain, rel.Key, rel.Index, rel.HashPower,
+		best.HashPower, best.Index, best.Key)
 	stream, _ = json.Marshal(rel)
 	ldb.LSet(chain, ldbStatus, dbKey, stream)
 
-	return false
+	return true
 }
 
 // GetBlockForMining get block info for mine
-func GetBlockForMining(chain uint64) *core.Block {
-	var out core.Block
+func GetBlockForMining(chain uint64) *core.StBlock {
+	var out core.StBlock
 	var dbKey = []byte("mining")
 	data := ldb.LGet(chain, ldbStatus, dbKey)
 	if len(data) == 0 {
 		return nil
 	}
-	runtime.Decode(data, &out)
+	err := json.Unmarshal(data, &out)
+	if err != nil {
+		log.Println("fail to unmarshal.", err)
+		return nil
+	}
 	if out.Time+tMinute < getCoreTimeNow() {
 		return nil
 	}
 	return &out
 }
 
-func setBlockForMining(chain uint64, block core.Block) {
+func setBlockForMining(chain uint64, block core.StBlock) {
 	var dbKey = []byte("mining")
-	data := runtime.Encode(block)
+	data, err := json.Marshal(block)
+	if err != nil {
+		log.Println(err)
+	}
 	ldb.LSet(chain, ldbStatus, dbKey, data)
+	msg := new(messages.BlockForMining)
+	msg.Chain = chain
+	msg.Data = data
+	event.Send(msg)
 }

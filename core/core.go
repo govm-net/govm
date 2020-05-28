@@ -23,12 +23,10 @@ type dbVote struct{}
 type dbErrorBlock struct{}
 type logBlockInfo struct{}
 type logSync struct{}
-type statCoinLock struct{}
-type statMiningCount struct{}
-type statMinerHit struct{}
-type statMinerReg struct{}
+type statMining struct{}
 type statTransferIn struct{}
 type statTransferOut struct{}
+type statTransList struct{}
 type statMove struct{}
 type statAPPRun struct{}
 
@@ -112,6 +110,7 @@ type BaseInfo struct {
 type processer struct {
 	BaseInfo
 	iRuntime
+	isAdmin            bool
 	sInfo              tSyncInfo
 	pDbBlockData       *DB
 	pDbTransactionData *DB
@@ -129,7 +128,6 @@ type processer struct {
 // StatSwitch define switch of govm status
 type StatSwitch struct {
 	SWMiningCount bool
-	SWMinerHit    bool
 	SWTransferOut bool
 	SWTransferIn  bool
 	SWAPPRun      bool
@@ -138,7 +136,7 @@ type StatSwitch struct {
 
 // Switch switch of status
 var Switch StatSwitch = StatSwitch{
-	true, true, true, true, true, true,
+	true, true, true, true, true,
 }
 
 // time
@@ -160,8 +158,6 @@ const (
 	// AdminNum admin number, DPOS vote
 	AdminNum = 23
 
-	baseOfVoteReward = 1000000
-
 	maxBlockInterval   = TimeMinute
 	minBlockInterval   = 10 * TimeMillisecond
 	blockSizeLimit     = 1 << 20
@@ -177,8 +173,8 @@ const (
 	prefixOfPlublcAddr = 255
 	guerdonUpdateCycle = 500000
 	depositCycle       = 50000
-	voteCost           = 1000000
-	activeMiner        = 20
+	voteCost           = 1000000000
+	activeMinerID      = 20
 	defaultHashPower   = 20000
 )
 
@@ -199,6 +195,7 @@ const (
 	StatUser
 	StatAdmin
 	StatTotalVotes
+	StatLastRewarID
 )
 
 const (
@@ -220,8 +217,8 @@ const (
 	OpsRegisterAdmin
 	// OpsVote vote admin
 	OpsVote
-	// OpsCancelVote cancel vote
-	OpsCancelVote
+	// OpsUnvote unvote
+	OpsUnvote
 	// OpsReportError error block
 	OpsReportError
 )
@@ -233,6 +230,16 @@ var (
 	redemptionList = map[string]uint64{
 		"01853433fb23a8e55663bc2b3cba0db2a8530acd60540fd9": 1000,
 		"012cddfa7e8f6efbbe464658260f919ff4903f3489bd8976": 1000000000000,
+		"017b6717640a5ef55e500fa85e4feae1bcd91d7283dbdd19": 2000,
+		"01a45a300e61ac9f554095a8d3b814a021f53255f67180b0": 2000,
+	}
+
+	firstAdmins = []string{
+		"01bdb04da7a33323e79d793e05ef232d52adeae5cf6cbaee",
+		"01853433fb23a8e55663bc2b3cba0db2a8530acd60540fd9",
+		"012cddfa7e8f6efbbe464658260f919ff4903f3489bd8976",
+		"017b6717640a5ef55e500fa85e4feae1bcd91d7283dbdd19",
+		"01a45a300e61ac9f554095a8d3b814a021f53255f67180b0",
 	}
 )
 
@@ -243,11 +250,17 @@ func (h Hash) Empty() bool {
 
 // MarshalJSON marshal by base64
 func (h Hash) MarshalJSON() ([]byte, error) {
+	if h.Empty() {
+		return json.Marshal(nil)
+	}
 	return json.Marshal(h[:])
 }
 
 // UnmarshalJSON UnmarshalJSON
 func (h *Hash) UnmarshalJSON(b []byte) error {
+	if len(b) == 0 {
+		return nil
+	}
 	var v []byte
 	err := json.Unmarshal(b, &v)
 	if err != nil {
@@ -264,11 +277,17 @@ func (a Address) Empty() bool {
 
 // MarshalJSON marshal by base64
 func (a Address) MarshalJSON() ([]byte, error) {
+	if a.Empty() {
+		return json.Marshal(nil)
+	}
 	return json.Marshal(a[:])
 }
 
 // UnmarshalJSON UnmarshalJSON
 func (a *Address) UnmarshalJSON(b []byte) error {
+	if len(b) == 0 {
+		return nil
+	}
 	var v []byte
 	err := json.Unmarshal(b, &v)
 	if err != nil {
@@ -608,7 +627,6 @@ type Block struct {
 	Chain         uint64
 	Index         uint64
 	Nonce         uint64
-	//transList   []Hash
 }
 
 // BlockInfo the block info in database
@@ -704,20 +722,22 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 	var adminList [AdminNum]Address
 	p.pDbStat.GetValue([]byte{StatAdmin}, &adminList)
 	startBlock := p.pDbMiner.GetInt(block.Producer[:])
-	var isAdmin bool
 	if startBlock > 0 && startBlock <= p.ID {
 		assert(hp >= hpLimit/1000)
 		p.pDbMiner.SetValue(block.Producer[:], startBlock, TimeYear)
 	} else {
 		for i := 0; i < AdminNum; i++ {
 			if block.Producer == adminList[i] {
-				isAdmin = true
+				p.isAdmin = true
 				break
 			}
 		}
-		assertMsg(isAdmin, "not miner")
-		assertMsg(block.TransListHash.Empty(), "Producer is admin,hope empty transaction")
-		hp = hpLimit/1000 - 2
+		assertMsg(p.isAdmin, "not miner")
+		if hpLimit > defaultHashPower+2 {
+			hp = hpLimit/1000 - 2
+		} else {
+			hp = defaultHashPower / 1000
+		}
 	}
 	hp = hp + hpLimit - hpLimit/1000
 	p.pDbStat.SetValue([]byte{StatHashPower}, hp, maxDbLife)
@@ -798,7 +818,7 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 
 	//Mining guerdon
 	guerdon := p.pDbStat.GetInt([]byte{StatGuerdon})
-	if isAdmin {
+	if p.isAdmin {
 		p.adminTransfer(Address{}, gPublicAddr, guerdon)
 	} else {
 		p.adminTransfer(Address{}, block.Producer, guerdon)
@@ -815,7 +835,7 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 	val := p.pDbCoin.GetInt(gPublicAddr[:]) / guerdonUpdateCycle
 	p.adminTransfer(gPublicAddr, block.Producer, val)
 	if Switch.SWMiningCount {
-		db := p.GetDB(statMiningCount{})
+		db := p.GetDB(statMining{})
 		count := db.GetInt(block.Producer[:])
 		db.SetValue(block.Producer[:], count+1, TimeYear)
 		db.Set(p.Encode(0, p.ID), block.Producer[:], TimeYear)
@@ -872,7 +892,16 @@ func (p *processer) processFirstBlock(block Block) {
 		p.pDbStat.SetValue([]byte{StatGuerdon}, uint64(maxGuerdon), maxDbLife)
 		p.pDbStat.SetValue([]byte{StatHashPower}, uint64(defaultHashPower), maxDbLife)
 		var admins [AdminNum]Address
-		admins[0] = block.Producer
+		for i, it := range firstAdmins {
+			var addr Address
+			addr.Decode(it)
+			// p.pRegisterAdmin(addr, 1)
+			var admin = AdminInfo{1, 0}
+			p.pDbAdmin.SetValue(addr[:], admin, maxDbLife)
+			if i < AdminNum {
+				admins[i] = addr
+			}
+		}
 		p.pDbStat.SetValue([]byte{StatAdmin}, &admins, maxDbLife)
 	}
 
@@ -899,13 +928,15 @@ func (p *processer) adminReward(preTime uint64) {
 	}
 	var adminList [AdminNum]Address
 	p.pDbStat.GetValue([]byte{StatAdmin}, &adminList)
-	blockInterval := p.pDbStat.GetInt([]byte{StatBlockInterval})
 	guerdon := p.pDbStat.GetInt([]byte{StatGuerdon})
 	totalVotes := p.pDbStat.GetInt([]byte{StatTotalVotes})
 	rewDB := p.GetDB(dbVoteReward{})
 	if totalVotes != 0 {
+		lastID := p.pDbStat.GetInt([]byte{StatLastRewarID})
+		p.pDbStat.SetValue([]byte{StatLastRewarID}, p.ID, TimeYear)
+		assertMsg(lastID < p.ID, "error lastID")
 		var rew RewardInfo
-		rew.Reward = TimeDay * guerdon * 4 / 5 / blockInterval / totalVotes
+		rew.Reward = (p.ID - lastID) * guerdon * 4 / 5 / totalVotes
 		for i := 0; i < AdminNum; i++ {
 			if adminList[i].Empty() {
 				continue
@@ -914,15 +945,15 @@ func (p *processer) adminReward(preTime uint64) {
 			p.pDbAdmin.GetValue(adminList[i][:], &admin)
 			rew.Admins[i] = adminList[i]
 			rew.Votes[i] = admin.Votes
+
+			r := rew.Reward * admin.Votes * 3 / 10
+			v := p.pDbCoin.GetInt(gPublicAddr[:])
+			if v < r {
+				r = v
+			}
+			p.adminTransfer(gPublicAddr, adminList[i], r)
 		}
-		rewDB.Set(p.Encode(0, p.Time/TimeDay), p.Encode(EncJSON, rew), TimeYear)
-	}
-	defer recover()
-	var rew RewardInfo
-	rewDB.GetValue(p.Encode(0, preTime/TimeDay), &rew)
-	for i, admin := range rew.Admins {
-		r := rew.Reward * rew.Votes[i] * 3 / 10
-		p.adminTransfer(gPublicAddr, admin, r)
+		rewDB.SetValue(p.Encode(0, p.Time/TimeDay), rew, TimeYear)
 	}
 }
 
@@ -1091,6 +1122,11 @@ func (p *processer) processTransaction(block BlockInfo, key Hash) uint64 {
 	assert(signLen > 30)
 	k := p.getHash(data)
 	assert(k == key)
+	// transaction list
+	db := p.GetDB(statTransList{})
+	id := db.GetInt([]byte{0}) + 1
+	db.SetValue([]byte{0}, id, maxDbLife)
+	db.Set(p.Encode(0, id), key[:], TimeYear)
 
 	sign := data[1 : signLen+1]
 	signData := data[signLen+1:]
@@ -1153,9 +1189,9 @@ func (p *processer) processTransaction(block BlockInfo, key Hash) uint64 {
 	case OpsVote:
 		assert(dataLen < 300)
 		p.pVote(trans.User, trans.data, trans.Cost)
-	case OpsCancelVote:
+	case OpsUnvote:
 		assert(dataLen < 300)
-		p.pCancelVote(trans.User, trans.data)
+		p.pUnvote(trans.User, trans.data)
 	case OpsReportError:
 		p.pReportError(trans.User, trans.data)
 	default:
@@ -1261,6 +1297,14 @@ func (p *processer) pNewChain(producer Address, t Transaction) {
 		si.HashPower = defaultHashPower
 	}
 	p.pDbStat.GetValue([]byte{StatAdmin}, &si.AdminList)
+	var find bool
+	for _, it := range si.AdminList {
+		if it == producer {
+			find = true
+			break
+		}
+	}
+	assertMsg(find, "request admin")
 	data, life := p.pDbStat.Get([]byte{StatFirstBlockKey})
 	assert(life+blockSyncMax < maxDbLife)
 	p.Decode(0, data, &si.FirstBlock)
@@ -1395,6 +1439,7 @@ func (p *processer) pNewApp(t Transaction) {
 
 func (p *processer) pRunApp(t Transaction) {
 	var name Hash
+	assertMsg(!p.isAdmin, "runApp:the Producer is admin")
 	n := p.Decode(0, t.data, &name)
 	info := p.GetAppInfo(name)
 	assertMsg(info != nil, "app not exist")
@@ -1460,12 +1505,6 @@ func (p *processer) UpdateAppLife(AppName Hash, life uint64) {
 	}
 }
 
-// RegMiner info of register miner
-type RegMiner struct {
-	Chain uint64
-	Index uint64
-}
-
 type syncRegMiner struct {
 	Cost uint64
 	User Address
@@ -1495,7 +1534,7 @@ func (p *processer) registerMiner(user Address, cost uint64) {
 	if life > 0 {
 		return
 	}
-	startBlock = p.ID + activeMiner
+	startBlock = p.ID + activeMinerID
 
 	p.pDbMiner.SetValue(user[:], startBlock, TimeYear)
 }
@@ -1547,6 +1586,7 @@ func (p *processer) pRegisterAdmin(user Address, cost uint64) {
 		p.adminTransfer(Address{}, user, admin.Deposit)
 		return
 	}
+	p.adminTransfer(user, Address{}, cost)
 	admin.Deposit += cost
 	guerdon := p.pDbStat.GetInt([]byte{StatGuerdon})
 	if p.ID > 1 && admin.Deposit < 1000*guerdon {
@@ -1572,24 +1612,26 @@ type VoteInfo struct {
 
 // pVote vote admin
 func (p *processer) pVote(user Address, data []byte, cost uint64) {
-	assert(cost%baseOfVoteReward == 0)
-	assert(cost >= baseOfVoteReward)
-	votes := cost / baseOfVoteReward
-	var addr Address
-	p.Decode(0, data, &addr)
-	var admin AdminInfo
-	p.pDbAdmin.GetValue(addr[:], &admin)
-	if admin.Deposit == 0 {
-		return
-	}
+	assert(cost%voteCost == 0)
 
 	voteDB := p.GetDB(dbVote{})
 	var vote VoteInfo
 	voteDB.GetValue(user[:], &vote)
-	if vote.Cost > 0 && vote.Admin != addr {
+	p.pVoteRewardValue(user, vote)
+	if cost == 0 {
 		return
 	}
-	p.pVoteRewardValue(user, vote)
+
+	votes := cost / voteCost
+	var addr Address
+	p.Decode(0, data, &addr)
+	var admin AdminInfo
+	p.pDbAdmin.GetValue(addr[:], &admin)
+	assertMsg(admin.Deposit >= 0, "not admin")
+
+	if vote.Cost > 0 {
+		assertMsg(vote.Admin == addr, "different admin")
+	}
 
 	totalVotes := p.pDbStat.GetInt([]byte{StatTotalVotes}) + votes
 	p.pDbStat.SetValue([]byte{StatTotalVotes}, totalVotes, maxDbLife)
@@ -1637,7 +1679,7 @@ func (p *processer) pVote(user Address, data []byte, cost uint64) {
 	p.pDbStat.SetValue([]byte{StatAdmin}, adminList, maxDbLife)
 }
 
-func (p *processer) pCancelVote(user Address, data []byte) {
+func (p *processer) pUnvote(user Address, data []byte) {
 	var admin AdminInfo
 	var vote VoteInfo
 	db := p.GetDB(dbVote{})
@@ -1662,15 +1704,23 @@ func (p *processer) pCancelVote(user Address, data []byte) {
 	}
 	p.pVoteRewardValue(user, vote)
 
+	v := vote.Cost / voteCost
 	p.adminTransfer(Address{}, user, vote.Cost)
-	assertMsg(admin.Votes >= vote.Cost/baseOfVoteReward, "bug:votes < user votes")
-	admin.Votes -= vote.Cost / baseOfVoteReward
+	assertMsg(admin.Votes >= v, "bug:votes < user votes")
+	admin.Votes -= v
+
+	totalVotes := p.pDbStat.GetInt([]byte{StatTotalVotes})
+	assertMsg(totalVotes >= v, "totalVotes < user.votes")
+
+	totalVotes -= v
+	p.pDbStat.SetValue([]byte{StatTotalVotes}, totalVotes, maxDbLife)
+
 	p.pDbAdmin.SetValue(vote.Admin[:], admin, maxDbLife)
 	db.Set(user[:], nil, 0)
 }
 
 func (p *processer) pVoteRewardValue(user Address, voter VoteInfo) {
-	votes := voter.Cost / baseOfVoteReward
+	votes := voter.Cost / voteCost
 	if votes == 0 {
 		return
 	}
@@ -1698,6 +1748,10 @@ func (p *processer) pVoteRewardValue(user Address, voter VoteInfo) {
 		}
 
 		out += votes * rew.Reward * ratio / 10
+	}
+	v := p.pDbCoin.GetInt(gPublicAddr[:])
+	if v < out {
+		out = v
 	}
 	p.adminTransfer(gPublicAddr, user, out)
 }
@@ -1938,14 +1992,13 @@ func (p *processer) syncInfo(from uint64, ops uint8, data []byte) {
 		p.pDbStat.SetValue([]byte{StatAdmin}, nc.AdminList, maxDbLife)
 		p.pDbStat.SetValue([]byte{StatHashPower}, nc.HashPower, maxDbLife)
 		p.registerMiner(nc.Producer, nc.Guerdon)
-		for i := 0; i < AdminNum; i++ {
-			addr := nc.AdminList[i]
-			if addr.Empty() {
+		for _, it := range nc.AdminList {
+			if it.Empty() {
 				continue
 			}
-			admin := AdminInfo{}
-			admin.Deposit = nc.Guerdon
-			p.pDbAdmin.SetValue(addr[:], admin, maxDbLife)
+			var admin = AdminInfo{1, 0}
+			p.pDbAdmin.SetValue(it[:], admin, maxDbLife)
+			// p.pRegisterAdmin(it, 1)
 		}
 		p.Event(dbTransInfo{}, "new_chain_ack", []byte{2})
 	case SyncOpsMiner:

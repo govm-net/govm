@@ -19,26 +19,24 @@ var myAddr core.Address
 func init() {
 	rand.Seed(time.Now().UnixNano())
 	myHP = database.NewLRUCache(100 * blockHPNumber)
-
-	runtime.Decode(conf.GetConf().WalletAddr, &myAddr)
 }
 
 func newBlockForMining(chain uint64) {
-	var preKey []byte
 	var size uint64
-	var trans transInfo
+	var trans *transInfo
 	out := make([]core.Hash, 0)
 	limit := core.GetBlockSizeLimit(chain)
 	t := core.GetBlockInterval(chain)
 	start := time.Now().Unix()
 	block := core.NewBlock(chain, core.Address{})
-	setBlockForMining(chain, block.Block)
 	// c := conf.GetConf()
 	lastID := core.GetLastBlockIndex(chain)
+	flagTime := time.Now().UnixNano()
 	err := core.CheckTransList(chain, func(chain uint64) core.Hash {
-		if !trans.Key.Empty() {
+		if trans != nil && !trans.Key.Empty() {
 			out = append(out, trans.Key)
 			size += uint64(trans.Size)
+			pushTransInfo(chain, trans)
 		}
 		for {
 			now := time.Now().Unix()
@@ -46,17 +44,20 @@ func newBlockForMining(chain uint64) {
 				return core.Hash{}
 			}
 
-			trans = getNextTransInfo(chain, preKey)
-			if trans.Key.Empty() {
-				preKey = nil
-				return trans.Key
+			trans = popTransInfo(chain)
+			if trans == nil || trans.Key.Empty() {
+				return core.Hash{}
 			}
+			if trans.Flag >= flagTime {
+				pushTransInfo(chain, trans)
+				return core.Hash{}
+			}
+			trans.Flag = flagTime
 
-			preKey = trans.Key[:]
 			info := core.GetTransInfo(chain, trans.Key[:])
 			if info.BlockID > 0 {
 				if info.BlockID+3 < lastID {
-					deleteTransInfo(chain, trans.Key[:])
+					pushTransInfo(chain, trans)
 				}
 				continue
 			}
@@ -68,18 +69,29 @@ func newBlockForMining(chain uint64) {
 		return trans.Key
 	})
 	if err != nil {
-		deleteTransInfo(chain, trans.Key[:])
+		if trans != nil {
+			log.Printf("error transaction,key:%x,err:%s\n", trans.Key, err)
+		} else {
+			log.Printf("error transaction,key:nil,err:%s\n", err)
+		}
 	}
 	if len(out) == 0 {
+		setBlockForMining(chain, *block)
 		return
 	}
-
+	log.Println("transaction number for mining:", len(out))
+	core.WriteTransList(chain, out)
 	block.TransListHash = core.GetHashOfTransList(out)
-	setBlockForMining(chain, block.Block)
+	SaveTransList(chain, block.TransListHash[:], out)
+	setBlockForMining(chain, *block)
 }
 
 func doMining(chain uint64) {
 	c := conf.GetConf()
+
+	if myAddr.Empty() {
+		runtime.Decode(c.WalletAddr, &myAddr)
+	}
 
 	if !core.IsAdmin(chain, myAddr[:]) {
 		return
@@ -93,43 +105,47 @@ func doMining(chain uint64) {
 	}
 
 	block := core.NewBlock(chain, myAddr)
-	if old != nil {
-		if old.Previous == block.Previous && old.Parent == block.Parent {
+	if old != nil && old.Previous == block.Previous && old.Parent == block.Parent {
+		return
+	}
+
+	for {
+		block.Nonce = rand.Uint64()
+		signData := block.GetSignData()
+		sign := wallet.Sign(c.PrivateKey, signData)
+		if len(sign) == 0 {
 			return
 		}
-	}
+		if len(c.SignPrefix) > 0 {
+			s := make([]byte, len(c.SignPrefix))
+			copy(s, c.SignPrefix)
+			sign = append(s, sign...)
+		}
 
-	block.Nonce = rand.Uint64()
-	signData := block.GetSignData()
-	sign := wallet.Sign(c.PrivateKey, signData)
-	if len(sign) == 0 {
-		return
-	}
-	if len(c.SignPrefix) > 0 {
-		s := make([]byte, len(c.SignPrefix))
-		copy(s, c.SignPrefix)
-		sign = append(s, sign...)
-	}
+		block.SetSign(sign)
+		data := block.Output()
+		if getHashPower(block.Key[:]) < 5 {
+			continue
+		}
+		rel := getReliability(block)
 
-	block.SetSign(sign)
-	data := block.Output()
-	rel := getReliability(block)
-
-	core.WriteBlock(chain, data)
-	SaveBlockReliability(chain, block.Key[:], rel)
-	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
-	if !needBroadcastBlock(chain, rel) {
-		return
+		core.WriteBlock(chain, data)
+		SaveBlockReliability(chain, block.Key[:], rel)
+		setIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+		if !needBroadcastBlock(chain, rel) {
+			return
+		}
+		info := messages.BlockInfo{}
+		info.Chain = chain
+		info.Index = rel.Index
+		info.Key = rel.Key[:]
+		info.HashPower = rel.HashPower
+		info.PreKey = rel.Previous[:]
+		network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
+		log.Printf("mine one blok,chain:%d,index:%d,hashpower:%d,hp limit:%d,key:%x\n",
+			chain, rel.Index, rel.HashPower, block.HashpowerLimit, rel.Key)
+		break
 	}
-	info := messages.BlockInfo{}
-	info.Chain = chain
-	info.Index = rel.Index
-	info.Key = rel.Key[:]
-	info.HashPower = rel.HashPower
-	info.PreKey = rel.Previous[:]
-	network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
-	log.Printf("mine one blok,chain:%d,index:%d,hashpower:%d,hp limit:%d,key:%x\n",
-		chain, rel.Index, rel.HashPower, block.HashpowerLimit, rel.Key)
 
 }
 

@@ -54,10 +54,7 @@
                                     <a onclick="changeBase('t6')">t6=1000*t3</a>
                                 </li>
                                 <li>
-                                    <a onclick="changeBase('t9')">t9=1000*t6</a>
-                                </li>
-                                <li>
-                                    <a onclick="changeBase('tc')">tc=1000*t9</a>
+                                    <a onclick="changeBase('govm')">govm=1000*t6</a>
                                 </li>
                             </ul>
                         </div>
@@ -103,15 +100,10 @@
                         <span class="input-group-addon" data-localize="net_hp">Net HashPower:</span>
                         <span class="form-control" id="net_hp"></span>
                     </div>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="my_hp">My HashPower:</span>
-                        <span class="form-control" id="my_hp"></span>
-                    </div>
                     <br>
                     <div class="input-group">
-                        <span class="input-group-addon" data-localize="net_frozen">Frozen Coins(net):</span>
-                        <span class="form-control" id="net_frozen"></span>
-                        <span class="input-group-addon" id="base_cost0"></span>
+                        <span class="input-group-addon" data-localize="net_votes">Total votes:</span>
+                        <span class="form-control" id="net_votes"></span>
                     </div>
                 </div>
             </div>
@@ -130,7 +122,6 @@
     <script type="text/javascript">
         $("#cost_base").html(gCostBase);
         $("#chain").val(gChainID);
-        $("#base_cost0").html(gCostBase);
 
         function changeBase(name) {
             gCostBase = name;
@@ -158,32 +149,18 @@
                 alert("Data: " + data + "\nStatus: " + status);
             } else {
                 $("#net_hp").html(fmoney(data.net_hp));
-                $("#my_hp").html(fmoney(data.node_hp));
             }
         });
 
         var urlStr = "/api/v1/" + gChainID + "/data?app_name=ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
-        urlStr += "&is_db_data=true&key=ff0102030405060708090a0b0c0d0e0f1011121314151617"
-        $.get(urlStr + "&struct_name=statCoinLock", function (data, status) {
+        urlStr += "&is_db_data=true&key=0e"
+        $.get(urlStr + "&struct_name=dbStat", function (data, status) {
             if (status != "success") {
-                console.log("statCoinLock,Data: " + data + "\nStatus: " + status);
+                console.log("net_votes,Data: " + data + "\nStatus: " + status);
             } else {
-                console.log("statCoinLock:", data.value)
+                console.log("net_votes:", data.value)
                 var lock = dataEncode(data.value, "hex2int")
-                if (lock == 0){
-                    return
-                }
-                $.get(urlStr + "&struct_name=statCoinUnlock", function (data, status) {
-                    if (status != "success") {
-                        console.log("statCoinUnlock,Data: " + data + "\nStatus: " + status);
-                    } else {
-                        console.log("statCoinUnlock:", data.value)
-                        var unlock = dataEncode(data.value, "hex2int")
-                        if (lock > unlock) {
-                            $("#net_frozen").html(getValueWithBase(lock - unlock, gCostBase))
-                        }
-                    }
-                });
+                $("#net_votes").html(lock)
             }
         });
 

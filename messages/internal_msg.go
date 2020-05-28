@@ -68,11 +68,11 @@ type RawData struct {
 	Data      []byte
 }
 
-// ReceiveTrans receive new transaction
-type ReceiveTrans struct {
+// BlockForMining block for mining
+type BlockForMining struct {
 	BaseMsg
 	Chain uint64
-	Key   []byte
+	Data  []byte
 }
 
 // Internal msg keys

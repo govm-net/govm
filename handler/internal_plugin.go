@@ -26,6 +26,9 @@ const (
 	reconnNum = 15
 )
 
+// NodeNumber nodes number
+var NodeNumber int
+
 // Nodes p2p nodes
 var Nodes map[string]bool
 
@@ -65,6 +68,7 @@ func (p *InternalPlugin) timeout() {
 
 // PeerConnect peer connect
 func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
+	NodeNumber++
 	peer := s.GetPeerAddr()
 	id := peer.User()
 	if id == "" {
@@ -84,6 +88,7 @@ func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 
 // PeerDisconnect peer disconnect
 func (p *InternalPlugin) PeerDisconnect(s libp2p.Session) {
+	NodeNumber--
 	peer := s.GetPeerAddr()
 	addr := peer.String()
 	p.mu.Lock()
@@ -113,10 +118,7 @@ func (p *InternalPlugin) event(m event.Message) error {
 			core.DeleteTransaction(msg.Chain, msg.Key)
 			return err
 		}
-		info := messages.ReceiveTrans{}
-		info.Chain = msg.Chain
-		info.Key = msg.Key
-		event.Send(&info)
+
 		go func() {
 			defer recover()
 
@@ -133,7 +135,10 @@ func (p *InternalPlugin) event(m event.Message) error {
 			m.Time = trans.Time
 			m.User = trans.User[:]
 			p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: m})
-			processTransaction(msg.Chain, msg.Key, msg.Data)
+			err := processTransaction(msg.Chain, msg.Key, msg.Data)
+			if err != nil {
+				log.Printf("result of trans:%x,err :%s\n", msg.Key, err)
+			}
 		}()
 		return nil
 	case *messages.Mine:
@@ -188,6 +193,7 @@ func (p *InternalPlugin) event(m event.Message) error {
 		rel := ReadBlockReliability(msg.Chain, msg.Key)
 		if rel.Index != 0 {
 			// exist
+			log.Printf("exist the block:%x\n", msg.Key)
 			return nil
 		}
 		err := processBlock(msg.Chain, msg.Key, msg.Data)
@@ -198,31 +204,37 @@ func (p *InternalPlugin) event(m event.Message) error {
 		}
 		rel = ReadBlockReliability(msg.Chain, msg.Key)
 		if rel.Index == 0 || rel.Key.Empty() {
+			log.Printf("err rel,index:%d block:%x\n", rel.Index, rel.Key)
 			return nil
 		}
 
 		if !core.IsMiner(msg.Chain, rel.Producer[:]) {
+			log.Printf("not miner,index:%d block:%x\n", rel.Index, rel.Key)
 			return fmt.Errorf("not miner")
 		}
 
 		preRel := ReadBlockReliability(msg.Chain, rel.Previous[:])
 		if rel.Producer == preRel.Producer {
+			log.Printf("same previous,index:%d block:%x\n", rel.Index, rel.Key)
 			return nil
 		}
 
 		if !msg.Broadcast {
-			return nil
-		}
-
-		if !needBroadcastBlock(msg.Chain, rel) {
+			log.Printf("not Broadcast,index:%d block:%x\n", rel.Index, rel.Key)
 			return nil
 		}
 
 		if !rel.TransListHash.Empty() {
 			tl := GetTransList(msg.Chain, rel.TransListHash[:])
-			if len(tl) == 0 {
+			if len(tl) == 0 && !core.TransListExist(msg.Chain, rel.TransListHash[:]) {
 				return fmt.Errorf("transList not exist")
 			}
+		}
+		setIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
+
+		if !needBroadcastBlock(msg.Chain, rel) {
+			// log.Printf("not Broadcast2,index:%d block:%x\n", rel.Index, rel.Key)
+			return nil
 		}
 
 		info := messages.BlockInfo{}

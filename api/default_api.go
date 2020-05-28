@@ -11,6 +11,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"math/rand"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/gorilla/mux"
 	"github.com/govm-net/govm/conf"
 	core "github.com/govm-net/govm/core"
@@ -19,12 +26,6 @@ import (
 	"github.com/govm-net/govm/messages"
 	"github.com/govm-net/govm/runtime"
 	"github.com/govm-net/govm/wallet"
-	"io/ioutil"
-	"log"
-	"math/rand"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 var inputString chan string
@@ -341,6 +342,7 @@ type Miner struct {
 	TagetChain uint64 `json:"taget_chain,omitempty"`
 	Cost       uint64 `json:"cost,omitempty"`
 	Energy     uint64 `json:"energy,omitempty"`
+	Miner      string `json:"miner,omitempty"`
 	TransKey   string `json:"trans_key,omitempty"`
 }
 
@@ -383,7 +385,11 @@ func TransactionMinerPost(w http.ResponseWriter, r *http.Request) {
 	cAddr := core.Address{}
 	runtime.Decode(c.WalletAddr, &cAddr)
 	trans := core.NewTransaction(chain, cAddr)
-	trans.CreateRegisterMiner(info.TagetChain, info.Cost, nil)
+	var peer []byte
+	if info.Miner != "" {
+		peer, err = hex.DecodeString(info.Miner)
+	}
+	trans.RegisterMiner(info.TagetChain, info.Cost, peer)
 	if info.Energy > trans.Energy {
 		trans.Energy = info.Energy
 	}
@@ -1067,6 +1073,9 @@ func DataGet(w http.ResponseWriter, r *http.Request) {
 	if r.Form.Get("is_db_data") == "true" {
 		info.IsDBData = true
 	}
+	if info.AppName == "" {
+		info.AppName = "ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+	}
 
 	chain, err := strconv.ParseUint(chainStr, 10, 64)
 	if err != nil {
@@ -1134,6 +1143,7 @@ func DataPost(w http.ResponseWriter, r *http.Request) {
 	if broadcast == "true" {
 		info.Broadcast = true
 	}
+	// log.Printf("new data,type:%v,chain:%d,key:%x\n", info.IsTrans, chain, key)
 	err = event.Send(info)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -1233,10 +1243,7 @@ func EventPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
-	enc := json.NewEncoder(w)
-	enc.Encode(info)
 }
 
 // NodePost add new node
@@ -1277,14 +1284,18 @@ func NodesGet(w http.ResponseWriter, r *http.Request) {
 
 // NodeInfo node info
 type NodeInfo struct {
-	Address string
+	Address    string `json:"address,omitempty"`
+	Miners     int    `json:"miners,omitempty"`
+	NodeNumber int    `json:"node_number,omitempty"`
 }
 
 // NodeAddressGet get self node address
 func NodeAddressGet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "{\"address\":\"%s\"}", handler.SelfAddress)
+	info := NodeInfo{handler.SelfAddress, minerNum, handler.NodeNumber}
+	enc := json.NewEncoder(w)
+	enc.Encode(info)
 }
 
 // HistoryInGet get transaction history of recieve
@@ -1548,7 +1559,67 @@ func MiningBlockGet(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("not block"))
 		return
 	}
-	data := runtime.Encode(block)
+	data, _ := json.Marshal(block)
 	w.WriteHeader(http.StatusOK)
 	w.Write(data)
+}
+
+// AdminsGet get admin list
+func AdminsGet(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chainStr := vars["chain"]
+	chain, err := strconv.ParseUint(chainStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("error chain"))
+		return
+	}
+	adminList := core.GetAdminList(chain)
+	var out []string
+	for _, it := range adminList {
+		if it.Empty() {
+			continue
+		}
+		val := hex.EncodeToString(it[:])
+		out = append(out, val)
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	enc.Encode(out)
+}
+
+// AdminInfo vote info
+type AdminInfo struct {
+	Address string `json:"address"`
+	Deposit uint64 `json:"deposit"`
+	Votes   uint64 `json:"votes"`
+}
+
+// AdminInfoGet get admin info
+func AdminInfoGet(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chainStr := vars["chain"]
+	r.ParseForm()
+	key := r.Form.Get("key")
+	chain, err := strconv.ParseUint(chainStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("error chain"))
+		return
+	}
+	addr := core.Address{}
+	addr.Decode(key)
+
+	info := core.GetAdminInfo(chain, addr)
+	var out AdminInfo
+	out.Address = key
+	out.Deposit = info.Deposit
+	out.Votes = info.Votes
+
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	enc.Encode(out)
 }

@@ -1,9 +1,9 @@
 package zff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
 
 import (
-	"bytes"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/rpc"
@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/govm-net/govm/conf"
+	"github.com/govm-net/govm/database"
 	"github.com/govm-net/govm/runtime"
 	"github.com/govm-net/govm/wallet"
 	"github.com/lengzhao/database/disk"
 	"github.com/lengzhao/database/server"
-	"github.com/govm-net/govm/database"
 )
 
 const dbDir = "db_dir"
@@ -38,6 +38,7 @@ func TestMain(m *testing.M) {
 	runtime.RunDir = "."
 	runtime.BuildDir = "../"
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
+	log.SetOutput(ioutil.Discard)
 	log.Println("begin")
 	os.RemoveAll(dbDir)
 	conf.LoadWallet("./wallet.key", "123456")
@@ -54,13 +55,19 @@ func TestMain(m *testing.M) {
 		}
 	}
 
-	miner.Key = wallet.NewPrivateKey()
+	// miner.Key = wallet.NewPrivateKey()
+	miner.Key = wallet.GetHash([]byte("miner"))
 	pubK := wallet.GetPublicKey(miner.Key)
 	miner.Address = wallet.PublicKeyToAddress(pubK, wallet.EAddrTypeDefault)
 
-	admin.Key = wallet.NewPrivateKey()
+	// admin.Key = wallet.NewPrivateKey()
+	admin.Key = wallet.GetHash([]byte("admin"))
 	pubK1 := wallet.GetPublicKey(admin.Key)
 	admin.Address = wallet.PublicKeyToAddress(pubK1, wallet.EAddrTypeDefault)
+
+	// miner
+	hexAddr := hex.EncodeToString(c.WalletAddr)
+	redemptionList[hexAddr] = 1000
 
 	m.Run()
 	log.Println("end")
@@ -87,37 +94,20 @@ func startDBServer() {
 	}()
 }
 
-func filterTrans(chain uint64, transList [][]byte) (uint32, []Hash) {
-	out := make([]Hash, 0)
-	var size uint32
-	for _, key := range transList {
-		stream, _ := runtime.DbGet(dbTransactionData{}, chain, key)
-		if stream == nil {
-			log.Printf("fail to get transaction data,key:%x\n", key)
-			continue
-		}
-		size += uint32(len(stream))
-		h := Hash{}
-		runtime.Decode(key, &h)
-		out = append(out, h)
-	}
-
-	return size, out
-}
-
-func doMine(chain uint64, transList [][]byte) error {
+func doMine(chain uint64, transList []byte) error {
 	c := conf.GetConf()
 	addr := Address{}
 	runtime.Decode(c.WalletAddr, &addr)
 	block := NewBlock(chain, addr)
 
-	_, lst := filterTrans(chain, transList)
+	// _, lst := filterTrans(chain, transList)
+	lst := ParseTransList(transList)
 
 	WriteTransList(chain, lst)
 	// block.SetTransList(lst)
 	block.TransListHash = GetHashOfTransList(lst)
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100000; i++ {
 		signData := block.GetSignData()
 		sign := wallet.Sign(c.PrivateKey, signData)
 		block.SetSign(sign)
@@ -262,9 +252,8 @@ func TestTransfer(t *testing.T) {
 	var cost uint64
 	cost = 3000000
 	trans := transfer(1, cost, addr)
-	list := make([][]byte, 0)
-	list = append(list, trans)
-	doMine(1, list)
+
+	doMine(1, trans)
 	cost2 := GetUserCoin(1, addr)
 	if cost2 != cost {
 		t.Error("error transfer:", cost, cost2)
@@ -279,9 +268,7 @@ func TestNewChain(t *testing.T) {
 	}
 
 	trans := newChain(1, 2)
-	list := make([][]byte, 0)
-	list = append(list, trans)
-	err := doMine(1, list)
+	err := doMine(1, trans)
 	if err != nil {
 		t.Fatal("fail to create new chain:", err)
 	}
@@ -309,9 +296,7 @@ func TestMove(t *testing.T) {
 	var cost uint64
 	cost = 1<<30 + 3000000
 	trans := transfer(1, cost, addr)
-	list := make([][]byte, 0)
-	list = append(list, trans)
-	doMine(1, list)
+	doMine(1, trans)
 	cost2 := GetUserCoin(1, addr)
 	if cost2 != cost {
 		t.Error("error transfer:", cost, cost2)
@@ -333,9 +318,8 @@ func TestMove(t *testing.T) {
 		td = tran.Output()
 		// WriteTransaction(1, td)
 		runtime.AdminDbSet(dbTransactionData{}, 1, runtime.GetHash(td), td, maxDbLife)
-		list = make([][]byte, 0)
-		list = append(list, runtime.GetHash(td))
-		doMine(1, list)
+
+		doMine(1, tran.Key)
 	}
 
 	cost3 := GetUserCoin(1, addr)
@@ -378,12 +362,9 @@ func TestNewApp1(t *testing.T) {
 		}
 		trans.SetSign(sign)
 		td = trans.Output()
-		// WriteTransaction(1, td)
-		runtime.AdminDbSet(dbTransactionData{}, 1, runtime.GetHash(td), td, maxDbLife)
-		list := make([][]byte, 0)
-		list = append(list, runtime.GetHash(td))
+		WriteTransaction(1, td)
 
-		doMine(1, list)
+		doMine(1, trans.Key)
 		hs := runtime.GetHash(code)
 		runtime.Decode(hs, &appName)
 	}
@@ -394,12 +375,12 @@ func TestNewApp1(t *testing.T) {
 		pubK := wallet.GetPublicKey(privK)
 		addr := wallet.PublicKeyToAddress(pubK, wallet.EAddrTypeDefault)
 
-		list := make([][]byte, 0)
+		list := make([]byte, 0)
 		appInfo := GetAppInfoOfChain(1, appName[:])
 		key := transfer(1, 1<<20, appInfo.Account[:])
-		list = append(list, key)
+		list = append(list, key...)
 		key = transfer(1, 1<<20, addr[:])
-		list = append(list, key)
+		list = append(list, key...)
 
 		trans := NewTransaction(1, cAddr)
 		trans.CreateRunApp(appName, 10000, addr)
@@ -417,7 +398,7 @@ func TestNewApp1(t *testing.T) {
 		td = trans.Output()
 		// WriteTransaction(1, td)
 		runtime.AdminDbSet(dbTransactionData{}, 1, runtime.GetHash(td), td, maxDbLife)
-		list = append(list, runtime.GetHash(td))
+		list = append(list, trans.Key...)
 		doMine(1, list)
 		if GetUserCoin(1, addr[:]) != 1<<20 {
 			t.Errorf("error cost:%d\n", GetUserCoin(1, addr[:]))
@@ -486,10 +467,8 @@ func TestNewApp2(t *testing.T) {
 		td = trans.Output()
 		// WriteTransaction(1, td)
 		runtime.AdminDbSet(dbTransactionData{}, i, runtime.GetHash(td), td, maxDbLife)
-		list := make([][]byte, 0)
-		list = append(list, runtime.GetHash(td))
 
-		doMine(i, list)
+		doMine(i, trans.Key)
 	}
 
 	type tApp struct {
@@ -515,7 +494,6 @@ func TestNewApp2(t *testing.T) {
 
 		runtime.AdminDbSet(dbCoin{}, i, cAddr[:], runtime.Encode(cost), maxDbLife)
 
-		list := make([][]byte, 0)
 		appInfo := GetAppInfoOfChain(i, appName[:])
 		runtime.AdminDbSet(dbCoin{}, i, appInfo.Account[:], runtime.Encode(cost), maxDbLife)
 		runtime.AdminDbSet(dbCoin{}, i, addr[:], runtime.Encode(cost), maxDbLife)
@@ -536,8 +514,8 @@ func TestNewApp2(t *testing.T) {
 		td = trans.Output()
 
 		runtime.AdminDbSet(dbTransactionData{}, i, runtime.GetHash(td), td, maxDbLife)
-		list = append(list, runtime.GetHash(td))
-		doMine(i, list)
+
+		doMine(i, trans.Key)
 	}
 
 	// run app: read log,由于时间还没到，应该都是读到空数据
@@ -552,7 +530,6 @@ func TestNewApp2(t *testing.T) {
 
 		runtime.AdminDbSet(dbCoin{}, i, cAddr[:], runtime.Encode(cost), maxDbLife)
 
-		list := make([][]byte, 0)
 		appInfo := GetAppInfoOfChain(i, appName[:])
 		runtime.AdminDbSet(dbCoin{}, i, appInfo.Account[:], runtime.Encode(cost), maxDbLife)
 		runtime.AdminDbSet(dbCoin{}, i, addr[:], runtime.Encode(cost), maxDbLife)
@@ -573,8 +550,8 @@ func TestNewApp2(t *testing.T) {
 		td = trans.Output()
 
 		runtime.AdminDbSet(dbTransactionData{}, i, runtime.GetHash(td), td, maxDbLife)
-		list = append(list, runtime.GetHash(td))
-		doMine(i, list)
+
+		doMine(i, trans.Key)
 	}
 
 	t1 = GetBlockTime(1)
@@ -614,7 +591,6 @@ func TestNewApp2(t *testing.T) {
 
 		runtime.AdminDbSet(dbCoin{}, i, cAddr[:], runtime.Encode(cost), maxDbLife)
 
-		list := make([][]byte, 0)
 		appInfo := GetAppInfoOfChain(i, appName[:])
 		runtime.AdminDbSet(dbCoin{}, i, appInfo.Account[:], runtime.Encode(cost), maxDbLife)
 		runtime.AdminDbSet(dbCoin{}, i, addr[:], runtime.Encode(cost), maxDbLife)
@@ -635,8 +611,8 @@ func TestNewApp2(t *testing.T) {
 		td = trans.Output()
 
 		runtime.AdminDbSet(dbTransactionData{}, i, runtime.GetHash(td), td, maxDbLife)
-		list = append(list, runtime.GetHash(td))
-		doMine(i, list)
+
+		doMine(i, trans.Key)
 	}
 	doMine(1, nil)
 	doMine(2, nil)
@@ -651,7 +627,7 @@ func TestRegisterMiner(t *testing.T) {
 		runtime.Decode(miner.Address, &a)
 		block := NewBlock(1, a)
 
-		for i := 0; i < 1000; i++ {
+		for i := 0; i < 100000; i++ {
 			signData := block.GetSignData()
 			sign := wallet.Sign(miner.Key, signData)
 			block.SetSign(sign)
@@ -676,7 +652,7 @@ func TestRegisterMiner(t *testing.T) {
 
 	c := conf.GetConf()
 	trans := NewTransaction(1, team)
-	trans.CreateRegisterMiner(1, maxGuerdon, miner.Address)
+	trans.RegisterMiner(1, maxGuerdon, miner.Address)
 	trans.Time = GetBlockTime(1)
 
 	td := trans.GetSignData()
@@ -690,10 +666,8 @@ func TestRegisterMiner(t *testing.T) {
 	td = trans.Output()
 	// WriteTransaction(1, td)
 	runtime.AdminDbSet(dbTransactionData{}, 1, runtime.GetHash(td), td, maxDbLife)
-	list := make([][]byte, 0)
-	list = append(list, runtime.GetHash(td))
 
-	doMine(1, list)
+	doMine(1, trans.Key)
 
 	err = mineFunc()
 	if err == nil {
@@ -702,7 +676,7 @@ func TestRegisterMiner(t *testing.T) {
 
 	id := GetLastBlockIndex(1)
 	i := id
-	for i < id+activeMiner+1 {
+	for i < id+activeMinerID+1 {
 		i = GetLastBlockIndex(1)
 		t1 := GetBlockTime(1)
 		t2 := GetBlockTime(2)
@@ -730,18 +704,14 @@ func TestRegisterAdmin(t *testing.T) {
 	var cost uint64 = 2000 * maxGuerdon
 	runtime.AdminDbSet(dbCoin{}, 1, admin.Address, runtime.Encode(cost), maxDbLife)
 
-	var oldAdmins [AdminNum]Address
-	getDataFormDB(1, dbStat{}, []byte{StatAdmin}, &oldAdmins)
-	for _, it := range oldAdmins {
-		if bytes.Compare(admin.Address, it[:]) == 0 {
-			t.Error("hope not admin")
-		}
+	if IsAdmin(1, admin.Address) {
+		t.Error("hope not admin")
 	}
 
 	var a Address
 	runtime.Decode(admin.Address, &a)
 	trans1 := NewTransaction(1, a)
-	trans1.CreateRegisterAdmin(1000 * maxGuerdon)
+	trans1.RegisterAdmin(1000 * maxGuerdon)
 	trans1.Time = GetBlockTime(1)
 
 	td1 := trans1.GetSignData()
@@ -749,9 +719,6 @@ func TestRegisterAdmin(t *testing.T) {
 	trans1.SetSign(sign1)
 	td1 = trans1.Output()
 	WriteTransaction(1, td1)
-
-	list := make([][]byte, 0)
-	list = append(list, trans1.Key)
 
 	trans2 := NewTransaction(1, team)
 	trans2.VoteAdmin(maxGuerdon, admin.Address)
@@ -763,22 +730,22 @@ func TestRegisterAdmin(t *testing.T) {
 	trans2.SetSign(sign2)
 	td2 = trans2.Output()
 	WriteTransaction(1, td2)
-	list = append(list, trans2.Key)
 
-	doMine(1, list)
+	doMine(1, append(trans1.Key, trans2.Key...))
 
-	var admins [AdminNum]Address
-	getDataFormDB(1, dbStat{}, []byte{StatAdmin}, &admins)
-	for _, it := range admins {
-		if bytes.Compare(admin.Address, it[:]) == 0 {
-			return
-		}
+	if !IsAdmin(1, admin.Address) {
+		t.Error("not admin")
 	}
-	t.Error("hope is admin")
+
+	var totalVotes uint64
+	getDataFormDB(1, dbStat{}, []byte{StatTotalVotes}, &totalVotes)
+	if totalVotes != maxGuerdon/voteCost {
+		t.Error("error votes")
+	}
 }
 
 func TestReward(t *testing.T) {
-
+	log.Println("testing start", t.Name())
 	t0 := GetBlockTime(1)
 	if (t0+100*maxBlockInterval)/TimeDay == t0/TimeDay {
 		id := GetLastBlockIndex(1)
@@ -799,6 +766,48 @@ func TestReward(t *testing.T) {
 				break
 			}
 		}
+	}
+}
+
+func TestUnvote(t *testing.T) {
+	log.Println("testing start", t.Name())
+	// return
+	var totalVotes1, totalVotes2, totalVotes3 uint64
+	getDataFormDB(1, dbStat{}, []byte{StatTotalVotes}, &totalVotes1)
+
+	trans2 := NewTransaction(1, team)
+	trans2.VoteAdmin(maxGuerdon, admin.Address)
+	trans2.Time = GetBlockTime(1)
+	c := conf.GetConf()
+	td2 := trans2.GetSignData()
+	sign2 := wallet.Sign(c.PrivateKey, td2)
+	trans2.SetSign(sign2)
+	td2 = trans2.Output()
+	WriteTransaction(1, td2)
+
+	doMine(1, trans2.Key)
+	doMine(2, nil)
+
+	getDataFormDB(1, dbStat{}, []byte{StatTotalVotes}, &totalVotes2)
+	if totalVotes2 != maxGuerdon/voteCost+totalVotes1 {
+		t.Error("error votes")
+	}
+
+	trans3 := NewTransaction(1, team)
+	// trans3.VoteAdmin(maxGuerdon, admin.Address)
+	trans3.Ops = OpsUnvote
+	trans3.Time = GetBlockTime(1)
+	td3 := trans3.GetSignData()
+	sign3 := wallet.Sign(c.PrivateKey, td3)
+	trans3.SetSign(sign3)
+	td3 = trans3.Output()
+	WriteTransaction(1, td3)
+
+	doMine(1, trans3.Key)
+	doMine(2, nil)
+	getDataFormDB(1, dbStat{}, []byte{StatTotalVotes}, &totalVotes3)
+	if totalVotes3 > 0 {
+		t.Error("error vote")
 	}
 }
 

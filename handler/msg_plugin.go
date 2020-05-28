@@ -14,7 +14,6 @@ import (
 	"github.com/govm-net/govm/conf"
 	core "github.com/govm-net/govm/core"
 	"github.com/govm-net/govm/database"
-	"github.com/govm-net/govm/event"
 	"github.com/govm-net/govm/messages"
 	"github.com/govm-net/govm/runtime"
 	"github.com/lengzhao/libp2p"
@@ -128,8 +127,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 				p.downloadBlockDepend(ctx, msg.Chain, msg.Key)
 			} else {
 				rel.Recalculation(msg.Chain)
-				bln := getBlockLockNum(msg.Chain, rel.Key[:])
-				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower+bln)
+				setIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
 				go processEvent(msg.Chain)
 			}
 			return nil
@@ -407,6 +405,10 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 		blockHP.Set(keyOfBlockHP{chain, hpi}, val)
 	}
 
+	if !rel.TransListHash.Empty() {
+		return
+	}
+
 	if rel.Time+tMinute > getCoreTimeNow() && needBroadcastBlock(chain, rel) {
 		log.Printf("BroadcastBlock,chain:%d,index:%d,key:%x\n", chain, rel.Index, rel.Key)
 		info := messages.BlockInfo{}
@@ -475,9 +477,19 @@ func (p *MsgPlugin) downloadBlockDepend(ctx libp2p.Event, chain uint64, key []by
 	SaveBlockReliability(chain, rel.Key[:], rel)
 	ctx.GetSession().SetEnv(getEnvKey(chain, transOwner), "")
 
-	bln := getBlockLockNum(chain, rel.Key[:])
-	log.Printf("setBlockToIDBlocks,chain:%d,index:%d,key:%x,hp:%d,bln:%d\n", chain, rel.Index, rel.Key, rel.HashPower, bln)
-	setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower+bln)
+	log.Printf("setIDBlocks,chain:%d,index:%d,key:%x,hp:%d\n", chain, rel.Index, rel.Key, rel.HashPower)
+	setIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+
+	if rel.Time+tMinute > getCoreTimeNow() && needBroadcastBlock(chain, rel) {
+		log.Printf("BroadcastBlock,chain:%d,index:%d,key:%x\n", chain, rel.Index, rel.Key)
+		info := messages.BlockInfo{}
+		info.Chain = chain
+		info.Index = rel.Index
+		info.Key = rel.Key[:]
+		info.HashPower = rel.HashPower
+		info.PreKey = rel.Previous[:]
+		network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
+	}
 
 	go processEvent(chain)
 	return
@@ -496,12 +508,10 @@ func processTransaction(chain uint64, key, data []byte) error {
 		return errors.New("error transaction key")
 	}
 
-	nIndex := core.GetLastBlockIndex(chain)
-	if trans.Chain > 1 {
-		if nIndex <= 1 {
-			return errors.New("chain no exist")
-		}
-	}
+	// nIndex := core.GetLastBlockIndex(chain)
+	// if nIndex == 0 {
+	// 	return errors.New("chain no exist")
+	// }
 
 	c := conf.GetConf()
 	if trans.Chain != chain {
@@ -510,7 +520,7 @@ func processTransaction(chain uint64, key, data []byte) error {
 
 	now := getCoreTimeNow()
 	// future trans
-	if trans.Time > now+blockAcceptTime {
+	if trans.Time > now+tHour {
 		return errors.New("error time")
 	}
 
@@ -540,12 +550,8 @@ func processTransaction(chain uint64, key, data []byte) error {
 	// 	return nil
 	// }
 
-	info := messages.ReceiveTrans{}
-	info.Chain = chain
-	info.Key = key
-	event.Send(&info)
-
-	if trans.Time > now && trans.Time+transAcceptTime < now {
+	if trans.Time+transAcceptTime < now {
+		log.Println("error transaction time")
 		return nil
 	}
 
@@ -577,7 +583,6 @@ func dbRollBack(chain, index uint64, key []byte) error {
 		return errors.New("error block key of the index")
 	}
 	lKey = core.GetTheBlockKey(chain, nIndex)
-	bln := getBlockLockNum(chain, lKey)
 	client := database.GetClient()
 	for nIndex >= index {
 		lKey = core.GetTheBlockKey(chain, nIndex)
@@ -589,7 +594,6 @@ func dbRollBack(chain, index uint64, key []byte) error {
 			client.Cancel(chain, f)
 			return err
 		}
-		setBlockLockNum(chain, lKey, bln)
 		stat := ReadBlockRunStat(chain, lKey)
 		stat.RollbackCount++
 		SaveBlockRunStat(chain, lKey, stat)
@@ -598,13 +602,7 @@ func dbRollBack(chain, index uint64, key []byte) error {
 		runtime.Decode(lKey, &lk)
 		// setBlockToIDBlocks(chain, nIndex, lk, 0)
 
-		transList := GetTransList(chain, lKey)
-		for _, trans := range transList {
-			v := ldb.LGet(chain, ldbAllTransInfo, trans[:])
-			ldb.LSet(chain, ldbTransInfo, trans[:], v)
-		}
 		nIndex--
-		bln++
 	}
 
 	return nil

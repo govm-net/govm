@@ -23,73 +23,36 @@
         <div class="col-md-12 column">
             <div class="panel panel-default">
                 <div class="panel-heading">
-                    <h3 class="panel-title" data-localize="info">Info</h3>
+                    <h3 class="panel-title" data-localize="admins">
+                        Admins
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <div id="admins">
+                    </div>
+                </div>
+            </div>
+    
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title" data-localize="admin_info">
+                        Admin Details(Including candidates)
+                    </h3>
                 </div>
                 <div class="panel-body">
                     <div class="input-group">
-                        <span class="input-group-addon" data-localize="wallet_addr">Wallet Address:</span>
+                        <span class="input-group-addon" data-localize="address">Address</span>
                         <span class="form-control" id="address"></span>
                     </div>
-                    <br>
                     <div class="input-group">
-                        <span class="input-group-addon" data-localize="chain">Chain:</span>
-                        <span class="form-control" id="chain0"></span>
+                        <span class="input-group-addon" data-localize="deposit">Deposit</span>
+                        <span class="form-control" id="deposit"></span>
                     </div>
                     <div class="input-group">
-                        <span class="input-group-addon" data-localize="blance">Balance:</span>
-                        <span class="form-control" id="balance0"></span>
-                        <span class="input-group-addon" id="base_cost0"></span>
+                        <span class="input-group-addon" data-localize="votes">Votes</span>
+                        <span class="form-control" id="votes"></span>
                     </div>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="frozen">FrozenCoins:</span>
-                        <span class="form-control" id="frozen0"></span>
-                        <span class="input-group-addon" id="base_frozen0"></span>
-                    </div>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="mined">Blocks Mined:</span>
-                        <span class="form-control" id="mined0"></span>
-                    </div>
-                    <br>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="chain">Chain:</span>
-                        <span class="form-control" id="chain1"></span>
-                    </div>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="blance">Balance:</span>
-                        <span class="form-control" id="balance1"></span>
-                        <span class="input-group-addon" id="base_cost1"></span>
-                    </div>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="frozen">FrozenCoins:</span>
-                        <span class="form-control" id="frozen1"></span>
-                        <span class="input-group-addon" id="base_frozen1"></span>
-                    </div>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="mined">Blocks Mined:</span>
-                        <span class="form-control" id="mined1"></span>
-                    </div>
-                </div>
-            </div>
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <h3 class="panel-title" data-localize="send_history">Send History</h3>
-                </div>
-                <div class="panel-body">
-                    <div id="output"></div>
-                    <br>
-                    <button type="button" class="btn btn-success pull-right" id="send_next"
-                        data-localize="next">Next</button>
-                </div>
-            </div>
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <h3 class="panel-title" data-localize="receive_history">Receive History</h3>
-                </div>
-                <div class="panel-body">
-                    <div id="input"></div>
-                    <br>
-                    <button type="button" class="btn btn-success pull-right" id="receive_next"
-                        data-localize="next">Next</button>
+                    <button type="button" class="btn btn-success pull-right" id="next" data-localize="next">Next</button>
                 </div>
             </div>
         </div>
@@ -101,120 +64,66 @@
     <script src="js/bootstrap.min.js"></script>
     <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
     <script src="js/jquery.localize.min.js"></script>
-    <script src="js/load.js?v=4"></script>
-    <script src="js/encode.js?v=4"></script>
+    <script src="js/load.js?v=5"></script>
+    <script src="js/encode.js?v=5"></script>
 
     <script type="text/javascript">
-        var last_send = ""
-        var last_receive = ""
-        $("#base_cost0").html(gCostBase);
-        $("#base_cost1").html(gCostBase);
-        $("#base_frozen0").html(gCostBase);
-        $("#base_frozen1").html(gCostBase);
-        gChainID = parseInt(gChainID);
-
-        function getAccount(chain, id) {
-            $.get("/api/v1/" + chain + "/account", function (data, status) {
-                if (status != "success") {
-                    alert("Chain:" + chain + ". Data: " + data + "\nStatus: " + status);
-                    return;
+        var preAdmin = "";
+        function getAdmins(chain) {
+            console.log("start to get admins");
+            $("#admins").html("");
+            $.get("/api/v1/" + chain + "/admins", function (data, status) {
+                for (key in data) {
+                    $("#admins").append($("<div class='input-group'>").append(
+                        $("<span class='input-group-addon'></span>").append("Admin" + key)
+                    ).append(
+                        $("<span class='form-control'>").append(data[key])
+                    ));
                 }
-                if (data.cost === undefined){
-                    data.cost = 0
-                }
-                // success to get account info
-                $("#address").html("<b>" + data.address + "</b>");
-                $("#chain" + id).html("<b>" + data.chain + "</b>");
-                $("#balance" + id).html("<b><p title='" + fmoney(data.cost) + "'>" + getValueWithBase(data.cost, gCostBase) + "</p></b>");
+                //console.log(data);
+            }).fail(function () {
+            });
+        }
 
-                // get coinsLock
-                var urlStr = "/api/v1/" + chain + "/data?app_name=ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
-                urlStr += "&is_db_data=true&key=" + data.address
-                $.get(urlStr + "&struct_name=statCoinLock", function (data, status) {
-                    if (status != "success") {
-                        console.log("statCoinLock,Data: " + data + "\nStatus: " + status);
-                        return;
-                    }
-                    console.log("statCoinLock:", data.value)
-                    var lock = dataEncode(data.value, "hex2int")
-                    if (lock == 0) {
+        function getNextAdminInfo(chain, pre_key) {
+            $("#address").html("")
+            $("#deposit").html("")
+            $("#votes").html("")
+            $.ajax({
+                type: "GET",
+                url: "/api/v1/" + chain + "/data/visit",
+                data: {
+                    "app_name": "ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+                    "struct_name": "dbAdmin", "is_db_data": true, "pre_key": pre_key
+                },
+                dataType: "json",
+                success: function (rst) {
+                    if (rst.key === undefined || rst.key == "") {
+                        preAdmin = "";
                         return
                     }
-                    $.get(urlStr + "&struct_name=statCoinUnlock", function (data, status) {
-                        var unlock = 0;
-                        if (status == "success") {
-                            console.log("statCoinUnlock:", data.value)
-                            unlock = dataEncode(data.value, "hex2int")
-                        }
-                        //console.log("id:",id,"lock:",lock,unlock)
-                        $("#frozen" + id).html(getValueWithBase(lock - unlock, gCostBase))
+                    preAdmin = rst.key;
+                    $.get("/api/v1/" + chain + "/admin?key=" + rst.key, function (data, status) {
+                        $("#address").html(data.address)
+                        $("#deposit").html(data.deposit)
+                        $("#votes").html(data.votes)
+                        //console.log(data);
+                    }).fail(function () {
                     });
-                });
-
-                $.get(urlStr + "&struct_name=statMiningCount", function (data, status) {
-                    if (status != "success") {
-                        console.log("statMiningCount,Data: " + data + "\nStatus: " + status);
-                        return;
-                    }
-                    if (data.value === undefined) {
-                        console.log("statMiningCount:undefined")
-                        return
-                    }
-                    $("#mined" + id).html(dataEncode(data.value, "hex2int"))
-                });
-            });
-        }
-
-        function getSendHistory(chain, key) {
-            var query = ""
-            if (key != "") {
-                query = "?key=" + key
-            }
-            $("#output").html("");
-            $.get("/api/v1/" + chain + "/transaction/history/output" + query, function (data, status) {
-                for (i in data) {
-                    last_send = data[i].key
-                    $("#output").append(
-                        $("<div class='input-group'>").append(
-                            $("<span class='input-group-addon'>transaction:</span>")
-                        ).append(
-                            $("<span class='form-control'>").append(
-                                getLinkString("transaction.html", chain, data[i].value)
-                            )
-                        ));
+                },
+                error: function (XMLHttpRequest, textStatus, errorThrown) {
+                    console.log(XMLHttpRequest.responseText);
+                    console.log(textStatus);
+                    preAdmin = "";
                 }
             });
         }
-        function getReceiveHistory(chain, key) {
-            var query = ""
-            if (key != "") {
-                query = "?key=" + key
-            }
-            $("#input").html("");
-            $.get("/api/v1/" + chain + "/transaction/history/input" + query, function (data, status) {
-                for (i in data) {
-                    last_receive = data[i].key
-                    $("#input").append(
-                        $("<div class='input-group'>").append(
-                            $("<span class='input-group-addon'>transaction:</span>")
-                        ).append(
-                            $("<span class='form-control'>").append(
-                                getLinkString("transaction.html", chain, data[i].value)
-                            )
-                        ));
-                }
-            });
-        }
-        $('#send_next').on('click', function () {
-            getSendHistory(gChainID, last_send)
+
+        $('#next').on('click', function () {
+            getNextAdminInfo(gChainID, preAdmin);
         });
-        $('#receive_next').on('click', function () {
-            getReceiveHistory(gChainID, last_receive)
-        });
-        getAccount(gChainID, 0);
-        getAccount(gChainID + 1, 1);
-        getSendHistory(gChainID, "")
-        getReceiveHistory(gChainID, "")
+        getAdmins(gChainID);
+        getNextAdminInfo(gChainID, preAdmin);
     </script>
 </body>
 
