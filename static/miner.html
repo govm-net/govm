@@ -171,6 +171,9 @@
             base = getBaseByName(gCostBase)
             data.energy = parseInt(data.energy * base)
             data.cost = parseInt(data.cost * getBaseByName("govm"))
+            if (data.cost < 0){
+                return
+            }
             var chain = data.chain
             data = JSON.stringify(data)
             //alert(data)

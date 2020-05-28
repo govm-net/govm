@@ -3,6 +3,7 @@ package zff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
 import (
 	"encoding/hex"
 	"encoding/json"
+	"io/ioutil"
 	"log"
 
 	"github.com/govm-net/govm/runtime"
@@ -174,7 +175,6 @@ const (
 	guerdonUpdateCycle = 500000
 	depositCycle       = 50000
 	voteCost           = 1000000000
-	activeMinerID      = 20
 	defaultHashPower   = 20000
 )
 
@@ -225,21 +225,30 @@ const (
 
 var (
 	// gPublicAddr The address of a public account for the preservation of additional rewards.
-	gPublicAddr    = Address{prefixOfPlublcAddr, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
-	team           = Address{2, 152, 64, 16, 49, 156, 211, 70, 89, 247, 252, 178, 11, 49, 214, 21, 216, 80, 171, 50, 202, 147, 6, 24}
-	redemptionList = map[string]uint64{
-		"01853433fb23a8e55663bc2b3cba0db2a8530acd60540fd9": 1000,
-		"012cddfa7e8f6efbbe464658260f919ff4903f3489bd8976": 1000000000000,
-		"017b6717640a5ef55e500fa85e4feae1bcd91d7283dbdd19": 2000,
-		"01a45a300e61ac9f554095a8d3b814a021f53255f67180b0": 2000,
+	gPublicAddr = Address{prefixOfPlublcAddr, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
+	team        = Address{2, 152, 64, 16, 49, 156, 211, 70, 89, 247, 252, 178, 11, 49, 214, 21, 216, 80, 171, 50, 202, 147, 6, 24}
+
+	minerList = []string{
+		"017e27f4236b51759d89f2bc04cf87969b0c019c226ab14a",
+		//"01ccaf415a3a6dc8964bf935a1f40e55654a4243ae99c709",
+		"019b96dd88627e1fd4e68a48fba86a3d3ffd7db7a72ebd46",
+		"01b622d7b462ffc72c187a76e92b96a0c3d3b93a5ebaa474",
+		"01e2bcb6451757babdb6e51702a88a012a79e719d653709a",
+		"0136f3ec86c49e39970ceba9c334a68aab87077cf73e198a",
+		"01f66d878a44f1a0ea8ec699c842ce9783b6df590a1584f7",
+		"01e32a5a3f408052ad7b076142f5500d12abd08a8918a693",
+		"013281edcea5d4421b8f38e88b0a20e73b4753d3047e5bef",
+		"01b8ff3366f12e216f930455f09fda958ea4270230070251",
+		"013633d74511f240c5476f0b0f4ff424267d9567622f11d6",
+		"01fa89b5fb91a33a0e6323f427545bca1b5bcc30e5b78bca",
+		"016386e78c0602c1cf8c66fe394b984423e5f04ebba8bb1f",
+		"016a24a42cf98a05081e84502b617b66b1c2cd2bf89679aa",
+		"01a87949c275bb9277622dee9964eb4d7cac42e31c528309",
 	}
 
 	firstAdmins = []string{
-		"01bdb04da7a33323e79d793e05ef232d52adeae5cf6cbaee",
-		"01853433fb23a8e55663bc2b3cba0db2a8530acd60540fd9",
-		"012cddfa7e8f6efbbe464658260f919ff4903f3489bd8976",
-		"017b6717640a5ef55e500fa85e4feae1bcd91d7283dbdd19",
-		"01a45a300e61ac9f554095a8d3b814a021f53255f67180b0",
+		"01ccaf415a3a6dc8964bf935a1f40e55654a4243ae99c709",
+		"02984010319cd34659f7fcb20b31d615d850ab32ca930618",
 	}
 )
 
@@ -879,15 +888,6 @@ func (p *processer) processFirstBlock(block Block) {
 	assert(p.pLogBlockInfo.Write(p.Key[:], stream))
 	assert(p.pLogBlockInfo.Write(p.Encode(0, block.Index), p.Key[:]))
 
-	for k, v := range redemptionList {
-		var addr Address
-		addr.Decode(k)
-		p.pDbMiner.SetValue(addr[:], uint64(1), TimeYear)
-		if p.Chain == 1 {
-			p.adminTransfer(Address{}, addr, v)
-		}
-	}
-
 	if p.Chain == 1 {
 		p.pDbStat.SetValue([]byte{StatGuerdon}, uint64(maxGuerdon), maxDbLife)
 		p.pDbStat.SetValue([]byte{StatHashPower}, uint64(defaultHashPower), maxDbLife)
@@ -903,9 +903,25 @@ func (p *processer) processFirstBlock(block Block) {
 			}
 		}
 		p.pDbStat.SetValue([]byte{StatAdmin}, &admins, maxDbLife)
+
+		var redemption map[string]uint64
+		data, err := ioutil.ReadFile("./conf/redemption.json")
+		assert(err == nil)
+		err = json.Unmarshal(data, &redemption)
+		assert(err == nil)
+		for k, v := range redemption {
+			var addr Address
+			addr.Decode(k)
+			p.adminTransfer(Address{}, addr, v)
+		}
 	}
 
-	// p.pDbMiner.SetValue(block.Producer[:], uint64(1), maxDbLife)
+	for _, it := range minerList {
+		var addr Address
+		addr.Decode(it)
+		p.registerMiner(addr)
+	}
+
 	p.pDbStat.SetValue([]byte{StatBlockSizeLimit}, uint64(blockSizeLimit), maxDbLife)
 	p.pDbStat.SetValue([]byte{StatBlockInterval}, getBlockInterval(p.Chain), maxDbLife)
 	p.pDbStat.Set([]byte{StatFirstBlockKey}, p.Key[:], maxDbLife)
@@ -1299,7 +1315,7 @@ func (p *processer) pNewChain(producer Address, t Transaction) {
 	p.pDbStat.GetValue([]byte{StatAdmin}, &si.AdminList)
 	var find bool
 	for _, it := range si.AdminList {
-		if it == producer {
+		if it == t.User {
 			find = true
 			break
 		}
@@ -1524,7 +1540,7 @@ func (p *processer) registerOtherChainMiner(user Address, chain, cost uint64) {
 	p.addSyncInfo(chain, SyncOpsMiner, p.Encode(0, info))
 }
 
-func (p *processer) registerMiner(user Address, cost uint64) {
+func (p *processer) registerMiner(user Address) {
 	var startBlock uint64
 	startBlock = p.pDbMiner.GetInt(user[:])
 	if startBlock != 0 {
@@ -1534,7 +1550,7 @@ func (p *processer) registerMiner(user Address, cost uint64) {
 	if life > 0 {
 		return
 	}
-	startBlock = p.ID + activeMinerID
+	startBlock = p.ID
 
 	p.pDbMiner.SetValue(user[:], startBlock, TimeYear)
 }
@@ -1565,7 +1581,7 @@ func (p *processer) pRegisterMiner(t Transaction) {
 		return
 	}
 
-	p.registerMiner(miner, t.Cost)
+	p.registerMiner(miner)
 }
 
 // AdminInfo vote info
@@ -1991,7 +2007,6 @@ func (p *processer) syncInfo(from uint64, ops uint8, data []byte) {
 		p.pDbStat.SetValue([]byte{StatGuerdon}, nc.Guerdon, maxDbLife)
 		p.pDbStat.SetValue([]byte{StatAdmin}, nc.AdminList, maxDbLife)
 		p.pDbStat.SetValue([]byte{StatHashPower}, nc.HashPower, maxDbLife)
-		p.registerMiner(nc.Producer, nc.Guerdon)
 		for _, it := range nc.AdminList {
 			if it.Empty() {
 				continue
@@ -2000,11 +2015,12 @@ func (p *processer) syncInfo(from uint64, ops uint8, data []byte) {
 			p.pDbAdmin.SetValue(it[:], admin, maxDbLife)
 			// p.pRegisterAdmin(it, 1)
 		}
+		p.registerMiner(nc.Producer)
 		p.Event(dbTransInfo{}, "new_chain_ack", []byte{2})
 	case SyncOpsMiner:
 		rm := syncRegMiner{}
 		p.Decode(0, data, &rm)
-		p.registerMiner(rm.User, rm.Cost)
+		p.registerMiner(rm.User)
 	case SyncOpsBroadcast:
 		br := BroadcastInfo{}
 		n := p.Decode(0, data, &br)

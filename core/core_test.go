@@ -24,6 +24,7 @@ const enableDBServer = true
 
 var miner wallet.TWallet
 var admin wallet.TWallet
+var admin2 wallet.TWallet
 
 type rtForTest struct {
 	runtime.TRuntime
@@ -65,9 +66,16 @@ func TestMain(m *testing.M) {
 	pubK1 := wallet.GetPublicKey(admin.Key)
 	admin.Address = wallet.PublicKeyToAddress(pubK1, wallet.EAddrTypeDefault)
 
+	// admin.Key = wallet.NewPrivateKey()
+	admin2.Key = wallet.GetHash([]byte("admin2"))
+	pubK2 := wallet.GetPublicKey(admin2.Key)
+	admin2.Address = wallet.PublicKeyToAddress(pubK2, wallet.EAddrTypeDefault)
+	firstAdmins = append(firstAdmins, hex.EncodeToString(admin2.Address))
+
 	// miner
 	hexAddr := hex.EncodeToString(c.WalletAddr)
-	redemptionList[hexAddr] = 1000
+	minerList = append(minerList, hexAddr)
+	// firstAdmins = append(firstAdmins, hexAddr)
 
 	m.Run()
 	log.Println("end")
@@ -129,15 +137,17 @@ func doMine(chain uint64, transList []byte) error {
 }
 
 func newChain(src, dst uint64) []byte {
-	c := conf.GetConf()
+	// c := conf.GetConf()
+	var cost uint64 = maxGuerdon
+	runtime.AdminDbSet(dbCoin{}, src, admin2.Address, runtime.Encode(cost), maxDbLife)
 	cAddr := Address{}
-	runtime.Decode(c.WalletAddr, &cAddr)
+	runtime.Decode(admin2.Address, &cAddr)
 	trans := NewTransaction(src, cAddr)
 	trans.CreateNewChain(dst, 0)
 	trans.Time = GetBlockTime(src)
 
 	signData := trans.GetSignData()
-	sign := wallet.Sign(c.PrivateKey, signData)
+	sign := wallet.Sign(admin2.Key, signData)
 	trans.SetSign(sign)
 	td := trans.Output()
 	// WriteTransaction(src, td)
@@ -669,14 +679,14 @@ func TestRegisterMiner(t *testing.T) {
 
 	doMine(1, trans.Key)
 
-	err = mineFunc()
-	if err == nil {
-		t.Error("not right to mine")
-	}
+	// err = mineFunc()
+	// if err == nil {
+	// 	t.Error("not right to mine")
+	// }
 
 	id := GetLastBlockIndex(1)
 	i := id
-	for i < id+activeMinerID+1 {
+	for i < id+2 {
 		i = GetLastBlockIndex(1)
 		t1 := GetBlockTime(1)
 		t2 := GetBlockTime(2)

@@ -83,7 +83,7 @@
             base = getBaseByName(gCostBase)
             data.dst_chain = parseInt(data.dst_chain)
             data.cost = parseInt(data.cost*base)
-            if (data.cost==0){
+            if (data.cost<=0){
                 return
             }
             data.energy = parseInt(data.energy*base)
