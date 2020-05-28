@@ -9,11 +9,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/lengzhao/govm/api"
-	"github.com/lengzhao/govm/conf"
-	"github.com/lengzhao/govm/database"
-	"github.com/lengzhao/govm/handler"
-	"github.com/lengzhao/govm/wallet"
+	"github.com/govm-net/govm/api"
+	"github.com/govm-net/govm/conf"
+	"github.com/govm-net/govm/database"
+	"github.com/govm-net/govm/handler"
+	"github.com/govm-net/govm/wallet"
 	"github.com/lengzhao/libp2p/crypto"
 	"github.com/lengzhao/libp2p/network"
 	"github.com/lengzhao/libp2p/plugins"
@@ -35,11 +35,19 @@ func main() {
 		log.SetOutput(ioutil.Discard)
 	}
 	database.ChangeClientNumber(10)
-	err := database.GetClient().Set(1, []byte("test"), []byte("test"), []byte("test"))
-	if err != nil {
-		fmt.Println("fail to set database,make sure the database server running.", err)
-		os.Exit(2)
+	client := database.GetClient()
+	val := client.Get(1, []byte("info"), []byte("net"))
+	if len(val) == 0 {
+		err := client.Set(1, []byte("info"), []byte("net"), []byte(c.NetID))
+		if err != nil {
+			fmt.Println("fail to set database,make sure the database server running.", err)
+			os.Exit(2)
+		}
+	} else if string(val) != c.NetID {
+		fmt.Println("different net id,hope:", c.NetID, ", get:", val)
+		os.Exit(3)
 	}
+
 	conf.LoadWallet(c.WalletFile, c.Password)
 	// startHTTPServer
 	{
@@ -75,16 +83,17 @@ func main() {
 	n.RegistPlugin(new(plugins.DiscoveryPlugin))
 	n.RegistPlugin(new(plugins.Broadcast))
 	key := loadNodeKey()
+	rk := wallet.EcdsaKey{Type: c.NetID}
 	cp := crypto.NewMgr()
-	cp.Register(new(wallet.EcdsaKey))
-	cp.SetPrivKey("ecdsa", key)
+	cp.Register(&rk)
+	cp.SetPrivKey(rk.GetType(), key)
 	n.SetKeyMgr(cp)
 	n.RegistPlugin(new(handler.MsgPlugin))
 	n.RegistPlugin(new(handler.InternalPlugin))
 	n.RegistPlugin(new(handler.SyncPlugin))
 	n.RegistPlugin(new(handler.NATTPlugin))
 
-	err = n.Listen(c.ServerHost)
+	err := n.Listen(c.ServerHost)
 	if err != nil {
 		log.Println("fail to listen:", c.ServerHost, err)
 	}
@@ -94,6 +103,9 @@ func main() {
 }
 
 func loadNodeKey() []byte {
+	if !conf.GetConf().SaveNodeInfo {
+		return wallet.NewPrivateKey()
+	}
 	const (
 		nodeKeyFile = "./conf/node_key.dat"
 		passwd      = "10293847561029384756"

@@ -24,7 +24,7 @@ var (
 var profile string // The profile to read; the value of -html or -func
 
 const (
-	atomicPackagePath = "github.com/lengzhao/govm/counter"
+	atomicPackagePath = "github.com/govm-net/govm/counter"
 	atomicPackageName = "_consume_tip_"
 )
 

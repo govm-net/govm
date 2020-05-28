@@ -100,7 +100,7 @@
     <!-- 包括所有已编译的插件 -->
     <script src="js/bootstrap.min.js"></script>
     <script src="js/jquery.localize.min.js"></script>
-    <script src="js/load.js?v=9"></script>
+    <script src="js/load.js?v=5"></script>
 
     <script type="text/javascript">
         $("#base_cost").html(gCostBase);
@@ -243,10 +243,10 @@
         if (chain < 1) {
             chain = gChainID;
         }
-        if (key == "") {
-            key = "0c64e484f3b329fea41a03be2677161eaac92741105cb0548b6ec4a5529efc71";
+        if (key != "") {
+            getTrans(chain, key);
         }
-        getTrans(chain, key)
+        
     </script>
 </body>
 

@@ -8,9 +8,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/govm-net/govm/database"
+	"github.com/govm-net/govm/wallet"
 	"github.com/lengzhao/database/client"
-	"github.com/lengzhao/govm/database"
-	"github.com/lengzhao/govm/wallet"
 	"io/ioutil"
 	"log"
 	"os"
@@ -30,7 +30,7 @@ type EventFilter struct {
 
 // Module go.mod
 var (
-	Module      = "github.com/lengzhao/govm"
+	Module      = "github.com/govm-net/govm"
 	projectRoot = "app"
 	filter      EventFilter
 	AppPath     = "."
@@ -120,14 +120,14 @@ func GobDecode(in []byte, out interface{}) int {
 // GetPackPath get the package path on golang packages
 func GetPackPath(chain uint64, name []byte) string {
 	nameStr := hex.EncodeToString(name)
-	nameStr = "a" + nameStr
+	nameStr = "z" + nameStr
 	return path.Join(Module, projectRoot, fmt.Sprintf("chain%d", chain), nameStr)
 }
 
 // GetFullPathOfApp get the full path of app
 func GetFullPathOfApp(chain uint64, name []byte) string {
 	nameStr := hex.EncodeToString(name)
-	nameStr = "a" + nameStr
+	nameStr = "z" + nameStr
 	nameStr = path.Join(projectRoot, fmt.Sprintf("chain%d", chain), nameStr)
 	return nameStr
 }

@@ -3,12 +3,13 @@ package conf
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"time"
 
-	"github.com/lengzhao/govm/wallet"
+	"github.com/govm-net/govm/wallet"
 )
 
 // TConfig config of app
@@ -19,33 +20,25 @@ type TConfig struct {
 	DbAddrType      string `json:"db_addr_type,omitempty"`
 	DbServerAddr    string `json:"db_server_addr,omitempty"`
 	CorePackName    []byte `json:"core_pack_name,omitempty"`
-	FirstTransName  []byte `json:"first_trans_name,omitempty"`
-	ChainOfMine     uint64 `json:"chain_of_mine,omitempty"`
-	EnergyOfTrans   uint64 `json:"energy_of_trans,omitempty"`
 	WalletAddr      []byte `json:"wallet_addr,omitempty"`
 	SignPrefix      []byte `json:"sign_prefix,omitempty"`
 	PrivateKey      []byte `json:"private_key,omitempty"`
 	Password        string `json:"password,omitempty"`
 	WalletFile      string `json:"wallet_file,omitempty"`
-	CostOfRegMiner  uint64 `json:"cost_of_reg_miner,omitempty"`
-	DoMine          bool   `json:"do_mine,omitempty"`
 	SaveLog         bool   `json:"save_log,omitempty"`
-	ForceMine       bool   `json:"force_mine,omitempty"`
 	IdentifyingCode bool   `json:"identifying_code,omitempty"`
-	LuckyNumber     uint64 `json:"lucky_number,omitempty"`
 	TrustedServer   string `json:"trusted_server,omitempty"`
 	CheckBlock      bool   `json:"check_block,omitempty"`
+	AutoRollback    bool   `json:"auto_rollback,omitempty"`
+	SaveNodeInfo    bool   `json:"save_node_info,omitempty"`
+	NetID           string `json:"net_id,omitempty"`
+	OneConnPerMiner bool   `json:"one_conn_per_miner,omitempty"`
 }
-
-// DebugMod debug mode
-const (
-	CreateFristTrans = false
-)
 
 var (
 	conf TConfig
 	// Version software version
-	Version string = "v0.4.7"
+	Version string = "v0.5.0"
 	// BuildTime build time
 	BuildTime string
 	// GitHead git head
@@ -68,7 +61,15 @@ func init() {
 
 func loadConfig() error {
 	conf.CheckBlock = true
-	data, err := ioutil.ReadFile("./conf/conf.json")
+	conf.AutoRollback = true
+	fn := "./conf/conf.json"
+	if _, err := os.Stat(fn); os.IsNotExist(err) {
+		data, _ := ioutil.ReadFile("./conf/conf.bak.json")
+		if len(data) > 0 {
+			ioutil.WriteFile(fn, data, 0666)
+		}
+	}
+	data, err := ioutil.ReadFile(fn)
 	if err != nil {
 		log.Println("fail to read file,conf.json")
 		return err
@@ -79,8 +80,7 @@ func loadConfig() error {
 		return err
 	}
 	//log.Println("config info:", conf)
-	conf.FirstTransName, _ = hex.DecodeString("0c64e484f3b329fea41a03be2677161eaac92741105cb0548b6ec4a5529efc71")
-	conf.CorePackName, _ = hex.DecodeString("e4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c")
+	conf.CorePackName, _ = hex.DecodeString("ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
 
 	if conf.WalletFile == "" {
 		conf.WalletFile = "./conf/wallet.key"
@@ -118,6 +118,10 @@ func Reload() error {
 func LoadWallet(fileName, password string) {
 	w, err := wallet.LoadWallet(fileName, password)
 	if err != nil {
+		if _, err = os.Stat(fileName); !os.IsNotExist(err) {
+			fmt.Println("fail to load wallet.", err)
+			os.Exit(4)
+		}
 		os.Rename(fileName, fileName+".error")
 		w, err = wallet.LoadWallet("./conf/base.dat", password)
 		if err != nil {

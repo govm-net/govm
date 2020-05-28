@@ -15,27 +15,38 @@
         <div id="navbar"></div>
         <div class="panel panel-default">
             <div class="panel-heading">
-                <h3 class="panel-title" data-localize="add_node">
-                    Add Node
+                <h3 class="panel-title" data-localize="node_info">
+                    Node Info
                 </h3>
             </div>
             <div class="panel-body">
-                <form class="bs-example bs-example-form" role="form">
+                <div>
+                    <div class="input-group">
+                        <span class="input-group-addon">Node Address:</span>
+                        <span class="form-control" id="self"></span></div>
+                    <div class="input-group">
+                        <span class="input-group-addon">Nodes Connected:</span>
+                        <span class="form-control" id="node_num"></span></div>
+                    <div class="input-group">
+                        <span class="input-group-addon">Miners Connected:</span>
+                        <span class="form-control" id="miners"></span></div>
+                </div>
+                <!-- <form class="bs-example bs-example-form" role="form">
                     <div class="input-group">
                         <span class="input-group-addon" data-localize="peer">Peer:</span>
                         <input type="text" class="form-control"
-                            value="tcp://017e9fef47456b9a97a056e9d5cbdca522b843f19e479900@govm.net:17778"
-                            name="peer">
+                            value="tcp://017e9fef47456b9a97a056e9d5cbdca522b843f19e479900@govm.net:17778" name="peer">
                         <span class="input-group-addon label-success">*</span>
                     </div>
                     <br>
-                    <button type="button" class="btn btn-success pull-right" id="submit" data-localize="submit">Submit</button>
+                    <button type="button" class="btn btn-success pull-right" id="submit"
+                        data-localize="submit">Submit</button>
                     <br>
                 </form>
                 <div>
                     <h3 id="result">
                     </h3>
-                </div>
+                </div> -->
             </div>
         </div>
 
@@ -45,8 +56,9 @@
                     Nodes
                 </h3>
             </div>
-            <div class="panel-body" id="nodes">
-                <div />
+            <div class="panel-body">
+
+                <div id="nodes"></div>
             </div>
         </div>
     </div>
@@ -75,13 +87,20 @@
                     newRow += key + "(server:" + nodes[key] + ")"
                     newRow += "</div><br>";
                 }
-                $("#nodes div").append(newRow);
+                $("#nodes").append(newRow);
+            }
+        });
+        $.get("/api/v1/node_addr", function (node, status) {
+            if (status != "success") {
+                //alert("Data: " + data + "\nStatus: " + status);
+                console.log("Data: " + node + "\nStatus: " + status);
+            } else {
+                $("#self").html(node.address);
+                $("#miners").html(node.miners);
+                $("#node_num").html(node.node_number);
             }
         });
 
-
-        // $("#nodes div").after(newRow);
-        // $("#nodes").html("<span class=\"label label-success\">Success</span>");
         //发送表单ajax请求
         $('#submit').on('click', function () {
             var data = $('form').serializeJSON()

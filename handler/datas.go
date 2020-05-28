@@ -12,10 +12,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lengzhao/govm/conf"
-	core "github.com/lengzhao/govm/core"
-	"github.com/lengzhao/govm/database"
-	"github.com/lengzhao/govm/runtime"
+	"github.com/govm-net/govm/conf"
+	core "github.com/govm-net/govm/core"
+	"github.com/govm-net/govm/database"
+	"github.com/govm-net/govm/event"
+	"github.com/govm-net/govm/messages"
+	"github.com/govm-net/govm/runtime"
 )
 
 // BlockRunStat stat of block
@@ -28,26 +30,26 @@ type BlockRunStat struct {
 }
 
 const (
-	ldbBlockRunStat = "block_run_stat" //blockKey:stat
-	ldbIDBlocks     = "id_blocks"      //index:blocks
-	ldbSyncBlocks   = "sync_blocks"    //index:blockKey
-	ldbTransList    = "trans_list"     //blockKey:transList
-	ldbTransInfo    = "trans_info"     //transKey:info
-	ldbAllTransInfo = "all_trans_info" //transKey:info
-	ldbInputTrans   = "input_trans"    //receive transfer,timeKey:transKey
-	ldbOutputTrans  = "output_trans"   //create by self,timeKey:transKey
-	ldbBlacklist    = "user_blacklist" //blacklist of user,user:info
-	ldbMiner        = "miner_register" //chain:index
-	ldbBlockLocked  = "block_locked"   //key:n
-	ldbDownloading  = "downloading"    //key:time
-	ldbReliability  = "reliability"    //blockKey:relia
+	ldbBlockRunStat   = "block_run_stat"  //blockKey:stat
+	ldbIDBlocks       = "id_blocks"       //index:blocks
+	ldbSyncBlocks     = "sync_blocks"     //index:blockKey
+	ldbTransList      = "trans_list"      //blockKey:transList
+	ldbAllTransInfo   = "all_trans_info"  //transKey:info
+	ldbInputTrans     = "input_trans"     //receive transfer,timeKey:transKey
+	ldbOutputTrans    = "output_trans"    //create by self,timeKey:transKey
+	ldbDownloading    = "downloading"     //key:time
+	ldbReliability    = "reliability"     //blockKey:relia
+	ldbBroadcastTrans = "broadcast_trans" //key:1
+	ldbStatus         = "ldbStatus"       //status
 )
 
-const downloadTimeout = 15
+const downloadTimeout = 10
+const acceptTimeDeference = 120
 
 var ldb *database.LDB
 var timeDifference int64
 var firstUpdateTime bool = true
+var transForMinging map[uint64][]*transInfo
 
 // Init init
 func Init() {
@@ -59,52 +61,15 @@ func Init() {
 	ldb.SetNotDisk(ldbBlockRunStat, 10000)
 	ldb.SetNotDisk(ldbIDBlocks, 10000)
 	ldb.SetNotDisk(ldbSyncBlocks, 10000)
-	ldb.SetNotDisk(ldbBlacklist, 10000)
 	ldb.SetNotDisk(ldbTransList, 1000)
-	ldb.SetNotDisk(ldbTransInfo, 10000)
-	ldb.SetNotDisk(ldbMiner, 1000)
-	ldb.SetNotDisk(ldbBlockLocked, 10000)
 	ldb.SetNotDisk(ldbDownloading, 2000)
 	ldb.SetNotDisk(ldbReliability, 50000)
 	ldb.SetNotDisk(ldbAllTransInfo, 50000)
+	ldb.SetNotDisk(ldbBroadcastTrans, 50000)
+	ldb.SetNotDisk(ldbStatus, 10000)
+	transForMinging = make(map[uint64][]*transInfo)
 	time.AfterFunc(time.Second*5, updateTimeDifference)
-	time.AfterFunc(time.Second*2, check)
-}
-
-func check() {
-	c := conf.GetConf()
-	if c.TrustedServer == "" {
-		log.Println("check block,server is null")
-		return
-	}
-	if !c.CheckBlock {
-		return
-	}
-	id := core.GetLastBlockIndex(1)
-	if id < 100 {
-		return
-	}
-	urlStr := fmt.Sprintf("%s/api/v1/1/block/trusted?index=%d", c.TrustedServer, id-30)
-	resp, err := http.Get(urlStr)
-	if err != nil {
-		log.Println("fail to check block,", err)
-		return
-	}
-	if resp.StatusCode != http.StatusOK {
-		log.Println("error response of check block,", resp.Status)
-		return
-	}
-	key, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Println("check block,fail to read body:", err)
-		return
-	}
-	ok := core.BlockOnTheChain(1, key)
-	if !ok {
-		fmt.Printf("The local block is different from the server.%x\n", key)
-		os.Exit(3)
-	}
-	log.Printf("the trusted block is on the chain,%x\n", key)
+	time.AfterFunc(time.Second*2, startCheckBlock)
 }
 
 // SaveBlockRunStat save block stat
@@ -184,29 +149,22 @@ func GetSyncBlock(chain, index uint64) []byte {
 
 // SaveTransList save trans list of block
 func SaveTransList(chain uint64, key []byte, value []core.Hash) {
-	var v []byte
-	for _, it := range value {
-		v = append(v, it[:]...)
-	}
+	v, _ := json.Marshal(value)
 	ldb.LSet(chain, ldbTransList, key[:], v)
 }
 
 // GetTransList get trans list of block
 func GetTransList(chain uint64, key []byte) []core.Hash {
 	v := ldb.LGet(chain, ldbTransList, key[:])
-	var out []core.Hash
-	for len(v) > 0 {
-		var tmp core.Hash
-		runtime.Decode(v, &tmp)
-		out = append(out, tmp)
-		v = v[core.HashLen:]
-	}
+	out := []core.Hash{}
+	json.Unmarshal(v, &out)
 	return out
 }
 
 type transInfo struct {
 	core.TransactionHead
 	Key      core.Hash
+	Flag     int64
 	Size     uint32
 	Stat     uint32
 	Selected uint32
@@ -214,10 +172,8 @@ type transInfo struct {
 
 func saveTransInfo(chain uint64, key []byte, info transInfo) {
 	value := runtime.Encode(info)
-	if conf.GetConf().DoMine {
-		ldb.LSet(chain, ldbTransInfo, key, value)
-	}
 	ldb.LSet(chain, ldbAllTransInfo, key, value)
+	pushTransInfo(chain, &info)
 }
 
 func readTransInfo(chain uint64, key []byte) transInfo {
@@ -229,17 +185,29 @@ func readTransInfo(chain uint64, key []byte) transInfo {
 	return out
 }
 
-func getNextTransInfo(chain uint64, preKey []byte) transInfo {
-	out := transInfo{}
-	_, v := ldb.LGetNext(chain, ldbTransInfo, preKey)
-	if len(v) > 0 {
-		runtime.Decode(v, &out)
+func pushTransInfo(chain uint64, info *transInfo) {
+	procMgr.mu.Lock()
+	defer procMgr.mu.Unlock()
+	lst := transForMinging[chain]
+	if lst == nil {
+		lst = make([]*transInfo, 0)
 	}
-	return out
+	lst = append(lst, info)
+	transForMinging[chain] = lst
+	// log.Println("transInfo list1:", len(lst))
 }
 
-func deleteTransInfo(chain uint64, key []byte) {
-	ldb.LSet(chain, ldbTransInfo, key, nil)
+func popTransInfo(chain uint64) *transInfo {
+	procMgr.mu.Lock()
+	defer procMgr.mu.Unlock()
+	lst := transForMinging[chain]
+	// log.Println("transInfo list2:", len(lst))
+	if len(lst) == 0 {
+		return nil
+	}
+	out := lst[0]
+	transForMinging[chain] = lst[1:]
+	return out
 }
 
 // HistoryItem history item
@@ -284,37 +252,6 @@ func GetInputTrans(chain uint64, preKey []byte) []HistoryItem {
 	return out
 }
 
-// BlackItem  the info of blacklist
-type blackItem struct {
-	Timeout int64
-	Count   uint64
-	Other   uint64
-}
-
-func saveBlackItem(chain uint64, key []byte) {
-	info := blackItem{}
-	v := ldb.LGet(chain, ldbBlacklist, key)
-	if len(v) > 0 {
-		runtime.Decode(v, &info)
-	}
-	info.Count++
-	info.Timeout = time.Now().Add(3 * time.Hour).Unix()
-	ldb.LSet(chain, ldbBlacklist, key, runtime.Encode(info))
-}
-
-func believable(chain uint64, key []byte) bool {
-	info := blackItem{}
-	v := ldb.LGet(chain, ldbBlacklist, key)
-	if len(v) == 0 {
-		return true
-	}
-	runtime.Decode(v, &info)
-	if info.Timeout < time.Now().Unix() {
-		return true
-	}
-	return false
-}
-
 func getData(chain uint64, tb string, key []byte, value interface{}) {
 	v := ldb.LGet(chain, tb, key)
 	if len(v) == 0 {
@@ -323,55 +260,23 @@ func getData(chain uint64, tb string, key []byte, value interface{}) {
 	runtime.Decode(v, value)
 }
 
-func getBlockLockNum(chain uint64, key []byte) uint64 {
-	var out uint64
-	rst := ldb.LGet(chain, ldbBlockLocked, key)
-	if len(rst) >= 8 {
-		runtime.Decode(rst, &out)
-	}
-	return out
-}
-
-func setBlockLockNum(chain uint64, key []byte, val uint64) {
-	var old uint64
-	rst := ldb.LGet(chain, ldbBlockLocked, key)
-	if len(rst) >= 8 {
-		runtime.Decode(rst, &old)
-	}
-	if val > old {
-		ldb.LSet(chain, ldbBlockLocked, key, runtime.Encode(val))
-	}
-}
-
 var dlMutex sync.Mutex
 
 // get the time of download, if fresh, return false
 func needDownload(chain uint64, key []byte) bool {
-	type record struct {
-		Time [3]int64
-	}
-	var info record
+	var lastTime int64
 	dlMutex.Lock()
 	defer dlMutex.Unlock()
 	rst := ldb.LGet(chain, ldbDownloading, key)
 	if len(rst) > 0 {
-		json.Unmarshal(rst, &info)
+		runtime.Decode(rst, &lastTime)
 	}
 	now := time.Now().Unix()
-	for _, t := range info.Time {
-		if t+3 >= now {
-			return false
-		}
+	if lastTime+downloadTimeout >= now {
+		return false
 	}
-	for i := range info.Time {
-		if info.Time[i]+downloadTimeout < now {
-			info.Time[i] = now
-			data, _ := json.Marshal(info)
-			ldb.LSet(chain, ldbDownloading, key, data)
-			return true
-		}
-	}
-	return false
+	ldb.LSet(chain, ldbDownloading, key, runtime.Encode(now))
+	return true
 }
 
 // get the time of request, if fresh, return false
@@ -381,17 +286,18 @@ func needRequstID(chain, index uint64) bool {
 
 // TReliability Reliability of block
 type TReliability struct {
-	Key        core.Hash    `json:"key,omitempty"`
-	Previous   core.Hash    `json:"previous,omitempty"`
-	Parent     core.Hash    `json:"parent,omitempty"`
-	LeftChild  core.Hash    `json:"left_child,omitempty"`
-	RightChild core.Hash    `json:"right_child,omitempty"`
-	Producer   core.Address `json:"producer,omitempty"`
-	Time       uint64       `json:"time,omitempty"`
-	Index      uint64       `json:"index,omitempty"`
-	HashPower  uint64       `json:"hash_power,omitempty"`
-	Miner      bool         `json:"miner,omitempty"`
-	Ready      bool         `json:"ready,omitempty"`
+	Key           core.Hash    `json:"key,omitempty"`
+	Previous      core.Hash    `json:"previous,omitempty"`
+	Parent        core.Hash    `json:"parent,omitempty"`
+	LeftChild     core.Hash    `json:"left_child,omitempty"`
+	RightChild    core.Hash    `json:"right_child,omitempty"`
+	Producer      core.Address `json:"producer,omitempty"`
+	TransListHash core.Hash    `json:"trans_list_hash,omitempty"`
+	Time          uint64       `json:"time,omitempty"`
+	Index         uint64       `json:"index,omitempty"`
+	HashPower     uint64       `json:"hash_power,omitempty"`
+	Miner         bool         `json:"miner,omitempty"`
+	Ready         bool         `json:"ready,omitempty"`
 }
 
 // SaveBlockReliability save block reliability
@@ -446,7 +352,6 @@ func (r TReliability) Cmp(y TReliability) int {
 // Recalculation recalculation
 func (r *TReliability) Recalculation(chain uint64) {
 	var power uint64
-	var miner core.Miner
 	var parent, preRel TReliability
 
 	if r.Index > 1 {
@@ -456,23 +361,19 @@ func (r *TReliability) Recalculation(chain uint64) {
 		}
 	}
 
-	miner = core.GetMinerInfo(chain, r.Index)
-
 	if r.Index == 1 {
 		power = 1000
 	}
+	admins := core.GetAdminList(chain)
 
-	hp := getHashPower(r.Key[:])
-	for i := 0; i < core.MinerNum; i++ {
-		if miner.Miner[i] == r.Producer {
-			hp = hp + hp*uint64(core.MinerNum-i+5)/50
-			weight := miner.Cost[i] / core.MaxGuerdon / 5
-			if weight < 100 {
-				hp += weight
-			} else {
-				hp += 100
+	hp := getHashPower(r.Key[:]) * 10
+	for i, it := range admins {
+		if it == r.Producer {
+			id := r.Index % core.AdminNum
+			if id < uint64(i) {
+				id += core.AdminNum
 			}
-			hp += 5
+			hp = id - uint64(i) + 50
 			r.Miner = true
 			break
 		}
@@ -482,9 +383,10 @@ func (r *TReliability) Recalculation(chain uint64) {
 	power += (parent.HashPower / 4)
 	power += preRel.HashPower
 	power -= (preRel.HashPower >> 40)
-	if r.Producer == preRel.Producer {
-		power -= 7
+	if r.Producer == preRel.Producer && power > core.AdminNum {
+		power -= core.AdminNum
 	}
+	// log.Printf("rel,chain:%d,key:%x,index:%d,hp:%d\n", chain, r.Key, r.Index, power)
 
 	r.HashPower = power
 }
@@ -500,6 +402,7 @@ func getReliability(b *core.StBlock) TReliability {
 	selfRel.LeftChild = b.LeftChild
 	selfRel.RightChild = b.RightChild
 	selfRel.Producer = b.Producer
+	selfRel.TransListHash = b.TransListHash
 
 	selfRel.Recalculation(b.Chain)
 	return selfRel
@@ -538,10 +441,11 @@ func updateTimeDifference() {
 		return
 	}
 	selfTime := (start + end) / 2
-	if serverTime > selfTime+5*60 || selfTime > serverTime+5*60 {
-		log.Println("updateTimeDifference error, time difference over 300s.", serverTime, selfTime)
+	if serverTime > selfTime+acceptTimeDeference || selfTime > serverTime+acceptTimeDeference {
+		log.Println("updateTimeDifference error, time difference over 120s.",
+			serverTime, selfTime, acceptTimeDeference)
 		if firstUpdateTime {
-			fmt.Println("error: system time error,update system time or change time_source in conf/conf")
+			fmt.Println("error: system time error,update system time or change trusted_server in conf/conf")
 			os.Exit(2)
 		}
 		return
@@ -554,4 +458,66 @@ func updateTimeDifference() {
 func getCoreTimeNow() uint64 {
 	now := time.Now().Unix() + timeDifference
 	return uint64(now) * 1000
+}
+
+type bcBlock struct {
+	Key core.Hash
+	HP  uint64
+}
+
+func needBroadcastBlock(chain uint64, rel TReliability) bool {
+	var best TReliability
+	var dbKey = []byte("best")
+
+	if rel.Time+2*tMinute < getCoreTimeNow() {
+		return false
+	}
+
+	stream := ldb.LGet(chain, ldbStatus, dbKey)
+	if len(stream) > 0 {
+		json.Unmarshal(stream, &best)
+	}
+	if rel.Cmp(best) <= 0 {
+		return false
+	}
+
+	log.Printf("new best,chain:%d,key:%x,index:%d,hp:%d,old hp:%d,old_id:%d,old_key:%x\n",
+		chain, rel.Key, rel.Index, rel.HashPower,
+		best.HashPower, best.Index, best.Key)
+	stream, _ = json.Marshal(rel)
+	ldb.LSet(chain, ldbStatus, dbKey, stream)
+
+	return true
+}
+
+// GetBlockForMining get block info for mine
+func GetBlockForMining(chain uint64) *core.StBlock {
+	var out core.StBlock
+	var dbKey = []byte("mining")
+	data := ldb.LGet(chain, ldbStatus, dbKey)
+	if len(data) == 0 {
+		return nil
+	}
+	err := json.Unmarshal(data, &out)
+	if err != nil {
+		log.Println("fail to unmarshal.", err)
+		return nil
+	}
+	if out.Time+tMinute < getCoreTimeNow() {
+		return nil
+	}
+	return &out
+}
+
+func setBlockForMining(chain uint64, block core.StBlock) {
+	var dbKey = []byte("mining")
+	data, err := json.Marshal(block)
+	if err != nil {
+		log.Println(err)
+	}
+	ldb.LSet(chain, ldbStatus, dbKey, data)
+	msg := new(messages.BlockForMining)
+	msg.Chain = chain
+	msg.Data = data
+	event.Send(msg)
 }

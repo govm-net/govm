@@ -1,8 +1,8 @@
 package database
 
 import (
+	"github.com/govm-net/govm/conf"
 	"github.com/lengzhao/database/client"
-	"github.com/lengzhao/govm/conf"
 )
 
 var dfDB *client.Client
@@ -19,8 +19,8 @@ func GetClient() *client.Client {
 }
 
 // ChangeClientNumber change client number
-func ChangeClientNumber(in int){
-	if clientNum != in{
+func ChangeClientNumber(in int) {
+	if clientNum != in {
 		clientNum = in
 		c := conf.GetConf()
 		dfDB = client.New(c.DbAddrType, c.DbServerAddr, clientNum)

@@ -855,11 +855,6 @@
                                             "format": "uint64",
                                             "description": "block index(height)",
                                             "example": 7
-                                        },
-                                        "trans_list": {
-                                            "type": "array",
-                                            "format": "hex",
-                                            "description": "transaction key list"
                                         }
                                     },
                                     "example": {
@@ -918,17 +913,6 @@
                             "type": "boolean"
                         },
                         "example": true
-                    },
-                    {
-                        "name": "lock_num",
-                        "in": "query",
-                        "description": "when block,can set lock number",
-                        "required": false,
-                        "schema": {
-                            "type": "number",
-                            "format": "uint64"
-                        },
-                        "example": 100
                     }
                 ],
                 "responses": {

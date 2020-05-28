@@ -1,8 +1,8 @@
-package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
+package zff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
 
 import (
-	"github.com/lengzhao/govm/runtime"
-	"github.com/lengzhao/govm/wallet"
+	"github.com/govm-net/govm/runtime"
+	"github.com/govm-net/govm/wallet"
 	"log"
 	"testing"
 	"time"
@@ -18,9 +18,9 @@ func TestDecodeBlock(t *testing.T) {
 	address := Address{}
 	runtime.Decode(stream, &address)
 	block := NewBlock(1, address)
-	block.Size = 0
 	block.Time = 1000000 + maxBlockInterval
-	block.SetTransList(transList[:])
+	WriteTransList(block.Chain, transList[:])
+	block.TransListHash = GetHashOfTransList(transList[:])
 	data := block.GetSignData()
 	sign := wallet.Sign(privateKey, data)
 	block.SetSign(sign)

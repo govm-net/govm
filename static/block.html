@@ -97,11 +97,6 @@
                         <span class="input-group-addon" data-localize="index">Index:</span>
                         <span class="form-control" id="index"></span>
                     </div>
-                    <br>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="trans_num">Transaction Number:</span>
-                        <span class="form-control" id="trans_num"></span>
-                    </div>
                 </div>
             </div>
         </div>
@@ -127,7 +122,6 @@
             $("#right_child").html("")
             $("#producer").html("")
             $("#index").html("")
-            $("#trans_num").html("")
             $("#result").html("")
             var query = ""
             if (index != "") {
@@ -149,11 +143,6 @@
                 $("#right_child").html(getButtonLink("right", data.right_child));
                 $("#producer").html("<b>" + data.producer + "</b>");
                 $("#index").html("<b>" + data.index + "</b>");
-                if (data.trans_list === undefined || data.trans_list == null) {
-                    $("#trans_num").html("<b>0</b>");
-                } else {
-                    $("#trans_num").html("<b>" + data.trans_list.length + "</b>");
-                }
                 //console.log(data);
             }).fail(function () {
                 $("#result").html($("<h3>").append("not found"));

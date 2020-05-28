@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>GOVM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" type="image/x-ico" href="logo.ico" />
+    <link rel="shortcut icon" href="logo.ico">
+</head>
+
+<body ng-app="">
+    <div class="container">
+        <div id="navbar"></div>
+        <div class="col-md-12 column">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title" data-localize="search">
+                        Search
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="chain">Chain:</span>
+                        <input type="number" min="1" class="form-control" id="search_chain" value="1">
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="index">Index:</span>
+                        <input type="number" class="form-control" id="search_id" value="0">
+                        <span class="input-group-btn">
+                            <button class="btn btn-default" type="button" id="btn_id" data-localize="go">Go!</button>
+                        </span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="key">Block Key:</span>
+                        <input type="text" class="form-control" id="search_key">
+                        <span class="input-group-btn">
+                            <button class="btn btn-default" type="button" id="btn_key" data-localize="go">Go!</button>
+                        </span>
+                    </div>
+                </div>
+                <div id="result">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery (Bootstrap 的 JavaScript 插件需要引入 jQuery) -->
+    <script src="js/jquery-3.3.1.min.js"></script>
+    <!-- 包括所有已编译的插件 -->
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/jquery.localize.min.js"></script>
+    <script src="js/load.js?v=3"></script>
+
+    <script type="text/javascript">
+        var users = {};
+        function getBlock(chain, index, key, count) {
+            if (count < 1) {
+                $("#result").html();
+                for (i in users) {
+                    $("#result").append($("<ul>").append(i + " " + users[i]))
+                    // console.log(i)
+                }
+                return
+            }
+            var query = ""
+            if (index != "") {
+                query += "?index=" + index
+            } else if (key != "") {
+                query += "?key=" + key
+            }
+            $.get("/api/v1/" + chain + "/block/info" + query, function (data, status) {
+                if (users[data.producer] === undefined) {
+                    users[data.producer] = 1;
+                } else {
+                    users[data.producer] = users[data.producer] + 1;
+                }
+                console.log("producer",users[data.producer], data.index, data.producer)
+
+                getBlock(chain, 0, data.previous, count - 1)
+                //console.log(data);
+            }).fail(function () {
+                getBlock(chain, index, key, 0);
+            });
+        }
+
+        $("#btn_id").click(function () {
+            users = {};
+            $("#result").html("");
+            getBlock($("#search_chain").val(), $("#search_id").val(), "", 200)
+        });
+        $("#btn_key").click(function () {
+            users = {};
+            $("#result").html("");
+            getBlock($("#search_chain").val(), "", $("#search_key").val(), 200)
+        });
+        $("#search_chain").val(gChainID)
+        var chain = getUrlParam('chain');
+        var key = getUrlParam('key');
+        var index = getUrlParam('index');
+        if (chain < 1) {
+            chain = gChainID;
+        }
+        // getBlock(chain, index, key)
+    </script>
+</body>
+
+</html>

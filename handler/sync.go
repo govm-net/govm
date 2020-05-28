@@ -8,8 +8,8 @@ import (
 	"runtime/debug"
 	"time"
 
-	core "github.com/lengzhao/govm/core"
-	"github.com/lengzhao/govm/messages"
+	core "github.com/govm-net/govm/core"
+	"github.com/govm-net/govm/messages"
 	"github.com/lengzhao/libp2p"
 )
 
@@ -32,8 +32,6 @@ const (
 	maxSyncNum    = 300
 	acceptOldID   = 10
 )
-
-var forceSync bool
 
 func getSyncEnvKey(chain uint64, typ byte) string {
 	return fmt.Sprintf("sync_%x_%x", chain, typ)
@@ -112,8 +110,7 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 				ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncing), "true")
 				go p.syncDepend(ctx, msg.Chain, msg.Key)
 			} else {
-				bln := getBlockLockNum(msg.Chain, rel.Key[:])
-				setBlockToIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower+bln)
+				setIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
 			}
 			return nil
 		}
@@ -302,32 +299,14 @@ func updateBLN(chain uint64, key []byte) {
 		return
 	}
 	rel := ReadBlockReliability(chain, key)
-	bln := getBlockLockNum(chain, key)
+	// rel.Recalculation(chain)
 	index := core.GetLastBlockIndex(chain)
-	t := core.GetBlockTime(chain)
-	now := getCoreTimeNow()
+	hp := rel.HashPower
 	for rel.Index+3 >= index && rel.Index > 0 {
-		old := getBlockLockNum(chain, rel.Previous[:])
-		if old > bln {
+		rel = ReadBlockReliability(chain, rel.Previous[:])
+		if rel.HashPower >= hp {
 			break
 		}
-
-		if !rel.LeftChild.Empty() {
-			setBlockLockNum(chain*2, rel.LeftChild[:], bln+1)
-		}
-		if !rel.RightChild.Empty() {
-			setBlockLockNum(chain*2+1, rel.RightChild[:], bln+1)
-		}
-
-		if forceSync {
-			bln += getHashPower(rel.Key[:])
-		} else {
-			bln++
-		}
-		setBlockLockNum(chain, rel.Previous[:], bln)
-		if t+blockSyncTime < now {
-			setBlockToIDBlocks(chain, rel.Index, rel.Key, rel.HashPower+bln)
-		}
-		rel = ReadBlockReliability(chain, rel.Previous[:])
+		setIDBlocks(chain, rel.Index, rel.Key, hp)
 	}
 }

@@ -36,12 +36,12 @@ type Mine struct {
 }
 
 // Rollback Rollback
-type Rollback struct {
-	BaseMsg
-	Chain uint64
-	Index uint64
-	Key   []byte
-}
+// type Rollback struct {
+// 	BaseMsg
+// 	Chain uint64
+// 	Index uint64
+// 	Key   []byte
+// }
 
 // ChainEvent ChainEvent
 type ChainEvent struct {
@@ -65,15 +65,14 @@ type RawData struct {
 	Key       []byte
 	Broadcast bool
 	IsTrans   bool
-	LockNum   uint64
 	Data      []byte
 }
 
-// ReceiveTrans receive new transaction
-type ReceiveTrans struct {
+// BlockForMining block for mining
+type BlockForMining struct {
 	BaseMsg
 	Chain uint64
-	Key   []byte
+	Data  []byte
 }
 
 // Internal msg keys

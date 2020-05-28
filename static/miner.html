@@ -24,28 +24,20 @@
                 <div class="panel-body">
                     <form class="bs-example bs-example-form" role="form">
                         <div class="input-group">
-                            <label class="label label-info" data-localize="description">Description:</label>
-                            <label class="label label-primary" data-localize="desc_info">
-                                Registered miner(specified block), add a weighting of hash power when mining
-                                the block.The cost will be locked for 50,000 blocks of time.</label>
-                        </div>
-                        <div class="input-group">
                             <span class="input-group-addon" data-localize="chain">Chain:</span>
                             <input type="number" min="1" class="form-control" name="chain" value="1">
                             <span class="input-group-addon label-success">*</span>
                         </div>
                         <br>
                         <div class="input-group">
-                            <span class="input-group-addon" data-localize="index">Index:</span>
-                            <input type="number" min="1000" class="form-control" name="index">
-                            <span class="input-group-addon label-success">*</span>
+                            <span class="input-group-addon" data-localize="cost">Cost:</span>
+                            <span type="number" class="form-control" name="cost">5</span>
+                            <span class="input-group-addon" id="base_cost">govm</span>
                         </div>
                         <br>
                         <div class="input-group">
-                            <span class="input-group-addon" data-localize="cost">Cost:</span>
-                            <input type="number" class="form-control" name="cost">
-                            <span class="input-group-addon" id="base_cost"></span>
-                            <span class="input-group-addon label-success">*</span>
+                            <span class="input-group-addon" data-localize="miner">Miner:</span>
+                            <input type="text" class="form-control" name="miner">
                         </div>
                         <br>
                         <div class="input-group">
@@ -117,24 +109,15 @@
     <script src="js/load.js?v=3"></script>
 
     <script type="text/javascript">
-        $("#base_cost").html(gCostBase);
         $("#base_energy").html(gCostBase);
         $("#search_chain").val(gChainID);
         $("input[name='chain']").val(gChainID);
-        var v = 100 * getBaseByName("tc") / getBaseByName(gCostBase);
-        var pre = 0;
-        $("input[name='cost']").val(v);
-
-        $.get("/api/v1/" + gChainID + "/block/info", function (data, status) {
-            $("input[name='index']").val(data.index + 50);
-        });
 
         function getMiner(chain, query) {
             $("#result").html("");
             $.get("/api/v1/" + chain + "/transaction/miner" + query, function (data, status) {
                 // console.log(data)
                 $("#s_chain").html("<b>" + chain + "</b>");
-                $("#s_index").html("<b>" + data.index + "</b>");
                 // var newRow = ""
                 $("#miners").html("");
                 for (i in data.Miner) {
@@ -187,8 +170,10 @@
             // console.log(data);
             base = getBaseByName(gCostBase)
             data.energy = parseInt(data.energy * base)
-            data.cost = parseInt(data.cost * base)
-            data.index = parseInt(data.index)
+            data.cost = parseInt(data.cost * getBaseByName("govm"))
+            if (data.cost < 0){
+                return
+            }
             var chain = data.chain
             data = JSON.stringify(data)
             //alert(data)
@@ -202,7 +187,6 @@
                     $("#result").html("<span class=\"label label-success\">key:<a href=\"transaction.html?key="
                         + data.trans_key + "\">" + data.trans_key + "</a></span>");
                     $("#chain").html("");
-                    $("#index").html("");
                     $("#miner").html("");
                     $("#cost").html("");
                     console.log(data);

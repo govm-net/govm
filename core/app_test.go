@@ -1,33 +1,21 @@
-package ae4a05b2b8a4de21d9e6f26e9d7992f7f33e89689f3015f3fc8a3a3278815e28c
+package zff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
 
 import (
 	"log"
-	"os"
 	"testing"
 
-	"github.com/lengzhao/govm/runtime"
+	"github.com/govm-net/govm/runtime"
 )
 
 func TestCreateAppFromSourceCode(t *testing.T) {
+	log.Println("testing start", t.Name())
 	// go test -v -run TestCreateAppFromSourceCode
-	var code []byte
-	var ln uint64
-	if _, err := os.Stat("./core_linux.go"); os.IsNotExist(err) {
-		code, ln = CreateAppFromSourceCode("./core.go", AppFlagImport|AppFlagPlublc)
-	} else {
-		code, ln = CreateAppFromSourceCode("./core_linux.go", AppFlagImport|AppFlagPlublc)
-	}
+	code, ln := CreateAppFromSourceCode("./test_data/app1/app1.go", AppFlagImport|AppFlagPlublc)
 	if code == nil {
 		t.Error("fail to create app")
 	}
-	log.Printf("app: %x %d\n", runtime.GetHash(code), ln)
-}
-
-func TestCreateAppFromSourceCode2(t *testing.T) {
-	// go test -v -run TestCreateAppFromSourceCode
-	code, _ := CreateAppFromSourceCode("./test_data/app1/app1.go", AppFlagImport|AppFlagPlublc)
-	if code == nil {
-		t.Error("fail to create app")
+	if ln != 3 {
+		t.Errorf("error code line number,hope 3, get %d", ln)
 	}
 	// log.Println("code:", string(code))
 	log.Printf("app:%x\n", runtime.GetHash(code))

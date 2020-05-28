@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/lengzhao/govm/runtime"
+	"github.com/govm-net/govm/runtime"
 )
 
 func rebuild(chain uint64) {
