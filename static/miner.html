@@ -31,7 +31,7 @@
                         <br>
                         <div class="input-group">
                             <span class="input-group-addon" data-localize="cost">Cost:</span>
-                            <span type="number" class="form-control" name="cost">5</span>
+                            <input type="number" class="form-control" name="cost" value=5>
                             <span class="input-group-addon" id="base_cost">govm</span>
                         </div>
                         <br>
@@ -53,7 +53,7 @@
                 <div id="result">
                 </div>
             </div>
-            <div class="panel panel-default">
+            <!-- <div class="panel panel-default">
                 <div class="panel-heading">
                     <h3 class="panel-title" data-localize="search">
                         Search
@@ -94,7 +94,7 @@
                     <br>
                     <div id="miners"></div>
                 </div>
-            </div>
+            </div> -->
 
         </div>
     </div>
@@ -113,57 +113,57 @@
         $("#search_chain").val(gChainID);
         $("input[name='chain']").val(gChainID);
 
-        function getMiner(chain, query) {
-            $("#result").html("");
-            $.get("/api/v1/" + chain + "/transaction/miner" + query, function (data, status) {
-                // console.log(data)
-                $("#s_chain").html("<b>" + chain + "</b>");
-                // var newRow = ""
-                $("#miners").html("");
-                for (i in data.Miner) {
-                    if (i > 0 && bytes2Str(data.Miner[i]) == "000000000000000000000000000000000000000000000000") {
-                        continue
-                    }
-                    $("#miners").append(
-                        $("<div class='input-group'>").append(
-                            $("<span class='input-group-addon'>").append("Miner" + i)
-                        ).append(
-                            $("<span class='form-control'>").append(
-                                bytes2Str(data.Miner[i])
-                            )
-                        )
-                    ).append(
-                        $("<div class='input-group'>").append(
-                            $("<span class='input-group-addon'>").append("Cost" + i)
-                        ).append(
-                            $("<span class='form-control'>").append(
-                                getValueWithBase(data.Cost[i], gCostBase)
-                            )
-                        ).append(
-                            $("<span class='input-group-addon'>").append(gCostBase)
-                        )
-                    ).append("<br>");
-                }
-            }).fail(function () {
-                $("#result").html($("<h3>").append("not found"));
-                $("#s_chain").html("")
-                $("#s_index").html("")
-                $("#miners").html("");
-            });
-        }
+        // function getMiner(chain, query) {
+        //     $("#result").html("");
+        //     $.get("/api/v1/" + chain + "/transaction/miner" + query, function (data, status) {
+        //         // console.log(data)
+        //         $("#s_chain").html("<b>" + chain + "</b>");
+        //         // var newRow = ""
+        //         $("#miners").html("");
+        //         for (i in data.Miner) {
+        //             if (i > 0 && bytes2Str(data.Miner[i]) == "000000000000000000000000000000000000000000000000") {
+        //                 continue
+        //             }
+        //             $("#miners").append(
+        //                 $("<div class='input-group'>").append(
+        //                     $("<span class='input-group-addon'>").append("Miner" + i)
+        //                 ).append(
+        //                     $("<span class='form-control'>").append(
+        //                         bytes2Str(data.Miner[i])
+        //                     )
+        //                 )
+        //             ).append(
+        //                 $("<div class='input-group'>").append(
+        //                     $("<span class='input-group-addon'>").append("Cost" + i)
+        //                 ).append(
+        //                     $("<span class='form-control'>").append(
+        //                         getValueWithBase(data.Cost[i], gCostBase)
+        //                     )
+        //                 ).append(
+        //                     $("<span class='input-group-addon'>").append(gCostBase)
+        //                 )
+        //             ).append("<br>");
+        //         }
+        //     }).fail(function () {
+        //         $("#result").html($("<h3>").append("not found"));
+        //         $("#s_chain").html("")
+        //         $("#s_index").html("")
+        //         $("#miners").html("");
+        //     });
+        // }
 
-        $('#btn_key').on('click', function () {
-            var chain = $("#search_chain").val()
-            var val = $("#search_id").val()
-            pre = val;
-            getMiner(chain, "?index=" + val)
-        });
-        $('#next').on('click', function () {
-            var chain = $("#search_chain").val()
-            var val = parseInt(pre) + 1;
-            pre = val;
-            getMiner(chain, "?index=" + val)
-        });
+        // $('#btn_key').on('click', function () {
+        //     var chain = $("#search_chain").val()
+        //     var val = $("#search_id").val()
+        //     pre = val;
+        //     getMiner(chain, "?index=" + val)
+        // });
+        // $('#next').on('click', function () {
+        //     var chain = $("#search_chain").val()
+        //     var val = parseInt(pre) + 1;
+        //     pre = val;
+        //     getMiner(chain, "?index=" + val)
+        // });
 
         $('#submit').on('click', function () {
             var data = $('form').serializeJSON()

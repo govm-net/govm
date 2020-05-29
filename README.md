@@ -12,14 +12,14 @@ cn: 这是一个基于同构多链的区块链系统。它的理论性能可以�
 3. download code
 4. build: go build
 5. change config:conf/conf.json
-6. start software: ./start.sh
+6. start software: ./govm
 7. browser open http://localhost:9090
 
 ## upgrade
 
 1. stop govm
 2. ./upgrade.sh
-3. ./start.sh
+3. ./govm
 
 ## plan
 
