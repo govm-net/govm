@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>GOVM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 引入 Bootstrap -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" type="image/x-ico" href="logo.ico" />
+    <link rel="shortcut icon" href="logo.ico">
+
+    <!-- HTML5 Shiv 和 Respond.js 用于让 IE8 支持 HTML5元素和媒体查询 -->
+    <!-- 注意： 如果通过 file://  引入 Respond.js 文件，则该文件无法起效果 -->
+    <!--[if lt IE 9]>
+         <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+         <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+      <![endif]-->
+</head>
+
+<body>
+    <div class="container">
+        <div id="navbar"></div>
+        <div class="col-md-12 column">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Account</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="input-group">
+                        <span class="input-group-addon">Chain:</span>
+                        <span class="form-control" id="chain"></span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon">Wallet Address:</span>
+                        <span class="form-control" id="address"></span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon">Balance:</span>
+                        <span class="form-control" id="balance"></span>
+                        <span class="input-group-addon" id="base_cost"></span>
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-success pull-right" id="allAcount">Download</button>
+        </div>
+    </div>
+
+    <!-- jQuery (Bootstrap 的 JavaScript 插件需要引入 jQuery) -->
+    <script src="js/jquery-3.3.1.min.js"></script>
+    <!-- 包括所有已编译的插件 -->
+    <script src="js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
+    <script src="js/jquery.localize.min.js"></script>
+    <script src="js/load.js?v=1"></script>
+    <script src="js/encode.js?v=4"></script>
+
+    <script type="text/javascript">
+        var funDownload = function (content, filename) {
+            var eleLink = document.createElement('a');
+            eleLink.download = filename;
+            eleLink.style.display = 'none';
+            var blob = new Blob([content]);
+            eleLink.href = URL.createObjectURL(blob);
+            document.body.appendChild(eleLink);
+            eleLink.click();
+            document.body.removeChild(eleLink);
+        };
+        var last_account = "";
+        $("#base_cost").html(gCostBase);
+        function updateAccount(chain, address) {
+            urlStr = "/api/v1/" + chain + "/account?address=" + address;
+            $.get(urlStr, function (data, status) {
+                if (status != "success") {
+                    alert("Data: " + data + "\nStatus: " + status);
+                } else {
+                    $("#chain").html("<b>" + data.chain + "</b>");
+                    $("#address").html("<b>" + data.address + "</b>");
+                    $("#balance").html("<b><p title='" + fmoney(data.cost) + "'>" + getValueWithBase(data.cost, gCostBase) + "</p></b>");
+                }
+            });
+        }
+
+        $('#allAcount').on('click', function () {
+            getAllAccount(1);
+            getAllAccount(2);
+        });
+        function dateFormat(fmt, date) {
+            let ret;
+            const opt = {
+                "Y+": date.getFullYear().toString(),        // 年
+                "m+": (date.getMonth() + 1).toString(),     // 月
+                "d+": date.getDate().toString(),            // 日
+                "H+": date.getHours().toString(),           // 时
+                "M+": date.getMinutes().toString(),         // 分
+                "S+": date.getSeconds().toString()          // 秒
+                // 有其他格式化字符需求可以继续添加，必须转化成字符串
+            };
+            for (let k in opt) {
+                ret = new RegExp("(" + k + ")").exec(fmt);
+                if (ret) {
+                    fmt = fmt.replace(ret[1], (ret[1].length == 1) ? (opt[k]) : (opt[k].padStart(ret[1].length, "0")))
+                };
+            };
+            return fmt;
+        }
+        function getNext(rst, chainID, preKey) {
+            if (typeof (preKey) == "undefined") {
+                var crtTime = new Date();
+                var tStr = dateFormat("YYYYmmdd_HHMM", crtTime);
+                var data = JSON.stringify(rst, null, 4)
+                funDownload(data, "account_" + chainID + "_" + tStr + ".json")
+                return
+            }
+            // console.log("getNext:",preKey)
+            if (preKey != "") {
+                urlStr1 = "/api/v1/" + chainID + "/account?address=" + preKey;
+                $.get(urlStr1, function (data, status) {
+                    if (status == "success") {
+                        data.cost = data.cost;
+                        rst.push(data)
+                        console.log("account:", data.chain, data.address, data.cost)
+                        // result[data.address] = getValueWithBase(data.cost, gCostBase)
+                    }
+                });
+            }
+
+            urlStr2 = "/api/v1/" + chainID + "/data/visit?app_name=ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+            urlStr2 += "&struct_name=dbCoin&is_db_data=true&pre_key=" + preKey;
+            $.get(urlStr2, function (data, status) {
+                if (status == "success") {
+                    // console.log("next key:", data.key)
+                    getNext(rst, chainID, data.key);
+                }
+            });
+        }
+        function getAllAccount(chainID) {
+            $("#all_acccount").html("");
+            var result = [];
+            nextKey = "";
+            // console.log("start getAllAccount");
+            getNext(result, chainID, nextKey);
+        }
+        updateAccount(gChainID, "");
+    </script>
+
+</body>
+
+</html>

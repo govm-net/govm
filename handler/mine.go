@@ -109,6 +109,19 @@ func doMining(chain uint64) {
 		return
 	}
 
+	info := popTransInfo(chain)
+	if info != nil {
+		pushTransInfo(chain, info)
+		if info.Ops != core.OpsRunApp {
+			err := core.CheckTransaction(chain, info.Key[:])
+			if err == nil {
+				core.WriteTransList(1, []core.Hash{info.Key})
+				SaveTransList(chain, info.Key[:], []core.Hash{info.Key})
+				block.TransListHash = info.Key
+			}
+		}
+	}
+
 	for {
 		block.Nonce = rand.Uint64()
 		signData := block.GetSignData()

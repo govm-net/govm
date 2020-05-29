@@ -7,7 +7,7 @@ if (gChainID == "") {
     setCookie("chain_id", gChainID)
 }
 gCostBase = getCookie("cost_base")
-if (gCostBase == "") {
+if (gCostBase == "" || gCostBase == "tc") {
     gCostBase = "govm"
     setCookie("cost_base", gCostBase)
 }

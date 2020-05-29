@@ -118,7 +118,7 @@ func Reload() error {
 func LoadWallet(fileName, password string) {
 	w, err := wallet.LoadWallet(fileName, password)
 	if err != nil {
-		if _, err = os.Stat(fileName); !os.IsNotExist(err) {
+		if _, exist := os.Stat(fileName); !os.IsNotExist(exist) {
 			fmt.Println("fail to load wallet.", err)
 			os.Exit(4)
 		}
