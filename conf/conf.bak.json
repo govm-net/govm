@@ -3,7 +3,7 @@
     "http_address":"0.0.0.0",
     "http_port":9090,
     "db_addr_type":"tcp",
-    "db_server_addr": "127.0.0.1:27777",
+    "db_server_addr": "127.0.0.1:17777",
     "wallet_file":"./conf/wallet.key",
     "save_log":true,
     "identifying_code":true,

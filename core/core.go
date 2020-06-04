@@ -868,6 +868,7 @@ func (p *processer) processFirstBlock(block Block) {
 	assert(p.pLogBlockInfo.Write(empHash[:], stream))
 	assert(p.pLogBlockInfo.Write(p.Key[:], stream))
 	assert(p.pLogBlockInfo.Write(p.Encode(0, block.Index), p.Key[:]))
+	assert(block.Producer == team)
 
 	if p.Chain == 1 {
 		p.pDbStat.SetValue([]byte{StatGuerdon}, uint64(maxGuerdon), maxDbLife)
