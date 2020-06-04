@@ -103,10 +103,10 @@ func AccountGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var addr []byte
-	if addrStr == "" {
-		c := conf.GetConf()
-		addrStr = hex.EncodeToString(c.WalletAddr)
-	}
+	// if addrStr == "" {
+	// 	c := conf.GetConf()
+	// 	addrStr = hex.EncodeToString(c.WalletAddr)
+	// }
 	addr, err = hex.DecodeString(addrStr)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -1147,7 +1147,7 @@ func DataPost(w http.ResponseWriter, r *http.Request) {
 	err = event.Send(info)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "error:%s", err)
+		fmt.Fprintf(w, "%s", err)
 		return
 	}
 

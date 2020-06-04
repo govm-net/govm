@@ -249,11 +249,6 @@ func beforeProcBlock(chain uint64, rel TReliability) error {
 
 	t := core.GetBlockTime(chain)
 	interval := core.GetBlockInterval(chain)
-	// now := getCoreTimeNow()
-	// if t+interval*3/2 > now {
-	// 	// Need rollback,it could not be the newest block. Prevention of attacks
-	// 	return errors.New("need rollback,but block too new")
-	// }
 	if rel.Time < t+interval/2 {
 		setIDBlocks(chain, rel.Index, rel.Key, 0)
 		return errors.New("error block time")
@@ -452,7 +447,7 @@ func getHashPower(in []byte) uint64 {
 	return out
 }
 
-// hp=0,delete;hp>1,add and update; hp=1,add
+// hp=0,delete;hp > 0,add and update
 func setIDBlocks(chain, index uint64, key core.Hash, hp uint64) {
 	if key.Empty() {
 		return
