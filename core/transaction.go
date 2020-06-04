@@ -216,10 +216,7 @@ func DecodeOpsDataOfTrans(ops uint8, data []byte) map[string]interface{} {
 	switch ops {
 	case OpsTransfer:
 		out["ops"] = "Transfer"
-		// peer := Address{}
-		// runtime.Decode(data, &peer)
 		out["peer"] = hex.EncodeToString(data[:AddressLen])
-		out["info"] = hex.EncodeToString(data[AddressLen:])
 	case OpsMove:
 		out["ops"] = "Move"
 		var chain uint64

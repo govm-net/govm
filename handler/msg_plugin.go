@@ -562,6 +562,7 @@ func processTransaction(chain uint64, key, data []byte) error {
 	rst := core.CheckTransaction(chain, trans.Key)
 	if rst == nil {
 		saveTransInfo(chain, trans.Key, tInfo)
+		pushTransInfo(chain, &tInfo)
 	}
 
 	return nil

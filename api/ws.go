@@ -56,7 +56,7 @@ func (h *hub) run() {
 				}
 			}
 
-			// log.Println("ws connect number:", len(h.clients))
+			log.Println("ws connect number:", len(h.clients), c.peer)
 			h.clients[c.peer] = c
 			minerNum = len(h.clients)
 			if h.content == nil {

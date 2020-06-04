@@ -173,7 +173,6 @@ type transInfo struct {
 func saveTransInfo(chain uint64, key []byte, info transInfo) {
 	value := runtime.Encode(info)
 	ldb.LSet(chain, ldbAllTransInfo, key, value)
-	pushTransInfo(chain, &info)
 }
 
 func readTransInfo(chain uint64, key []byte) transInfo {

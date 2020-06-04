@@ -41,10 +41,14 @@
                         <span class="form-control" id="balance"></span>
                         <span class="input-group-addon" id="base_cost"></span>
                     </div>
+                    <br>
+                    <div>
+                        <button type="button" class="btn btn-success pull-right" id="next">Next</button>
+                    </div>
                 </div>
             </div>
-            <button type="button" class="btn btn-success pull-right" id="allAcount">Download</button>
         </div>
+        <button type="button" class="btn btn-success pull-right" id="allAcount">Download All</button>
     </div>
 
     <!-- jQuery (Bootstrap 的 JavaScript 插件需要引入 jQuery) -->
@@ -70,17 +74,37 @@
         var last_account = "";
         $("#base_cost").html(gCostBase);
         function updateAccount(chain, address) {
+            if (address === undefined) {
+                address = "";
+            }
+            $("#address").html("");
+            $("#balance").html("");
             urlStr = "/api/v1/" + chain + "/account?address=" + address;
             $.get(urlStr, function (data, status) {
                 if (status != "success") {
                     alert("Data: " + data + "\nStatus: " + status);
                 } else {
-                    $("#chain").html("<b>" + data.chain + "</b>");
-                    $("#address").html("<b>" + data.address + "</b>");
+                    $("#chain").html(data.chain);
+                    $("#address").html(data.address);
                     $("#balance").html("<b><p title='" + fmoney(data.cost) + "'>" + getValueWithBase(data.cost, gCostBase) + "</p></b>");
                 }
             });
         }
+
+        $('#next').on('click', function () {
+            var chainID = $("#chain").html();
+            var address = $("#address").html();
+            $("#address").html("");
+            $("#balance").html("");
+            urlStr2 = "/api/v1/" + chainID + "/data/visit?app_name=ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+            urlStr2 += "&struct_name=dbCoin&is_db_data=true&pre_key=" + address;
+            $.get(urlStr2, function (data, status) {
+                if (status == "success") {
+                    console.log("next click:", data.key)
+                    updateAccount(chainID, data.key);
+                }
+            });
+        });
 
         $('#allAcount').on('click', function () {
             getAllAccount(1);

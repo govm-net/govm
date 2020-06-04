@@ -21,7 +21,7 @@ func CheckTransaction(chain uint64, tKey []byte) (err error) {
 		if e != nil {
 			log.Println("something error,", e)
 			log.Println(string(debug.Stack()))
-			err = fmt.Errorf("recover:%s", e)
+			err = fmt.Errorf("%s", e)
 		}
 	}()
 	if chain == 0 {
@@ -61,7 +61,7 @@ func CheckTransList(chain uint64, factory func(uint64) Hash) (err error) {
 		e := recover()
 		if e != nil {
 			log.Println("CheckTransList error:", e)
-			err = fmt.Errorf("recover:%s", e)
+			err = fmt.Errorf("%s", e)
 		}
 		// log.Printf("CheckTransList input:%d,out:%d", len(keys), len(out))
 	}()

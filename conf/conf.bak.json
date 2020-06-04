@@ -1,5 +1,5 @@
 {
-    "server_host":"s2s://0.0.0.0:17778,tcp://0.0.0.0:17778",
+    "server_host":"s2s://0.0.0.0:9090,tcp://0.0.0.0:17778",
     "http_address":"0.0.0.0",
     "http_port":9090,
     "db_addr_type":"tcp",
@@ -7,11 +7,11 @@
     "wallet_file":"./conf/wallet.key",
     "save_log":true,
     "identifying_code":true,
-    "trusted_server":"http://govm.net:9090",
+    "trusted_server":"http://govm.top:9090",
     "check_block":true,
     "auto_rollback":false,
     "save_node_info":false,
     "net_id":"govm0",
-    "one_conn_per_miner":true,
+    "one_conn_per_miner":false,
     "password":"govm_pwd@2019"
 }
