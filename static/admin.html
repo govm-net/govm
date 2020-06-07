@@ -8,6 +8,7 @@
     <link href="css/bootstrap.min.css" rel="stylesheet">
     <link rel="icon" type="image/x-ico" href="logo.ico" />
     <link rel="shortcut icon" href="logo.ico">
+
 </head>
 
 <body ng-app="">
@@ -16,12 +17,17 @@
         <div class="col-md-12 column">
             <div class="panel panel-default">
                 <div class="panel-heading">
-                    <h3 class="panel-title" data-localize="reg_miner">
-                        Register Miner
+                    <h3 class="panel-title" data-localize="reg_admin">
+                        Register Admin Candidate
                     </h3>
                 </div>
                 <div class="panel-body">
                     <form class="bs-example bs-example-form" role="form">
+                        <div class="input-group">
+                            <label class="label label-info" data-localize="description">Description:</label>
+                            <label class="label label-primary" data-localize="desc_info">
+                                After submit, you need to enter the identifying code in the background</label>
+                        </div>
                         <div class="input-group">
                             <span class="input-group-addon" data-localize="chain">Chain:</span>
                             <input type="number" min="1" class="form-control" name="chain" value="1">
@@ -30,19 +36,8 @@
                         <br>
                         <div class="input-group">
                             <span class="input-group-addon" data-localize="cost">Cost:</span>
-                            <input type="number" class="form-control" name="cost" value=5>
+                            <input type="number" class="form-control" name="cost" value=5000>
                             <span class="input-group-addon" id="base_cost">govm</span>
-                        </div>
-                        <br>
-                        <div class="input-group">
-                            <span class="input-group-addon" data-localize="miner">Miner:</span>
-                            <input type="text" class="form-control" name="miner">
-                        </div>
-                        <br>
-                        <div class="input-group">
-                            <span class="input-group-addon" data-localize="energy">Energy:</span>
-                            <input type="number" class="form-control" name="energy">
-                            <span class="input-group-addon" id="base_energy"></span>
                         </div>
                         <br>
                         <button type="button" class="btn btn-success pull-right" id="submit"
@@ -75,15 +70,17 @@
             base = getBaseByName(gCostBase)
             data.energy = parseInt(data.energy * base)
             data.cost = parseInt(data.cost * getBaseByName("govm"))
-            if (data.cost < 0){
+            if (data.cost <= 0){
+                $("#result").html("not enough cost")
                 return
             }
+            $("#result").html("Please enter the identification code in the background window.");
             var chain = data.chain
             data = JSON.stringify(data)
             //alert(data)
             $.ajax({
                 type: "POST",
-                url: "/api/v1/" + chain + "/transaction/miner",
+                url: "/api/v1/" + chain + "/admin",
                 data: data,
                 dataType: "json",
                 contentType: "application/json",
@@ -91,8 +88,6 @@
                     $("#result").html("<span class=\"label label-success\">key:<a href=\"transaction.html?key="
                         + data.trans_key + "\">" + data.trans_key + "</a></span>");
                     $("#chain").html("");
-                    $("#miner").html("");
-                    $("#cost").html("");
                     console.log(data);
                 },
                 error: function (XMLHttpRequest, textStatus, errorThrown) {

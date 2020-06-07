@@ -244,6 +244,27 @@ var routes = Routes{
 	},
 
 	Route{
+		"TransactionAdminPost",
+		strings.ToUpper("Post"),
+		"/api/v1/{chain}/admin",
+		TransactionAdminPost,
+	},
+
+	Route{
+		"VoteInfoGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/vote",
+		VoteInfoGet,
+	},
+
+	Route{
+		"VoteRewardGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/vote_reward",
+		VoteRewardGet,
+	},
+
+	Route{
 		"AddNode",
 		strings.ToUpper("Post"),
 		"/api/v1/node",

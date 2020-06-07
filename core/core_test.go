@@ -73,8 +73,8 @@ func TestMain(m *testing.M) {
 	firstAdmins = append(firstAdmins, hex.EncodeToString(admin2.Address))
 
 	// miner
-	hexAddr := hex.EncodeToString(c.WalletAddr)
-	minerList = append(minerList, hexAddr)
+	// hexAddr := hex.EncodeToString(c.WalletAddr)
+	// minerList = append(minerList, hexAddr)
 	// firstAdmins = append(firstAdmins, hexAddr)
 
 	m.Run()

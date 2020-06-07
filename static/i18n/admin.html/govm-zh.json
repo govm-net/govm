@@ -1,0 +1,8 @@
+{
+    "reg_admin":"申请管理员候选人",
+    "description":"说明",
+    "chain":"链",
+    "desc_info":"提交后，需要在后台输入验证码",
+    "cost":"费用",
+    "submit":"提交"
+}

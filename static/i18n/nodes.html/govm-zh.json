@@ -1,5 +1,9 @@
 {
     "add_node":"添加网络节点",
+    "node_info":"节点信息",
+    "address":"节点地址",
+    "node_conn":"连接的节点数",
+    "miner_conn":"连接的矿工数",
     "peer":"新节点地址",
     "nodes":"节点列表"
 }

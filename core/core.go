@@ -176,6 +176,8 @@ const (
 	depositCycle       = 50000
 	voteCost           = 1000000000
 	defaultHashPower   = 20000
+	hpStep             = 1000
+	redemptionTotal    = 3103270425939320
 )
 
 //Key of the running state
@@ -196,6 +198,7 @@ const (
 	StatAdmin
 	StatTotalVotes
 	StatLastRewarID
+	StatTotalCoins
 )
 
 const (
@@ -713,7 +716,7 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 	p.pDbStat.GetValue([]byte{StatAdmin}, &adminList)
 	startBlock := p.pDbMiner.GetInt(block.Producer[:])
 	if startBlock > 0 && startBlock <= p.ID {
-		assert(hp >= hpLimit/1000)
+		assert(hp+2 >= hpLimit/1000)
 		p.pDbMiner.SetValue(block.Producer[:], startBlock, TimeYear)
 	} else {
 		for i := 0; i < AdminNum; i++ {
@@ -723,13 +726,18 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 			}
 		}
 		assertMsg(p.isAdmin, "not miner")
-		if hpLimit > defaultHashPower+2 {
-			hp = hpLimit/1000 - 2
+
+		if chain == 1 && p.ID < 10000 {
+			if hpLimit > defaultHashPower+2 {
+				hp = hpLimit/hpStep - 2
+			} else {
+				hp = defaultHashPower / hpStep
+			}
 		} else {
-			hp = defaultHashPower / 1000
+			hp = defaultHashPower / hpStep
 		}
 	}
-	hp = hp + hpLimit - hpLimit/1000
+	hp = hp + hpLimit - hpLimit/hpStep
 	p.pDbStat.SetValue([]byte{StatHashPower}, hp, maxDbLife)
 
 	if p.Chain == 1 {
@@ -816,6 +824,15 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 	p.adminTransfer(Address{}, gPublicAddr, guerdon*4/5)
 	p.adminTransfer(Address{}, team, guerdon/5)
 
+	old := p.pDbStat.GetInt([]byte{StatTotalCoins})
+	if old == 0 {
+		old = redemptionTotal
+		old += p.ID*guerdon*2 - maxGuerdon
+	} else {
+		old += 2 * guerdon
+	}
+	p.pDbStat.SetValue([]byte{StatTotalCoins}, old, maxDbLife)
+
 	// Every pre year, the reward is halved
 	if block.Index%guerdonUpdateCycle == 0 {
 		guerdon = guerdon*9/10 + minGuerdon
@@ -877,7 +894,6 @@ func (p *processer) processFirstBlock(block Block) {
 		for i, it := range firstAdmins {
 			var addr Address
 			addr.Decode(it)
-			// p.pRegisterAdmin(addr, 1)
 			var admin = AdminInfo{1, 0}
 			p.pDbAdmin.SetValue(addr[:], admin, maxDbLife)
 			if i < AdminNum {
@@ -891,12 +907,21 @@ func (p *processer) processFirstBlock(block Block) {
 		assert(err == nil)
 		err = json.Unmarshal(data, &redemption)
 		assert(err == nil)
+		var total uint64
 		for k, v := range redemption {
 			var addr Address
 			addr.Decode(k)
 			p.adminTransfer(Address{}, addr, v)
 			p.registerMiner(addr)
+			total += v
 		}
+		assertMsg(total == redemptionTotal, "error redemptionTotal")
+		total += maxGuerdon
+		p.pDbStat.SetValue([]byte{StatTotalCoins}, total, maxDbLife)
+	} else {
+		old := p.pDbStat.GetInt([]byte{StatTotalCoins})
+		old += maxGuerdon
+		p.pDbStat.SetValue([]byte{StatTotalCoins}, old, maxDbLife)
 	}
 
 	p.pDbStat.SetValue([]byte{StatBlockSizeLimit}, uint64(blockSizeLimit), maxDbLife)
@@ -1527,9 +1552,7 @@ func (p *processer) registerMiner(user Address) {
 	if life > 0 {
 		return
 	}
-	startBlock = p.ID
-
-	p.pDbMiner.SetValue(user[:], startBlock, TimeYear)
+	p.pDbMiner.SetValue(user[:], p.ID, TimeYear)
 }
 
 // dstChain, miner

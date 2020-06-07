@@ -339,11 +339,11 @@ func TransactionTransferPost(w http.ResponseWriter, r *http.Request) {
 
 // Miner miner info
 type Miner struct {
-	TagetChain uint64 `json:"taget_chain,omitempty"`
-	Cost       uint64 `json:"cost,omitempty"`
-	Energy     uint64 `json:"energy,omitempty"`
-	Miner      string `json:"miner,omitempty"`
-	TransKey   string `json:"trans_key,omitempty"`
+	TargetChain uint64 `json:"target_chain,omitempty"`
+	Cost        uint64 `json:"cost,omitempty"`
+	Energy      uint64 `json:"energy,omitempty"`
+	Miner       string `json:"miner,omitempty"`
+	TransKey    string `json:"trans_key,omitempty"`
 }
 
 // TransactionMinerPost register miner
@@ -389,7 +389,7 @@ func TransactionMinerPost(w http.ResponseWriter, r *http.Request) {
 	if info.Miner != "" {
 		peer, err = hex.DecodeString(info.Miner)
 	}
-	trans.RegisterMiner(info.TagetChain, info.Cost, peer)
+	trans.RegisterMiner(info.TargetChain, info.Cost, peer)
 	if info.Energy > trans.Energy {
 		trans.Energy = info.Energy
 	}
@@ -1564,6 +1564,81 @@ func MiningBlockGet(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+// Admin admin
+type Admin struct {
+	Cost     uint64 `json:"cost,omitempty"`
+	TransKey string `json:"trans_key,omitempty"`
+}
+
+// TransactionAdminPost register admin candidate
+func TransactionAdminPost(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chainStr := vars["chain"]
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "fail to read body of request,", err, chainStr)
+		return
+	}
+	chain, err := strconv.ParseUint(chainStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("error chain"))
+		return
+	}
+	info := Admin{}
+	err = json.Unmarshal(data, &info)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "fail to Unmarshal body of request,", err)
+		return
+	}
+	c := conf.GetConf()
+	coin := core.GetUserCoin(chain, c.WalletAddr)
+	if coin < info.Cost {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "not enough cost.have:%d,hope:%d\n", coin, info.Cost)
+		return
+	}
+	err = identifyBeforeTransaction("Register miner:", chain, string(data))
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprintf(w, "identifying code error,%s", err)
+		return
+	}
+	cAddr := core.Address{}
+	runtime.Decode(c.WalletAddr, &cAddr)
+	trans := core.NewTransaction(chain, cAddr)
+	trans.RegisterAdmin(info.Cost)
+	td := trans.GetSignData()
+	sign := wallet.Sign(c.PrivateKey, td)
+	if len(c.SignPrefix) > 0 {
+		s := make([]byte, len(c.SignPrefix))
+		copy(s, c.SignPrefix)
+		sign = append(s, sign...)
+	}
+	trans.SetSign(sign)
+	td = trans.Output()
+	key := trans.Key[:]
+
+	msg := new(messages.NewTransaction)
+	msg.Chain = chain
+	msg.Key = key
+	msg.Data = td
+	err = event.Send(msg)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "error:%s", err)
+		return
+	}
+
+	info.TransKey = hex.EncodeToString(key)
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	enc.Encode(info)
+}
+
 // AdminsGet get admin list
 func AdminsGet(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -1590,7 +1665,7 @@ func AdminsGet(w http.ResponseWriter, r *http.Request) {
 	enc.Encode(out)
 }
 
-// AdminInfo vote info
+// AdminInfo admin info
 type AdminInfo struct {
 	Address string `json:"address"`
 	Deposit uint64 `json:"deposit"`
@@ -1618,6 +1693,82 @@ func AdminInfoGet(w http.ResponseWriter, r *http.Request) {
 	out.Deposit = info.Deposit
 	out.Votes = info.Votes
 
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	enc.Encode(out)
+}
+
+// VoteInfo vote info
+type VoteInfo struct {
+	Address  string `json:"address,omitempty"`
+	Admin    string `json:"admin,omitempty"`
+	Votes    uint64 `json:"votes,omitempty"`
+	StartDay uint64 `json:"start_day,omitempty"`
+}
+
+// VoteInfoGet get vote info
+func VoteInfoGet(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chainStr := vars["chain"]
+	r.ParseForm()
+	key := r.Form.Get("key")
+	chain, err := strconv.ParseUint(chainStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("error chain"))
+		return
+	}
+	if key == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("need key query"))
+		return
+	}
+	addr := core.Address{}
+	addr.Decode(key)
+
+	info := core.GetVoteInfo(chain, addr)
+	var out VoteInfo
+	out.Address = key
+	if !info.Admin.Empty() {
+		out.Admin = hex.EncodeToString(info.Admin[:])
+	}
+	out.StartDay = info.StartDay
+	out.Votes = info.Cost / 1000000000
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	enc.Encode(out)
+}
+
+// VoteReward vote reward
+type VoteReward struct {
+	Reward uint64 `json:"reward,omitempty"`
+	Day    uint64 `json:"day,omitempty"`
+}
+
+// VoteRewardGet get vote info
+func VoteRewardGet(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chainStr := vars["chain"]
+	r.ParseForm()
+	var day uint64
+	day = uint64(time.Now().Unix() / 3600 / 24)
+	dayStr := r.Form.Get("day")
+	chain, err := strconv.ParseUint(chainStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("error chain"))
+		return
+	}
+	if dayStr != "" {
+		day, err = strconv.ParseUint(dayStr, 10, 64)
+	}
+
+	var out VoteReward
+	out.Day = day
+	info := core.GetVoteReward(chain, day)
+	out.Reward = info.Reward
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 	enc := json.NewEncoder(w)

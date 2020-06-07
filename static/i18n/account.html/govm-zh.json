@@ -1,0 +1,12 @@
+{
+    "account":"账户",
+    "address":"账户地址",
+    "chain":"链",
+    "balance":"余额",
+    "next":"下一个",
+    "search":"查询",
+    "vote_info":"投票信息",
+    "votes":"票数",
+    "admin_voted":"管理员(投票的)",
+    "income_time":"收益开始时间"
+}
