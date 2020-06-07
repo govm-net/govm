@@ -16,5 +16,6 @@
     "lg_set":"中文",
     "net_hp":"主网算力",
     "my_hp":"节点算力",
-    "net_votes":"全网的投票数"
+    "net_votes":"全网的投票数",
+    "gen_coins":"生成的币数量"
 }

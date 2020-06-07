@@ -106,11 +106,8 @@
                         <span class="form-control" id="net_votes"></span>
                     </div>
                     <br>
+                    <h3 class="panel-title" data-localize="gen_coins">Generated coins:</h3>
                     <div id="total_coins"></div>
-                    <!-- <div class="input-group">
-                        <span class="input-group-addon" data-localize="total_coins">Total coins:</span>
-                        <span class="form-control" id="total_coins"></span>
-                    </div> -->
                 </div>
             </div>
         </div>
@@ -193,7 +190,7 @@
         });
 
         function getTotalCoins(chain) {
-            var urlStr = "/api/v1/" + gChainID + "/data?app_name=ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+            var urlStr = "/api/v1/" + chain + "/data?app_name=ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
             urlStr += "&is_db_data=true&key=10"
             $.get(urlStr + "&struct_name=dbStat", function (data, status) {
                 if (status != "success") {
@@ -208,6 +205,8 @@
                         $("<span class='input-group-addon'>").append("Chain" + chain)
                     ).append(
                         $("<span class='form-control'>").append(getValueWithBase(coins, gCostBase))
+                    ).append(
+                        $("<span class='input-group-addon'></span>").append(gCostBase)
                     ))
                     getTotalCoins(chain*2)
                     getTotalCoins(chain*2+1)

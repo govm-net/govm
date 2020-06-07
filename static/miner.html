@@ -23,6 +23,11 @@
                 <div class="panel-body">
                     <form class="bs-example bs-example-form" role="form">
                         <div class="input-group">
+                            <label class="label label-info" data-localize="description">Description:</label>
+                            <label class="label label-primary" data-localize="desc_info">
+                                After submit, you need to enter the identifying code in the background</label>
+                        </div>
+                        <div class="input-group">
                             <span class="input-group-addon" data-localize="chain">Chain:</span>
                             <input type="number" min="1" class="form-control" name="chain" value="1">
                             <span class="input-group-addon label-success">*</span>
@@ -78,6 +83,7 @@
             if (data.cost < 0){
                 return
             }
+            $("#result").html("Please enter the identifying code in the background govm window.");
             var chain = data.chain
             data = JSON.stringify(data)
             //alert(data)
