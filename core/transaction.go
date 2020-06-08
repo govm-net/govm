@@ -319,6 +319,20 @@ func GetAdminInfo(chain uint64, addr Address) AdminInfo {
 	return out
 }
 
+// GetVoteInfo get vote info
+func GetVoteInfo(chain uint64, addr Address) VoteInfo {
+	var out VoteInfo
+	getDataFormDB(chain, dbVote{}, addr[:], &out)
+	return out
+}
+
+// GetVoteReward get reward info
+func GetVoteReward(chain, day uint64) RewardInfo {
+	var out RewardInfo
+	getDataFormDB(chain, dbVoteReward{}, runtime.Encode(day), &out)
+	return out
+}
+
 func getDataFormDB(chain uint64, db interface{}, key []byte, out interface{}) {
 	if chain == 0 {
 		return

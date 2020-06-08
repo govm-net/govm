@@ -38,7 +38,7 @@ type TConfig struct {
 var (
 	conf TConfig
 	// Version software version
-	Version string = "v0.5.0"
+	Version string = "v0.5.1"
 	// BuildTime build time
 	BuildTime string
 	// GitHead git head

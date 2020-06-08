@@ -8,5 +8,6 @@
     "user":"用户",
     "cost":"费用",
     "block_id":"区块序号",
+    "trans_index":"交易序号",
     "ops":"交易类型"
 }

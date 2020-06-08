@@ -105,6 +105,9 @@
                         <span class="input-group-addon" data-localize="net_votes">Total votes:</span>
                         <span class="form-control" id="net_votes"></span>
                     </div>
+                    <br>
+                    <h3 class="panel-title" data-localize="gen_coins">Generated coins:</h3>
+                    <div id="total_coins"></div>
                 </div>
             </div>
         </div>
@@ -144,11 +147,33 @@
             }
         });
 
+        function hpDisp(hp) {
+            var unit = "hash"
+            if (hp > 10000) {
+                hp /= 1000;
+                unit = "K hash"
+            }
+            if (hp > 10000) {
+                hp /= 1000;
+                unit = "M hash"
+            }
+            if (hp > 10000) {
+                hp /= 1000;
+                unit = "G hash"
+            }
+            if (hp > 10000) {
+                hp /= 1000;
+                unit = "T hash"
+            }
+            hp = Math.floor(hp * 10) / 10
+            return hp + unit
+        }
+
         $.get("/api/v1/" + gChainID + "/hashpower", function (data, status) {
             if (status != "success") {
                 alert("Data: " + data + "\nStatus: " + status);
             } else {
-                $("#net_hp").html(fmoney(data.net_hp));
+                $("#net_hp").html(hpDisp(data.net_hp));
             }
         });
 
@@ -159,10 +184,37 @@
                 console.log("net_votes,Data: " + data + "\nStatus: " + status);
             } else {
                 console.log("net_votes:", data.value)
-                var lock = dataEncode(data.value, "hex2int")
-                $("#net_votes").html(lock)
+                var votes = dataEncode(data.value, "hex2int")
+                $("#net_votes").html(votes)
             }
         });
+
+        function getTotalCoins(chain) {
+            var urlStr = "/api/v1/" + chain + "/data?app_name=ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+            urlStr += "&is_db_data=true&key=10"
+            $.get(urlStr + "&struct_name=dbStat", function (data, status) {
+                if (status != "success") {
+                    console.log("net_votes,Data: " + data + "\nStatus: " + status);
+                } else {
+                    console.log("net_votes:", data.value)
+                    var coins = dataEncode(data.value, "hex2int")
+                    if (coins == 0) {
+                        return
+                    }
+                    $("#total_coins").append($("<div class='input-group'>").append(
+                        $("<span class='input-group-addon'>").append("Chain" + chain)
+                    ).append(
+                        $("<span class='form-control'>").append(getValueWithBase(coins, gCostBase))
+                    ).append(
+                        $("<span class='input-group-addon'></span>").append(gCostBase)
+                    ))
+                    getTotalCoins(chain*2)
+                    getTotalCoins(chain*2+1)
+                }
+            });
+        }
+
+        getTotalCoins(1)
 
         function changeLang(lg) {
             gLanguage = lg;

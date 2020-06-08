@@ -23,32 +23,73 @@
         <div class="col-md-12 column">
             <div class="panel panel-default">
                 <div class="panel-heading">
-                    <h3 class="panel-title">Account</h3>
+                    <h3 class="panel-title" data-localize="account">Account</h3>
                 </div>
                 <div class="panel-body">
                     <div class="input-group">
-                        <span class="input-group-addon">Chain:</span>
-                        <span class="form-control" id="chain"></span>
+                        <span class="input-group-addon" data-localize="chain">Chain:</span>
+                        <input type="number" min="1" class="form-control" id="chain" value="1">
+                        <span class="input-group-addon label-success">*</span>
                     </div>
                     <br>
                     <div class="input-group">
-                        <span class="input-group-addon">Wallet Address:</span>
-                        <span class="form-control" id="address"></span>
+                        <span class="input-group-addon" data-localize="address">Wallet Address:</span>
+                        <input type="text" class="form-control" id="address">
+                        <span class="input-group-addon label-success">*</span>
                     </div>
                     <br>
                     <div class="input-group">
-                        <span class="input-group-addon">Balance:</span>
+                        <span class="input-group-addon" data-localize="balance">Balance:</span>
                         <span class="form-control" id="balance"></span>
                         <span class="input-group-addon" id="base_cost"></span>
                     </div>
                     <br>
-                    <div>
-                        <button type="button" class="btn btn-success pull-right" id="next">Next</button>
+                    <div class="pull-right">
+                        <button type="button" class="btn btn-success" id="next" data-localize="next">Next</button>
+                        <button type="button" class="btn btn-success" id="search" data-localize="search">Search</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title" data-localize="vote_info">Vote Info</h3>
+                </div>
+                <div class="panel-body">
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="chain">Chain:</span>
+                        <input type="number" min="1" class="form-control" id="v_chain" value="1">
+                        <span class="input-group-addon label-success">*</span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="address">Wallet Address:</span>
+                        <input type="text" class="form-control" id="v_address">
+                        <span class="input-group-addon label-success">*</span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="votes">Votes:</span>
+                        <span class="form-control" id="votes"></span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="admin_voted">Admin(voted):</span>
+                        <span class="form-control" id="admin"></span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="income_time">Income Time:</span>
+                        <span class="form-control" id="time"></span>
+                    </div>
+                    <br>
+                    <div class="pull-right">
+                        <button type="button" class="btn btn-success" id="v_search" data-localize="search">Search</button>
                     </div>
                 </div>
             </div>
         </div>
-        <button type="button" class="btn btn-success pull-right" id="allAcount">Download All</button>
+        <!-- <button type="button" class="btn btn-success pull-right" id="allAcount">Download All</button> -->
     </div>
 
     <!-- jQuery (Bootstrap 的 JavaScript 插件需要引入 jQuery) -->
@@ -73,35 +114,68 @@
         };
         var last_account = "";
         $("#base_cost").html(gCostBase);
+        $("#chain").html(gChainID);
         function updateAccount(chain, address) {
             if (address === undefined) {
                 address = "";
             }
-            $("#address").html("");
-            $("#balance").html("");
+            $("#address").val("");
+            $("#balance").val("");
             urlStr = "/api/v1/" + chain + "/account?address=" + address;
             $.get(urlStr, function (data, status) {
                 if (status != "success") {
                     alert("Data: " + data + "\nStatus: " + status);
                 } else {
-                    $("#chain").html(data.chain);
-                    $("#address").html(data.address);
+                    $("#chain").val(data.chain);
+                    $("#address").val(data.address);
                     $("#balance").html("<b><p title='" + fmoney(data.cost) + "'>" + getValueWithBase(data.cost, gCostBase) + "</p></b>");
                 }
             });
         }
 
+        $('#search').on('click', function () {
+            var chainID = $("#chain").val();
+            var address = $("#address").val();
+            console.log("search:", chainID, address)
+            updateAccount(chainID, address);
+        });
+
         $('#next').on('click', function () {
-            var chainID = $("#chain").html();
-            var address = $("#address").html();
-            $("#address").html("");
-            $("#balance").html("");
+            var chainID = $("#chain").val();
+            var address = $("#address").val();
+            $("#address").val("");
+            $("#balance").val("");
             urlStr2 = "/api/v1/" + chainID + "/data/visit?app_name=ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
             urlStr2 += "&struct_name=dbCoin&is_db_data=true&pre_key=" + address;
             $.get(urlStr2, function (data, status) {
                 if (status == "success") {
-                    console.log("next click:", data.key)
+                    // console.log("next click:", data.key)
                     updateAccount(chainID, data.key);
+                }
+            });
+        });
+
+        $('#v_search').on('click', function () {
+            var chainID = $("#v_chain").val();
+            var address = $("#v_address").val();
+            console.log("search:", chainID, address)
+            if (address === undefined || address == "") {
+                return;
+            }
+            $("#votes").html("");
+            $("#admin").html("");
+            $("#time").html("");
+            urlStr = "/api/v1/" + chainID + "/vote?key=" + address;
+            $.get(urlStr, function (data, status) {
+                if (status != "success") {
+                    alert("Data: " + data + "\nStatus: " + status);
+                } else {
+                    var myDate = new Date()
+                    myDate.setTime(data.start_day*24*3600*1000)
+                    // $("#v_address").val(data.address);
+                    $("#votes").html(data.votes);
+                    $("#admin").html(data.admin);
+                    $("#time").html(myDate.toString());
                 }
             });
         });
@@ -166,7 +240,6 @@
             // console.log("start getAllAccount");
             getNext(result, chainID, nextKey);
         }
-        updateAccount(gChainID, "");
     </script>
 
 </body>

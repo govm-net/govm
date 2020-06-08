@@ -29,8 +29,7 @@ func newBlockForMining(chain uint64) {
 	t := core.GetBlockInterval(chain)
 	start := time.Now().Unix()
 	block := core.NewBlock(chain, core.Address{})
-	// c := conf.GetConf()
-	lastID := core.GetLastBlockIndex(chain)
+	// lastID := core.GetLastBlockIndex(chain)
 	flagTime := time.Now().UnixNano()
 	err := core.CheckTransList(chain, func(chain uint64) core.Hash {
 		if trans != nil && !trans.Key.Empty() {
@@ -56,9 +55,9 @@ func newBlockForMining(chain uint64) {
 
 			info := core.GetTransInfo(chain, trans.Key[:])
 			if info.BlockID > 0 {
-				if info.BlockID+3 < lastID {
-					pushTransInfo(chain, trans)
-				}
+				// if info.BlockID+8 < lastID {
+				// 	pushTransInfo(chain, trans)
+				// }
 				continue
 			}
 			if size+uint64(trans.Size) > limit {
@@ -145,9 +144,8 @@ func doMining(chain uint64) {
 		core.WriteBlock(chain, data)
 		SaveBlockReliability(chain, block.Key[:], rel)
 		setIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
-		if !needBroadcastBlock(chain, rel) {
-			return
-		}
+		needBroadcastBlock(chain, rel)
+
 		info := messages.BlockInfo{}
 		info.Chain = chain
 		info.Index = rel.Index

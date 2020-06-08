@@ -397,6 +397,9 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 	if needSave {
 		core.WriteBlock(chain, data)
 		val := uint64(1) << hp
+		if hp < 20 {
+			val = uint64(1) << 20
+		}
 		hpi := int64(block.Time / 1000 / 60)
 		old, ok := blockHP.Get(keyOfBlockHP{chain, hpi})
 		if ok {
@@ -602,6 +605,16 @@ func dbRollBack(chain, index uint64, key []byte) error {
 		var lk core.Hash
 		runtime.Decode(lKey, &lk)
 		// setBlockToIDBlocks(chain, nIndex, lk, 0)
+		rel := ReadBlockReliability(chain, lKey)
+		if !rel.TransListHash.Empty() {
+			lst := GetTransList(chain, rel.TransListHash[:])
+			for _, it := range lst {
+				trans := readTransInfo(chain, it[:])
+				if !trans.Key.Empty() {
+					pushTransInfo(chain, &trans)
+				}
+			}
+		}
 
 		nIndex--
 	}

@@ -35,6 +35,14 @@
                             <button class="btn btn-default" type="button" id="btn_key" data-localize="go">Go!</button>
                         </span>
                     </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="trans_index">Transaction Index:</span>
+                        <input type="text" class="form-control" id="search_id">
+                        <span class="input-group-btn">
+                            <button class="btn btn-default" type="button" id="btn_id" data-localize="go">Go!</button>
+                        </span>
+                    </div>
                 </div>
                 <div id="result">
                 </div>
@@ -91,6 +99,7 @@
     <script src="js/bootstrap.min.js"></script>
     <script src="js/jquery.localize.min.js"></script>
     <script src="js/load.js?v=5"></script>
+    <script src="js/encode.js?v=3"></script>
 
     <script type="text/javascript">
         $("#base_cost").html(gCostBase);
@@ -120,7 +129,7 @@
                 $("#cost").html("<b><p title='" + fmoney(data.Cost) + "'>" + getValueWithBase(data.Cost, gCostBase) + "</p></b>");
                 $("#energy").html("<b><p title='" + fmoney(data.Energy) + "'>" + getValueWithBase(data.Energy, gCostBase) + "</p></b>");
                 $("#others").html("");
-                for ( k in data.Others){
+                for (k in data.Others) {
                     $("#others").append($("<div class='input-group'>").append(
                         $("<span class='input-group-addon'>").append(k)
                     ).append(
@@ -137,6 +146,24 @@
             var key = $("#search_key").val()
             getTrans(chain, key)
         });
+
+        $('#btn_id').on('click', function () {
+            var chainID = $("#search_chain").val();
+            var index = $("#search_id").val();
+            var id = parseInt(index);
+            if (id <= 0) {
+                return
+            }
+            urlStr2 = "/api/v1/" + chainID + "/data?app_name=ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+            urlStr2 += "&struct_name=statTransList&is_db_data=true&key=" + dataEncode(id, "int642hex");
+            $.get(urlStr2, function (data, status) {
+                if (status == "success") {
+                    // console.log("next click:", data.key)
+                    getTrans(chainID, data.value);
+                }
+            });
+        });
+
         var chain = getUrlParam('chain');
         var key = getUrlParam('key');
         if (chain < 1) {
@@ -144,8 +171,16 @@
         }
         if (key != "") {
             getTrans(chain, key);
+        } else {
+            urlStr2 = "/api/v1/" + chain + "/data?app_name=ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+            urlStr2 += "&struct_name=statTransList&is_db_data=true&key=00";
+            $.get(urlStr2, function (data, status) {
+                if (status == "success") {
+                    $("#search_id").val(dataEncode(data.value, "hex2int"))
+                }
+            });
         }
-        
+
     </script>
 </body>
 

@@ -111,8 +111,12 @@ func (p *InternalPlugin) event(m event.Message) error {
 			return nil
 		}
 		log.Printf("create new trans:%x,\n", msg.Key[:])
-		core.WriteTransaction(msg.Chain, msg.Data)
-		err := core.CheckTransaction(msg.Chain, msg.Key)
+		err := core.WriteTransaction(msg.Chain, msg.Data)
+		if err != nil {
+			log.Println("fail to write transaction:", err)
+			return err
+		}
+		err = core.CheckTransaction(msg.Chain, msg.Key)
 		if err != nil {
 			log.Printf("fail to new transaction.chain:%d,key:%x,error:%s\n", msg.Chain, msg.Key, err)
 			core.DeleteTransaction(msg.Chain, msg.Key)

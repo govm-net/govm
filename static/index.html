@@ -28,11 +28,16 @@
                     </h3>
                 </div>
                 <div class="panel-body">
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="vote_reward">Vote Reward</span>
+                        <span class="form-control" id="vote_reward"></span>
+                    </div>
+                    <br>
                     <div id="admins">
                     </div>
                 </div>
             </div>
-    
+
             <div class="panel panel-default">
                 <div class="panel-heading">
                     <h3 class="panel-title" data-localize="admin_info">
@@ -52,7 +57,8 @@
                         <span class="input-group-addon" data-localize="votes">Votes</span>
                         <span class="form-control" id="votes"></span>
                     </div>
-                    <button type="button" class="btn btn-success pull-right" id="next" data-localize="next">Next</button>
+                    <button type="button" class="btn btn-success pull-right" id="next"
+                        data-localize="next">Next</button>
                 </div>
             </div>
         </div>
@@ -105,7 +111,7 @@
                     preAdmin = rst.key;
                     $.get("/api/v1/" + chain + "/admin?key=" + rst.key, function (data, status) {
                         $("#address").html(data.address)
-                        $("#deposit").html(data.deposit)
+                        $("#deposit").html(getValueWithBase(data.deposit, "govm") + " govm")
                         $("#votes").html(data.votes)
                         //console.log(data);
                     }).fail(function () {
@@ -124,6 +130,12 @@
         });
         getAdmins(gChainID);
         getNextAdminInfo(gChainID, preAdmin);
+
+        $.get("/api/v1/" + gChainID + "/vote_reward", function (data, status) {
+            $("#vote_reward").html(getValueWithBase(data.reward*7, "t6")+"govm(10000votes one day)")
+            //console.log(data);
+        }).fail(function () {
+        });
     </script>
 </body>
 

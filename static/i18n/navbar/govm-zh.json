@@ -8,6 +8,7 @@
         "new_app":"创建合约",
         "block":"区块",
         "transaction":"交易信息",
+        "account":"账户",
         "miner":"矿工",
         "mine":"挖矿",
         "chain":"链",
