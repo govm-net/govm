@@ -144,9 +144,8 @@ func doMining(chain uint64) {
 		core.WriteBlock(chain, data)
 		SaveBlockReliability(chain, block.Key[:], rel)
 		setIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
-		if !needBroadcastBlock(chain, rel) {
-			return
-		}
+		needBroadcastBlock(chain, rel)
+
 		info := messages.BlockInfo{}
 		info.Chain = chain
 		info.Index = rel.Index
