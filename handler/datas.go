@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -35,12 +34,11 @@ const (
 	ldbSyncBlocks     = "sync_blocks"     //index:blockKey
 	ldbTransList      = "trans_list"      //blockKey:transList
 	ldbAllTransInfo   = "all_trans_info"  //transKey:info
-	ldbInputTrans     = "input_trans"     //receive transfer,timeKey:transKey
-	ldbOutputTrans    = "output_trans"    //create by self,timeKey:transKey
 	ldbDownloading    = "downloading"     //key:time
 	ldbReliability    = "reliability"     //blockKey:relia
 	ldbBroadcastTrans = "broadcast_trans" //key:1
 	ldbStatus         = "ldbStatus"       //status
+	ldbProducer       = "producer"
 )
 
 const downloadTimeout = 10
@@ -67,6 +65,7 @@ func Init() {
 	ldb.SetNotDisk(ldbAllTransInfo, 50000)
 	ldb.SetNotDisk(ldbBroadcastTrans, 50000)
 	ldb.SetNotDisk(ldbStatus, 10000)
+	ldb.SetNotDisk(ldbProducer, 1000)
 	transForMinging = make(map[uint64][]*transInfo)
 	time.AfterFunc(time.Second*5, updateTimeDifference)
 	time.AfterFunc(time.Second*2, startCheckBlock)
@@ -206,48 +205,6 @@ func popTransInfo(chain uint64) *transInfo {
 	}
 	out := lst[0]
 	transForMinging[chain] = lst[1:]
-	return out
-}
-
-// HistoryItem history item
-type HistoryItem struct {
-	Key   string `json:"key,omitempty"`
-	Value string `json:"value,omitempty"`
-}
-
-// GetOutputTrans get output transaction by self
-func GetOutputTrans(chain uint64, preKey []byte) []HistoryItem {
-	out := make([]HistoryItem, 0)
-	for i := 0; i < 10; i++ {
-		k, v := ldb.LGetNext(chain, ldbOutputTrans, preKey)
-		if len(v) == 0 {
-			break
-		}
-		preKey = k
-		it := HistoryItem{}
-		it.Key = hex.EncodeToString(k)
-		it.Value = hex.EncodeToString(v)
-		out = append(out, it)
-	}
-
-	return out
-}
-
-// GetInputTrans get input transaction
-func GetInputTrans(chain uint64, preKey []byte) []HistoryItem {
-	out := make([]HistoryItem, 0)
-	for i := 0; i < 10; i++ {
-		k, v := ldb.LGetNext(chain, ldbInputTrans, preKey)
-		if len(v) == 0 {
-			break
-		}
-		preKey = k
-		it := HistoryItem{}
-		it.Key = hex.EncodeToString(k)
-		it.Value = hex.EncodeToString(v)
-		out = append(out, it)
-	}
-
 	return out
 }
 
@@ -519,4 +476,24 @@ func setBlockForMining(chain uint64, block core.StBlock) {
 	msg.Chain = chain
 	msg.Data = data
 	event.Send(msg)
+}
+
+func setBlockProducer(chain, index uint64, producer core.Address) {
+	ldb.LSet(chain, ldbProducer, runtime.Encode(index), producer[:])
+}
+
+func getCountOfLast10Blocks(chain, index uint64, producer core.Address) int {
+	var out int
+	for i := index - 10; i < index; i++ {
+		val := ldb.LGet(chain, ldbProducer, runtime.Encode(i))
+		if len(val) == 0 {
+			continue
+		}
+		var addr core.Address
+		runtime.Decode(val, &addr)
+		if addr == producer {
+			out++
+		}
+	}
+	return out
 }

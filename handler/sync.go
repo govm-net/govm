@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"runtime/debug"
-	"time"
 
 	core "github.com/govm-net/govm/core"
 	"github.com/govm-net/govm/messages"
@@ -16,9 +15,7 @@ import (
 // SyncPlugin sync plugin
 type SyncPlugin struct {
 	*libp2p.Plugin
-	net     libp2p.Network
-	syncCID string
-	timeout int64
+	net libp2p.Network
 }
 
 const (
@@ -29,7 +26,7 @@ const (
 	eSyncLastBlock
 	sTimeout      = 40
 	acceptBlockID = 20
-	maxSyncNum    = 300
+	maxSyncNum    = 100
 	acceptOldID   = 10
 )
 
@@ -42,31 +39,10 @@ func (p *SyncPlugin) Startup(n libp2p.Network) {
 	p.net = n
 }
 
-func timeToString(t int64) string {
-	return fmt.Sprintf("%020d", t)
-}
-
-// PeerDisconnect peer disconnect
-func (p *SyncPlugin) PeerDisconnect(s libp2p.Session) {
-	cid := s.GetEnv(libp2p.EnvConnectID)
-	if p.syncCID == cid {
-		p.syncCID = ""
-		p.timeout = 0
-	}
-}
-
 // Receive receive message
 func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 	switch msg := ctx.GetMessage().(type) {
 	case *messages.BlockInfo:
-		cid := ctx.GetSession().GetEnv(libp2p.EnvConnectID)
-		now := time.Now().Unix()
-		if now > p.timeout {
-			ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncing), "")
-			if p.syncCID == cid {
-				p.syncCID = ""
-			}
-		}
 
 		// log.Printf("<%x> BlockInfo %d %d\n", ctx.GetPeerID(), msg.Chain, msg.Index)
 		index := core.GetLastBlockIndex(msg.Chain)
@@ -84,25 +60,20 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 			return nil
 		}
 		if msg.Index > index+maxSyncNum+10 {
-			if p.syncCID == "" && needRequstID(msg.Chain, index+maxSyncNum) {
+			if needRequstID(msg.Chain, index+maxSyncNum) {
 				ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + maxSyncNum})
 			}
 			return nil
 		}
-		if msg.Index > index+acceptBlockID {
-			if core.GetBlockTime(msg.Chain)+tHour > getCoreTimeNow() &&
-				needRequstID(msg.Chain, index+acceptBlockID) {
-				ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + acceptBlockID})
-				return nil
-			}
-			if p.syncCID == "" || p.syncCID == cid {
-				p.syncCID = cid
-			} else if needRequstID(msg.Chain, index+acceptBlockID) {
-				ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + acceptBlockID})
-				return nil
-			}
+
+		if !needDownload(msg.Chain, msg.Key) {
+			return nil
 		}
+
 		if core.IsExistBlock(msg.Chain, msg.Key) {
+			if index+1 < msg.Index {
+				return nil
+			}
 			rel := ReadBlockReliability(msg.Chain, msg.Key)
 			if !rel.Ready || rel.Index == 0 {
 				log.Printf("start sync,chain:%d,index:%d,block:%x\n", msg.Chain, msg.Index, msg.Key)
@@ -115,14 +86,7 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 			return nil
 		}
 
-		if !needDownload(msg.Chain, msg.Key) {
-			return nil
-		}
-
 		SetSyncBlock(msg.Chain, msg.Index, msg.Key)
-		if p.syncCID == cid {
-			p.timeout = now + sTimeout
-		}
 
 		ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncBlock), hex.EncodeToString(msg.Key))
 		ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncing), "true")
@@ -176,11 +140,6 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 			log.Println(string(debug.Stack()))
 		}
 	}()
-	// log.Printf("syncDepend,chain:%d,key:%x,from:%s\n", chain, key, ctx.GetSession().GetPeerAddr().Host())
-	cid := ctx.GetSession().GetEnv(libp2p.EnvConnectID)
-	if p.syncCID == cid {
-		p.timeout = time.Now().Unix() + sTimeout
-	}
 
 	if !core.IsExistBlock(chain, key) {
 		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), hex.EncodeToString(key))
@@ -250,18 +209,29 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 			return
 		}
 	}
-	transList := GetTransList(chain, key)
-	for _, it := range transList {
-		if core.IsExistTransaction(chain, it[:]) {
-			continue
+	if !rel.TransListHash.Empty() {
+		transList := GetTransList(chain, key)
+		if len(transList) == 0 {
+			data := core.ReadTransList(chain, rel.TransListHash[:])
+			transList = core.ParseTransList(data)
+			if len(transList) == 0 {
+				ctx.Reply(&messages.ReqTransList{Chain: chain, Key: rel.TransListHash[:]})
+				return
+			}
+			SaveTransList(chain, key, transList)
 		}
-		// log.Printf("syncDepend trans,chain:%d,index:%d,trans:%x\n", chain, rel.Index, it)
-		e := hex.EncodeToString(it[:])
-		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncTrans), e)
-		e = hex.EncodeToString(key)
-		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncTransOwner), e)
-		ctx.Reply(&messages.ReqTransaction{Chain: chain, Key: it[:]})
-		return
+		for _, it := range transList {
+			if core.IsExistTransaction(chain, it[:]) {
+				continue
+			}
+			// log.Printf("syncDepend trans,chain:%d,index:%d,trans:%x\n", chain, rel.Index, it)
+			e := hex.EncodeToString(it[:])
+			ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncTrans), e)
+			e = hex.EncodeToString(key)
+			ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncTransOwner), e)
+			ctx.Reply(&messages.ReqTransaction{Chain: chain, Key: it[:]})
+			return
+		}
 	}
 
 	data := core.ReadBlockData(chain, key)
@@ -286,9 +256,7 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		// log.Printf("stop sync,not next SyncBlock,chain:%d,key:%x,next:%d\n", chain, key, rel.Index+1)
 		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), "")
 		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncing), "")
-		if p.syncCID == cid {
-			p.timeout = 0
-		}
+
 		updateBLN(chain, key)
 		go processEvent(chain)
 	}

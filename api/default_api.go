@@ -69,10 +69,10 @@ func identifyBeforeTransaction(msg ...interface{}) error {
 	fmt.Println("Input Identifying Code:")
 	fmt.Println(str)
 	var in string
-	timeout := time.After(time.Second * 15)
+	timeout := time.After(time.Second * 30)
 	select {
 	case <-timeout:
-		fmt.Println("identify:input timeout(15second)")
+		fmt.Println("identify:input timeout(30second)")
 		return fmt.Errorf("identify:timeout")
 	case in = <-inputString:
 	}
@@ -1293,65 +1293,9 @@ type NodeInfo struct {
 func NodeAddressGet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
-	info := NodeInfo{handler.SelfAddress, minerNum, handler.NodeNumber}
+	info := NodeInfo{handler.SelfAddress, minerNum, handler.NodesCount}
 	enc := json.NewEncoder(w)
 	enc.Encode(info)
-}
-
-// HistoryInGet get transaction history of recieve
-func HistoryInGet(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	chainStr := vars["chain"]
-	r.ParseForm()
-	keyStr := r.Form.Get("key")
-	chain, err := strconv.ParseUint(chainStr, 10, 64)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("error chain"))
-		return
-	}
-	var key []byte
-	if keyStr != "" {
-		key, err = hex.DecodeString(keyStr)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("error key"))
-			return
-		}
-	}
-	trans := handler.GetInputTrans(chain, key)
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
-	enc := json.NewEncoder(w)
-	enc.Encode(trans)
-}
-
-// HistoryOutGet get transaction history of send
-func HistoryOutGet(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	chainStr := vars["chain"]
-	r.ParseForm()
-	keyStr := r.Form.Get("key")
-	chain, err := strconv.ParseUint(chainStr, 10, 64)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("error chain"))
-		return
-	}
-	var key []byte
-	if keyStr != "" {
-		key, err = hex.DecodeString(keyStr)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("error key"))
-			return
-		}
-	}
-	trans := handler.GetOutputTrans(chain, key)
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(http.StatusOK)
-	enc := json.NewEncoder(w)
-	enc.Encode(trans)
 }
 
 // VersionInfo version info

@@ -68,6 +68,15 @@ type TransactionData struct {
 	Data  []byte
 }
 
+// NodeInfo node info
+type NodeInfo struct {
+	Alias           string
+	Version         string
+	RunTime         int64
+	NodesConnected  int
+	MinersConnected int
+}
+
 func init() {
 	gob.Register(&ReqBlockInfo{})
 	gob.Register(&BlockInfo{})
@@ -78,4 +87,5 @@ func init() {
 	gob.Register(&TransactionInfo{})
 	gob.Register(&ReqTransaction{})
 	gob.Register(&TransactionData{})
+	gob.Register(&NodeInfo{})
 }
