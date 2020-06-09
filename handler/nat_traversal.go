@@ -125,7 +125,7 @@ func (p *NATTPlugin) connectNodes() {
 // Receive receive message
 func (p *NATTPlugin) Receive(ctx libp2p.Event) error {
 	now := time.Now().Unix()
-	if timeOfReport+120 > now {
+	if timeOfReport+120 < now {
 		timeOfReport = now
 		timeString = fmt.Sprintf("%d", timeOfReport)
 	}
