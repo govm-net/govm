@@ -511,12 +511,6 @@ func processTransaction(chain uint64, key, data []byte) error {
 		return errors.New("error transaction key")
 	}
 
-	// nIndex := core.GetLastBlockIndex(chain)
-	// if nIndex == 0 {
-	// 	return errors.New("chain no exist")
-	// }
-
-	c := conf.GetConf()
 	if trans.Chain != chain {
 		return errors.New("different chain,the Chain of trans must be 0")
 	}
@@ -532,29 +526,10 @@ func processTransaction(chain uint64, key, data []byte) error {
 		return err
 	}
 
-	if bytes.Compare(trans.User[:], c.WalletAddr) == 0 {
-		k := runtime.Encode(^uint64(0) - trans.Time)
-		k = append(k, trans.Key[:16]...)
-		ldb.LSet(chain, ldbOutputTrans, k, trans.Key[:])
-	} else if trans.Ops == core.OpsTransfer && bytes.Compare(trans.Data[:core.AddressLen], c.WalletAddr) == 0 {
-		k := runtime.Encode(^uint64(0) - trans.Time)
-		k = append(k, trans.Key[:16]...)
-		ldb.LSet(chain, ldbInputTrans, k, trans.Key[:])
-	}
-
 	log.Printf("new transaction.chain%d, key:%x ,osp:%d\n", chain, key, trans.Ops)
 
 	blockTime := core.GetBlockTime(chain)
-	if blockTime+processTransTime < getCoreTimeNow() {
-		return nil
-	}
-
-	// if !believable(chain, trans.User[:]) && (bytes.Compare(trans.User[:], c.WalletAddr) != 0) {
-	// 	return nil
-	// }
-
-	if trans.Time+transAcceptTime < now {
-		log.Println("error transaction time")
+	if blockTime+processTransTime < now {
 		return nil
 	}
 
@@ -611,6 +586,7 @@ func dbRollBack(chain, index uint64, key []byte) error {
 			for _, it := range lst {
 				trans := readTransInfo(chain, it[:])
 				if !trans.Key.Empty() {
+					trans.Flag = time.Now().UnixNano()
 					pushTransInfo(chain, &trans)
 				}
 			}
@@ -656,7 +632,7 @@ func startCheckBlock() {
 		if ok {
 			break
 		}
-		rid -= 300
+		rid -= 100
 		if id > rid+5000 {
 			fmt.Println("The local block is different from the server.")
 			os.Exit(5)

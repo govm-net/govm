@@ -1140,11 +1140,6 @@ func (p *processer) processTransaction(block BlockInfo, key Hash) uint64 {
 	assert(signLen > 30)
 	k := p.getHash(data)
 	assert(k == key)
-	// transaction list
-	db := p.GetDB(statTransList{})
-	id := db.GetInt([]byte{0}) + 1
-	db.SetValue([]byte{0}, id, maxDbLife)
-	db.Set(p.Encode(0, id), key[:], TimeYear)
 
 	sign := data[1 : signLen+1]
 	signData := data[signLen+1:]
@@ -1156,6 +1151,17 @@ func (p *processer) processTransaction(block BlockInfo, key Hash) uint64 {
 	trans.key = key
 
 	assert(p.Recover(trans.User[:], sign, signData))
+
+	// transaction list
+	db := p.GetDB(statTransList{})
+	id := db.GetInt([]byte{0}) + 1
+	db.SetValue([]byte{0}, id, maxDbLife)
+	db.Set(p.Encode(0, id), key[:], TimeYear)
+	// user
+	tid := db.GetInt(trans.User[:]) + 1
+	newKey := append(trans.User[:], p.Encode(0, tid)...)
+	db.SetValue(trans.User[:], tid, maxDbLife)
+	db.Set(newKey, key[:], TimeYear)
 
 	assertMsg(trans.Time <= block.Time+TimeHour, "trans_newer")
 	assert(trans.Time+acceptTransTime > block.Time)

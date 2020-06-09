@@ -31,6 +31,7 @@ const (
 	blockAcceptTime  = tMinute
 	transAcceptTime  = 9 * tDay
 	blockSyncTime    = 5 * tMinute
+	procTimeOut      = 2 * tMinute
 	processTransTime = 5 * tMinute
 )
 
@@ -352,10 +353,10 @@ func processEvent(chain uint64) {
 		procMgr.mu.Lock()
 		procTime := procMgr.procTime[chain]
 		procMgr.mu.Unlock()
-		if procTime+blockSyncTime < now {
+		if procTime+procTimeOut < now {
 			// not next block long time,rollback
 			procMgr.mu.Lock()
-			procMgr.procTime[chain] = now - blockSyncTime + tSecond
+			procMgr.procTime[chain] = now - procTimeOut + tSecond
 			procMgr.mu.Unlock()
 			dbRollBack(chain, index, nowKey)
 			go processEvent(chain)
@@ -395,6 +396,8 @@ func processEvent(chain uint64) {
 
 		return
 	}
+	setBlockProducer(chain, relia.Index, relia.Producer)
+
 	procMgr.mu.Lock()
 	procMgr.procTime[chain] = now
 	procMgr.mu.Unlock()

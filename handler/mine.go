@@ -55,9 +55,6 @@ func newBlockForMining(chain uint64) {
 
 			info := core.GetTransInfo(chain, trans.Key[:])
 			if info.BlockID > 0 {
-				// if info.BlockID+8 < lastID {
-				// 	pushTransInfo(chain, trans)
-				// }
 				continue
 			}
 			if size+uint64(trans.Size) > limit {
@@ -105,6 +102,11 @@ func doMining(chain uint64) {
 
 	block := core.NewBlock(chain, myAddr)
 	if old != nil && old.Previous == block.Previous && old.Parent == block.Parent {
+		return
+	}
+
+	var count = getCountOfLast10Blocks(chain, block.Index, block.Producer)
+	if count > 2 {
 		return
 	}
 

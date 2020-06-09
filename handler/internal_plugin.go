@@ -26,19 +26,12 @@ const (
 	reconnNum = 15
 )
 
-// NodeNumber nodes number
-var NodeNumber int
-
-// Nodes p2p nodes
-var Nodes map[string]bool
-
 // Startup is called only once when the plugin is loaded
 func (p *InternalPlugin) Startup(n libp2p.Network) {
 	Init()
 
 	p.network = n
 	p.reconn = make(map[string]string)
-	Nodes = make(map[string]bool)
 	event.RegisterConsumer(p.event)
 	time.AfterFunc(time.Minute*2, p.timeout)
 }
@@ -68,7 +61,6 @@ func (p *InternalPlugin) timeout() {
 
 // PeerConnect peer connect
 func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
-	NodeNumber++
 	peer := s.GetPeerAddr()
 	id := peer.User()
 	if id == "" {
@@ -76,9 +68,6 @@ func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if len(Nodes) < 20 {
-		Nodes[peer.String()] = peer.IsServer()
-	}
 	for k := range p.reconn {
 		if k == id || len(p.reconn) > reconnNum-2 {
 			delete(p.reconn, k)
@@ -88,12 +77,9 @@ func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 
 // PeerDisconnect peer disconnect
 func (p *InternalPlugin) PeerDisconnect(s libp2p.Session) {
-	NodeNumber--
 	peer := s.GetPeerAddr()
-	addr := peer.String()
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	delete(Nodes, addr)
 	if peer.IsServer() {
 		if len(p.reconn) > reconnNum {
 			return
@@ -171,9 +157,7 @@ func (p *InternalPlugin) event(m event.Message) error {
 			if err != nil {
 				return err
 			}
-			if !msg.Broadcast {
-				return nil
-			}
+
 			err = core.CheckTransaction(msg.Chain, msg.Key)
 			if err != nil {
 				return err
@@ -217,17 +201,6 @@ func (p *InternalPlugin) event(m event.Message) error {
 			return fmt.Errorf("not miner")
 		}
 
-		preRel := ReadBlockReliability(msg.Chain, rel.Previous[:])
-		if rel.Producer == preRel.Producer {
-			log.Printf("same previous,index:%d block:%x\n", rel.Index, rel.Key)
-			return nil
-		}
-
-		if !msg.Broadcast {
-			log.Printf("not Broadcast,index:%d block:%x\n", rel.Index, rel.Key)
-			return nil
-		}
-
 		if !rel.TransListHash.Empty() {
 			tl := GetTransList(msg.Chain, rel.TransListHash[:])
 			if len(tl) == 0 && !core.TransListExist(msg.Chain, rel.TransListHash[:]) {
@@ -235,6 +208,15 @@ func (p *InternalPlugin) event(m event.Message) error {
 			}
 		}
 		setIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
+		if rel.Time+2*tMinute < getCoreTimeNow() {
+			return nil
+		}
+
+		preRel := ReadBlockReliability(msg.Chain, rel.Previous[:])
+		if rel.Producer == preRel.Producer {
+			log.Printf("same previous,index:%d block:%x\n", rel.Index, rel.Key)
+			return nil
+		}
 
 		if !needBroadcastBlock(msg.Chain, rel) {
 			// log.Printf("not Broadcast2,index:%d block:%x\n", rel.Index, rel.Key)
