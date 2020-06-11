@@ -69,7 +69,7 @@ func getBestBlock(chain, index uint64) TReliability {
 	var relia TReliability
 	ib := ReadIDBlocks(chain, index)
 	now := getCoreTimeNow()
-	t := core.GetBlockTime(chain)
+	t := core.GetBlockInterval(chain)
 	for i, it := range ib.Items {
 		key := it.Key[:]
 		rel := ReadBlockReliability(chain, key)
@@ -90,7 +90,7 @@ func getBestBlock(chain, index uint64) TReliability {
 			setBlockLock(chain, rel.Previous[:], hp)
 		}
 		log.Printf("getBestBlock num:%d,index:%d,hp:%d,lock:%d,key:%x\n", len(ib.Items),
-			index, relia.HashPower, hp, relia.Key)
+			index, rel.HashPower, hp, rel.Key)
 		if !rel.Parent.Empty() && !core.BlockOnTheChain(chain/2, rel.Parent[:]) {
 			log.Printf("error block,chain:%d,index:%d,i:%d,hp:%d,key:%x\n",
 				chain, index, i, rel.HashPower, key)
@@ -451,7 +451,10 @@ func setIDBlocks(chain, index uint64, key core.Hash, hp uint64) {
 		return
 	}
 	if hp > 0 {
-		hp += getBlockLock(chain, key[:])
+		lhp := getBlockLock(chain, key[:])
+		if lhp > hp {
+			hp = lhp
+		}
 	}
 
 	ib := ReadIDBlocks(chain, index)

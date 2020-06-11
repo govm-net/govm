@@ -61,7 +61,7 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 		if core.IsExistBlock(msg.Chain, msg.Key) {
 			rel := ReadBlockReliability(msg.Chain, msg.Key)
 			if !rel.Ready || rel.Index == 0 {
-				log.Printf("start sync,chain:%d,index:%d,block:%x\n", msg.Chain, msg.Index, msg.Key)
+				// log.Printf("start sync,chain:%d,index:%d,block:%x\n", msg.Chain, msg.Index, msg.Key)
 				//start sync
 				go p.syncDepend(ctx, msg.Chain, msg.Key)
 			} else {
@@ -268,7 +268,7 @@ func updateBLN(chain uint64, key []byte) {
 		hp = rel.HashPower
 	}
 	setIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
-	for rel.Index+3 >= index && rel.Index > 0 {
+	for rel.Index >= index && rel.Index > 0 {
 		// log.Printf("updateBLN,chain:%d,index:%d,next:%x\n", chain, rel.Index, rel.Previous)
 		if rel.Previous.Empty() {
 			break
@@ -276,7 +276,7 @@ func updateBLN(chain uint64, key []byte) {
 		rst := setBlockLock(chain, rel.Previous[:], hp)
 		setIDBlocks(chain, rel.Index-1, rel.Previous, 1)
 		if !rst {
-			log.Println("fail to setBlockLock,", rst)
+			// log.Println("fail to setBlockLock,", rst)
 			break
 		}
 		rel = ReadBlockReliability(chain, rel.Previous[:])
