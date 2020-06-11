@@ -79,13 +79,19 @@
                 //alert("Data: " + data + "\nStatus: " + status);
                 console.log("Data: " + nodes + "\nStatus: " + status);
             } else {
-                var newRow = ""
+                var newRow = $("<div>")
                 for (key in nodes) {
-                    newRow += "<div class=\"input-group\">\
-                    <span class=\"input-group-addon\">Node:</span>\
-                    <span class=\"form-control\">"
-                    newRow += key + "  " + nodes[key]
-                    newRow += "</div><br>";
+                    newRow.append($("<div class='input-group'>").append(
+                        $("<span class='input-group-addon'>").append("Node:")
+                    ).append(
+                        $("<span class='form-control'>").append(
+                            $("<p title=" + nodes[key] + ">").append(key)
+                        )
+                    )).append($("<div class='input-group'>").append(
+                        $("<span class='input-group-addon'>").append("Info:")
+                    ).append(
+                        $("<span class='form-control'>").append(nodes[key])
+                    )).append($("<br>"))
                 }
                 $("#nodes").append(newRow);
             }

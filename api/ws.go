@@ -59,6 +59,12 @@ func (h *hub) run() {
 			log.Println("ws connect number:", len(h.clients), c.peer)
 			h.clients[c.peer] = c
 			minerNum = len(h.clients)
+			m := messages.MinerInfo{}
+			m.Total = minerNum
+			m.ID = c.peer
+			m.Online = true
+			event.Send(&m)
+
 			if h.content == nil {
 				break
 			}
@@ -67,7 +73,6 @@ func (h *hub) run() {
 				break
 			}
 			c.send <- h.content.Data
-			break
 
 		case c := <-h.unregister:
 			_, ok := h.clients[c.peer]
@@ -76,7 +81,12 @@ func (h *hub) run() {
 				c.peer = ""
 				close(c.send)
 			}
-			break
+			minerNum = len(h.clients)
+			m := messages.MinerInfo{}
+			m.Total = minerNum
+			m.ID = c.peer
+			m.Online = false
+			event.Send(&m)
 
 		case m := <-h.broadcast:
 			if m == nil || len(m.Data) == 0 {
@@ -89,7 +99,6 @@ func (h *hub) run() {
 
 			h.content = m
 			h.broadcastMessage()
-			break
 		}
 	}
 }

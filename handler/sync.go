@@ -19,12 +19,8 @@ type SyncPlugin struct {
 }
 
 const (
-	eSyncing = byte(iota)
-	eSyncBlock
-	eSyncTrans
+	eSyncTrans = byte(iota)
 	eSyncTransOwner
-	eSyncLastBlock
-	sTimeout      = 40
 	acceptBlockID = 20
 	maxSyncNum    = 100
 	acceptOldID   = 10
@@ -43,20 +39,16 @@ func (p *SyncPlugin) Startup(n libp2p.Network) {
 func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 	switch msg := ctx.GetMessage().(type) {
 	case *messages.BlockInfo:
+		// log.Printf("<%x> BlockInfo %d %d\n", ctx.GetPeerID()[:6], msg.Chain, msg.Index)
+		if !needDownload(msg.Chain, msg.Key) {
+			return nil
+		}
 
-		// log.Printf("<%x> BlockInfo %d %d\n", ctx.GetPeerID(), msg.Chain, msg.Index)
 		index := core.GetLastBlockIndex(msg.Chain)
-		if index >= msg.Index {
+		if index > msg.Index+acceptOldID {
 			return nil
 		}
 		if index == 0 && msg.Chain > 1 {
-			return nil
-		}
-		preKey := core.GetTheBlockKey(msg.Chain, msg.Index-1)
-		if bytes.Compare(preKey, msg.PreKey) == 0 {
-			return nil
-		}
-		if ctx.GetSession().GetEnv(getSyncEnvKey(msg.Chain, eSyncing)) != "" {
 			return nil
 		}
 		if msg.Index > index+maxSyncNum+10 {
@@ -66,62 +58,69 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 			return nil
 		}
 
-		if !needDownload(msg.Chain, msg.Key) {
-			return nil
-		}
-
 		if core.IsExistBlock(msg.Chain, msg.Key) {
-			if index+1 < msg.Index {
-				return nil
-			}
 			rel := ReadBlockReliability(msg.Chain, msg.Key)
 			if !rel.Ready || rel.Index == 0 {
 				log.Printf("start sync,chain:%d,index:%d,block:%x\n", msg.Chain, msg.Index, msg.Key)
 				//start sync
-				ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncing), "true")
 				go p.syncDepend(ctx, msg.Chain, msg.Key)
 			} else {
 				setIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
+				updateBLN(msg.Chain, rel.Key[:])
 			}
 			return nil
 		}
 
 		SetSyncBlock(msg.Chain, msg.Index, msg.Key)
-
-		ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncBlock), hex.EncodeToString(msg.Key))
-		ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncing), "true")
-		ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncLastBlock), hex.EncodeToString(msg.Key))
 		ctx.Reply(&messages.ReqBlock{Chain: msg.Chain, Index: msg.Index, Key: msg.Key})
 	case *messages.BlockData:
 		if len(msg.Data) > 102400 {
 			return nil
 		}
-		e := ctx.GetSession().GetEnv(getSyncEnvKey(msg.Chain, eSyncBlock))
-		k := hex.EncodeToString(msg.Key)
-		if e != k {
-			return nil
-		}
-		defer ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncBlock), "")
+		// log.Printf("<%x> BlockData %d %x\n", ctx.GetPeerID()[:6], msg.Chain, msg.Key)
 		err := processBlock(msg.Chain, msg.Key, msg.Data)
 		if err != nil {
 			return nil
 		}
 		go p.syncDepend(ctx, msg.Chain, msg.Key)
-	case *messages.TransactionData:
-		e := ctx.GetSession().GetEnv(getSyncEnvKey(msg.Chain, eSyncTrans))
-		k := hex.EncodeToString(msg.Key)
-		if e != k {
+	case *messages.TransactionList:
+		if len(msg.Data)%core.HashLen != 0 {
 			return nil
 		}
-		ctx.GetSession().SetEnv(getSyncEnvKey(msg.Chain, eSyncTrans), "")
+		transList := core.ParseTransList(msg.Data)
+		if len(transList) == 0 {
+			return nil
+		}
+		hk := core.GetHashOfTransList(transList)
+		if bytes.Compare(hk[:], msg.Key) != 0 {
+			return nil
+		}
+		SaveTransList(msg.Chain, msg.Key, transList)
+		core.WriteTransList(msg.Chain, transList)
+		s := ctx.GetSession()
+		ek := getSyncEnvKey(msg.Chain, eSyncTransOwner)
+		e := s.GetEnv(ek)
+		if e == "" {
+			return nil
+		}
+		s.SetEnv(ek, "")
+		key, _ := hex.DecodeString(e)
+		if len(key) == 0 {
+			return nil
+		}
+		go p.syncDepend(ctx, msg.Chain, key)
+	case *messages.TransactionData:
 		err := processTransaction(msg.Chain, msg.Key, msg.Data)
 		if err != nil {
 			return err
 		}
-		e = ctx.GetSession().GetEnv(getSyncEnvKey(msg.Chain, eSyncTransOwner))
+		s := ctx.GetSession()
+		ek := getSyncEnvKey(msg.Chain, eSyncTransOwner)
+		e := s.GetEnv(ek)
 		if e == "" {
 			return nil
 		}
+		s.SetEnv(ek, "")
 		key, _ := hex.DecodeString(e)
 		if len(key) == 0 {
 			return nil
@@ -142,7 +141,9 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 	}()
 
 	if !core.IsExistBlock(chain, key) {
-		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), hex.EncodeToString(key))
+		if !needDownload(chain, key) {
+			return
+		}
 		ctx.Reply(&messages.ReqBlock{Chain: chain, Key: key})
 		// log.Printf("syncDepend, ReqBlock,chain:%d,key:%x\n", chain, key)
 		return
@@ -153,7 +154,6 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		if err != nil {
 			core.DeleteBlock(chain, key)
 			SaveBlockReliability(chain, key, TReliability{})
-			ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), hex.EncodeToString(key))
 			ctx.Reply(&messages.ReqBlock{Chain: chain, Key: key})
 			return
 		}
@@ -169,8 +169,6 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 			go p.syncDepend(ctx, chain, newKey)
 		} else {
 			// log.Printf("stop sync,not next SyncBlock,chain:%d,key:%x,next:%d\n", chain, key, rel.Index+1)
-			ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), "")
-			ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncing), "")
 			updateBLN(chain, key)
 			go processEvent(chain)
 		}
@@ -215,12 +213,18 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 			data := core.ReadTransList(chain, rel.TransListHash[:])
 			transList = core.ParseTransList(data)
 			if len(transList) == 0 {
+				e := hex.EncodeToString(key)
+				ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncTransOwner), e)
+				// log.Printf("syncDepend transList,chain:%d,index:%d,list:%x\n", chain, rel.Index, rel.TransListHash[:])
 				ctx.Reply(&messages.ReqTransList{Chain: chain, Key: rel.TransListHash[:]})
 				return
 			}
 			SaveTransList(chain, key, transList)
 		}
 		for _, it := range transList {
+			if !needDownload(chain, it[:]) {
+				continue
+			}
 			if core.IsExistTransaction(chain, it[:]) {
 				continue
 			}
@@ -234,19 +238,9 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		}
 	}
 
-	data := core.ReadBlockData(chain, key)
-	err := processBlock(chain, key, data)
-	if err != nil {
-		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), "")
-		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncing), "")
-		return
-	}
-
 	rel.Recalculation(chain)
 	rel.Ready = true
 	SaveBlockReliability(chain, rel.Key[:], rel)
-
-	SetSyncBlock(chain, rel.Index, nil)
 
 	newKey := GetSyncBlock(chain, rel.Index+1)
 	if len(newKey) > 0 {
@@ -254,10 +248,11 @@ func (p *SyncPlugin) syncDepend(ctx libp2p.Event, chain uint64, key []byte) {
 		go p.syncDepend(ctx, chain, newKey)
 	} else {
 		// log.Printf("stop sync,not next SyncBlock,chain:%d,key:%x,next:%d\n", chain, key, rel.Index+1)
-		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncBlock), "")
-		ctx.GetSession().SetEnv(getSyncEnvKey(chain, eSyncing), "")
-
+		if rel.Time+10*tMinute < getCoreTimeNow() {
+			ctx.Reply(&messages.ReqBlockInfo{Chain: chain, Index: rel.Index + 10})
+		}
 		updateBLN(chain, key)
+
 		go processEvent(chain)
 	}
 }
@@ -267,14 +262,23 @@ func updateBLN(chain uint64, key []byte) {
 		return
 	}
 	rel := ReadBlockReliability(chain, key)
-	// rel.Recalculation(chain)
 	index := core.GetLastBlockIndex(chain)
-	hp := rel.HashPower
+	hp := getBlockLock(chain, rel.Key[:])
+	if hp == 0 {
+		hp = rel.HashPower
+	}
+	setIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
 	for rel.Index+3 >= index && rel.Index > 0 {
-		rel = ReadBlockReliability(chain, rel.Previous[:])
-		if rel.HashPower >= hp {
+		// log.Printf("updateBLN,chain:%d,index:%d,next:%x\n", chain, rel.Index, rel.Previous)
+		if rel.Previous.Empty() {
 			break
 		}
-		setIDBlocks(chain, rel.Index, rel.Key, hp)
+		rst := setBlockLock(chain, rel.Previous[:], hp)
+		setIDBlocks(chain, rel.Index-1, rel.Previous, 1)
+		if !rst {
+			log.Println("fail to setBlockLock,", rst)
+			break
+		}
+		rel = ReadBlockReliability(chain, rel.Previous[:])
 	}
 }

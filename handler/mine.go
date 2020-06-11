@@ -29,6 +29,9 @@ func newBlockForMining(chain uint64) {
 	t := core.GetBlockInterval(chain)
 	start := time.Now().Unix()
 	block := core.NewBlock(chain, core.Address{})
+	if conf.GetConf().OneConnPerMiner {
+		block.HashpowerLimit -= 2
+	}
 	// lastID := core.GetLastBlockIndex(chain)
 	flagTime := time.Now().UnixNano()
 	err := core.CheckTransList(chain, func(chain uint64) core.Hash {

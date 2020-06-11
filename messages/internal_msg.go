@@ -75,6 +75,14 @@ type BlockForMining struct {
 	Data  []byte
 }
 
+// MinerInfo Miners
+type MinerInfo struct {
+	BaseMsg
+	Total  int
+	ID     string
+	Online bool
+}
+
 // Internal msg keys
 const (
 	BroadcastMsg = "broadcast"
