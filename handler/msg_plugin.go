@@ -228,10 +228,8 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 		}
 	}
 
-	// 将数据写入db
 	rel := getReliability(block)
 	SaveBlockReliability(chain, block.Key[:], rel)
-	// SaveTransList(chain, block.Key[:], block.TransList)
 	if needSave {
 		core.WriteBlock(chain, data)
 		val := uint64(1) << hp

@@ -231,7 +231,6 @@ func checkOtherChain(chain uint64) error {
 }
 
 func beforeProcBlock(chain uint64, rel TReliability) error {
-	id := core.GetLastBlockIndex(chain)
 	preKey := core.GetTheBlockKey(chain, 0)
 	if bytes.Compare(rel.Previous[:], preKey) == 0 {
 		return nil
@@ -247,12 +246,7 @@ func beforeProcBlock(chain uint64, rel TReliability) error {
 		return errors.New("not previous")
 	}
 
-	t := core.GetBlockTime(chain)
-	interval := core.GetBlockInterval(chain)
-	if rel.Time < t+interval/2 {
-		setIDBlocks(chain, rel.Index, rel.Key, 0)
-		return errors.New("error block time")
-	}
+	id := core.GetLastBlockIndex(chain)
 	if rel.Index < id {
 		setIDBlocks(chain, rel.Index, rel.Key, 0)
 		core.DeleteBlock(chain, rel.Key[:])
