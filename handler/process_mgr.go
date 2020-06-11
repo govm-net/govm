@@ -89,8 +89,8 @@ func getBestBlock(chain, index uint64) TReliability {
 			hp = getBlockLock(chain, rel.Key[:])
 			setBlockLock(chain, rel.Previous[:], hp)
 		}
-		log.Printf("getBestBlock num:%d,index:%d,hp:%d,lock:%d,key:%x\n", len(ib.Items),
-			index, rel.HashPower, hp, rel.Key)
+		// log.Printf("getBestBlock num:%d,index:%d,hp:%d,lock:%d,key:%x\n", len(ib.Items),
+		// 	index, rel.HashPower, hp, rel.Key)
 		if !rel.Parent.Empty() && !core.BlockOnTheChain(chain/2, rel.Parent[:]) {
 			log.Printf("error block,chain:%d,index:%d,i:%d,hp:%d,key:%x\n",
 				chain, index, i, rel.HashPower, key)
