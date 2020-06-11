@@ -69,7 +69,7 @@ func getBestBlock(chain, index uint64) TReliability {
 	var relia TReliability
 	ib := ReadIDBlocks(chain, index)
 	now := getCoreTimeNow()
-	// t := core.GetBlockTime(chain)
+	t := core.GetBlockTime(chain)
 	for i, it := range ib.Items {
 		key := it.Key[:]
 		rel := ReadBlockReliability(chain, key)
@@ -84,7 +84,13 @@ func getBestBlock(chain, index uint64) TReliability {
 			core.DeleteBlock(chain, key)
 			continue
 		}
-		// hp := rel.HashPower
+		var hp uint64
+		if rel.Time+t < now {
+			hp = getBlockLock(chain, rel.Key[:])
+			setBlockLock(chain, rel.Previous[:], hp)
+		}
+		log.Printf("getBestBlock num:%d,index:%d,hp:%d,lock:%d,key:%x\n", len(ib.Items),
+			index, relia.HashPower, hp, relia.Key)
 		if !rel.Parent.Empty() && !core.BlockOnTheChain(chain/2, rel.Parent[:]) {
 			log.Printf("error block,chain:%d,index:%d,i:%d,hp:%d,key:%x\n",
 				chain, index, i, rel.HashPower, key)
@@ -102,15 +108,8 @@ func getBestBlock(chain, index uint64) TReliability {
 		}
 
 		stat := ReadBlockRunStat(chain, key)
-		// if index > 1 && t+blockSyncTime < now {
-		// 	bln := getBlockLockNum(chain, key)
-		// 	hp += bln
-		// 	forceSync = true
-		// } else {
-		// 	forceSync = false
-		// }
+		hp += rel.HashPower
 
-		hp := it.HashPower
 		hp -= stat.SelectedCount / 5
 		hp -= uint64(stat.RunTimes) / 10
 		hp -= uint64(stat.RunTimes - stat.RunSuccessCount)
@@ -366,9 +365,6 @@ func processEvent(chain uint64) {
 		if activeNode != nil {
 			activeNode.Send(info)
 		}
-		if t+10*tMinute < now {
-			info = &messages.ReqBlockInfo{Chain: chain, Index: index + 10}
-		}
 		if needRequstID(chain, info.Index) {
 			network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: info})
 		}
@@ -393,7 +389,6 @@ func processEvent(chain uint64) {
 		relia.Ready = false
 		SaveBlockReliability(chain, relia.Key[:], relia)
 		core.DeleteBlock(chain, relia.Key[:])
-
 		return
 	}
 	setBlockProducer(chain, relia.Index, relia.Producer)
@@ -403,7 +398,7 @@ func processEvent(chain uint64) {
 	procMgr.mu.Unlock()
 	stat.RunSuccessCount++
 	SaveBlockRunStat(chain, relia.Key[:], stat)
-
+	// doMining(chain)
 	if relia.Time+blockSyncTime < now {
 		go processEvent(chain)
 		return
@@ -455,6 +450,10 @@ func setIDBlocks(chain, index uint64, key core.Hash, hp uint64) {
 	if key.Empty() {
 		return
 	}
+	if hp > 0 {
+		hp += getBlockLock(chain, key[:])
+	}
+
 	ib := ReadIDBlocks(chain, index)
 	var newIB IDBlocks
 	for _, it := range ib.Items {

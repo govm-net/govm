@@ -73,7 +73,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			// log.Println("fail to get the key,index:", msg.Index, ",chain:", msg.Chain)
 			return nil
 		}
-		log.Printf("<%x> ReqBlockInfo %d %d\n", ctx.GetPeerID(), msg.Chain, msg.Index)
+		// log.Printf("<%x> ReqBlockInfo %d %d\n", ctx.GetPeerID(), msg.Chain, msg.Index)
 		rel := ReadBlockReliability(msg.Chain, key)
 		resp := new(messages.BlockInfo)
 		resp.Chain = msg.Chain
@@ -83,71 +83,6 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		resp.HashPower = rel.HashPower
 		ctx.Reply(resp)
 		return nil
-	case *messages.BlockInfo:
-		hp := getHashPower(msg.Key)
-		if hp < 5 || hp > 250 {
-			return nil
-		}
-
-		index := core.GetLastBlockIndex(msg.Chain)
-		if index == 0 && msg.Chain > 1 {
-			return nil
-		}
-		if index > msg.Index {
-			key := core.GetTheBlockKey(msg.Chain, index)
-			if len(key) > 0 {
-				rel := ReadBlockReliability(msg.Chain, key)
-				ctx.Reply(&messages.BlockInfo{Chain: msg.Chain,
-					Index: rel.Index, Key: key, PreKey: rel.Previous[:], HashPower: rel.HashPower})
-			}
-			return nil
-		}
-
-		preKey := core.GetTheBlockKey(msg.Chain, msg.Index-1)
-		if bytes.Compare(preKey, msg.PreKey) != 0 {
-			if msg.Index > index+1 && needRequstID(msg.Chain, index+1) {
-				ctx.Reply(&messages.ReqBlockInfo{Chain: msg.Chain, Index: index + 1})
-			}
-			return nil
-		}
-
-		if core.IsExistBlock(msg.Chain, msg.Key) {
-			// log.Println("block exist:", msg.Index, ",chain:", msg.Chain, ",self:", index)
-			rel := ReadBlockReliability(msg.Chain, msg.Key)
-			if rel.HashPower == 0 {
-				err := processBlock(msg.Chain, msg.Key, nil)
-				if err != nil {
-					core.DeleteBlock(msg.Chain, msg.Key)
-					log.Printf("error hashpower of block,delete it.chain:%d,key:%x\n", msg.Chain, msg.Key)
-					return nil
-				}
-				rel = ReadBlockReliability(msg.Chain, msg.Key)
-			}
-			if !rel.Ready {
-				p.downloadBlockDepend(ctx, msg.Chain, msg.Key)
-			} else {
-				rel.Recalculation(msg.Chain)
-				setIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
-				go processEvent(msg.Chain)
-			}
-			return nil
-		}
-		if needDownload(msg.Chain, msg.Key) {
-			log.Printf("<%x> BlockKey %d %d,key:%x\n", ctx.GetPeerID(), msg.Chain, msg.Index, msg.Key)
-			ctx.GetSession().SetEnv(getEnvKey(msg.Chain, reqBlock), hex.EncodeToString(msg.Key))
-			ctx.Reply(&messages.ReqBlock{Chain: msg.Chain, Index: msg.Index, Key: msg.Key})
-		}
-
-		key := core.GetTheBlockKey(msg.Chain, 0)
-		rel := ReadBlockReliability(msg.Chain, key)
-		peerRel := rel
-		runtime.Decode(msg.Key, &peerRel.Key)
-		runtime.Decode(msg.PreKey, &peerRel.Previous)
-		peerRel.Recalculation(msg.Chain)
-		if msg.Index == rel.Index && peerRel.HashPower < rel.HashPower {
-			ctx.Reply(&messages.BlockInfo{Chain: msg.Chain, Index: rel.Index,
-				Key: key, HashPower: rel.HashPower, PreKey: rel.Previous[:]})
-		}
 	case *messages.TransactionInfo:
 		if len(msg.Key) != core.HashLen {
 			return nil
@@ -163,7 +98,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		if core.IsExistTransaction(msg.Chain, msg.Key) {
 			return nil
 		}
-		log.Printf("<%x> TransactionInfo %d %x\n", ctx.GetPeerID(), msg.Chain, msg.Key)
+		// log.Printf("<%x> TransactionInfo %d %x\n", ctx.GetPeerID(), msg.Chain, msg.Key)
 		ctx.GetSession().SetEnv(getEnvKey(msg.Chain, reqTrans), hex.EncodeToString(msg.Key))
 		ctx.Reply(&messages.ReqTransaction{Chain: msg.Chain, Key: msg.Key})
 
@@ -177,7 +112,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			log.Printf("not found.ReqBlock chain:%d index:%d key:%x\n", msg.Chain, msg.Index, msg.Key)
 			return nil
 		}
-		log.Printf("<%x> ReqBlock %d %x\n", ctx.GetPeerID(), msg.Chain, msg.Key)
+		// log.Printf("<%x> ReqBlock %d %x\n", ctx.GetPeerID(), msg.Chain, msg.Key)
 		ctx.Reply(&messages.BlockData{Chain: msg.Chain, Key: msg.Key, Data: data})
 	case *messages.ReqTransList:
 		if len(msg.Key) == 0 {
@@ -194,111 +129,14 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			return nil
 		}
 		ctx.Reply(&messages.TransactionList{Chain: msg.Chain, Key: msg.Key, Data: data})
-	case *messages.TransactionList:
-		if len(msg.Data)%core.HashLen != 0 {
-			return nil
-		}
-		transList := core.ParseTransList(msg.Data)
-		if len(transList) == 0 {
-			return nil
-		}
-		hk := core.GetHashOfTransList(transList)
-		if bytes.Compare(hk[:], msg.Key) != 0 {
-			return nil
-		}
-		SaveTransList(msg.Chain, msg.Key, transList)
-		core.WriteTransList(msg.Chain, transList)
 	case *messages.ReqTransaction:
 		data := core.ReadTransactionData(msg.Chain, msg.Key)
 		if data == nil {
 			log.Printf("not found the transaction,chain:%d,key:%x\n", msg.Chain, msg.Key)
 			return nil
 		}
-		log.Printf("<%x> ReqTransaction %d %x\n", ctx.GetPeerID(), msg.Chain, msg.Key)
+		// log.Printf("<%x> ReqTransaction %d %x\n", ctx.GetPeerID(), msg.Chain, msg.Key)
 		ctx.Reply(&messages.TransactionData{Chain: msg.Chain, Key: msg.Key, Data: data})
-	case *messages.BlockData:
-		if len(msg.Data) > 102400 {
-			return nil
-		}
-		e := ctx.GetSession().GetEnv(getEnvKey(msg.Chain, reqBlock))
-		k := hex.EncodeToString(msg.Key)
-		if e != k {
-			return nil
-		}
-		ctx.GetSession().SetEnv(getEnvKey(msg.Chain, reqBlock), "")
-		err := processBlock(msg.Chain, msg.Key, msg.Data)
-		if err != nil {
-			log.Printf("fail to processBlock,chain:%d,key:%x,err:%s\n", msg.Chain, msg.Key, err)
-			return err
-		}
-
-		procMgr.mu.Lock()
-		activeNode = ctx.GetSession()
-		procMgr.mu.Unlock()
-
-		log.Printf("<%x> BlockData %d %x\n", ctx.GetPeerID(), msg.Chain, msg.Key)
-		p.downloadBlockDepend(ctx, msg.Chain, msg.Key)
-	case *messages.TransactionData:
-		if len(msg.Key) != core.HashLen {
-			return nil
-		}
-		if core.IsExistTransaction(msg.Chain, msg.Key) {
-			return nil
-		}
-		e := ctx.GetSession().GetEnv(getEnvKey(msg.Chain, reqTrans))
-		k := hex.EncodeToString(msg.Key)
-		if e == k {
-			ctx.GetSession().SetEnv(getEnvKey(msg.Chain, reqTrans), "")
-			err := processTransaction(msg.Chain, msg.Key, msg.Data)
-			if err != nil {
-				return nil
-			}
-			blockTime := core.GetBlockTime(msg.Chain)
-			if blockTime+processTransTime < getCoreTimeNow() {
-				return nil
-			}
-			head := readTransInfo(msg.Chain, msg.Key)
-			if head.Size == 0 {
-				return nil
-			}
-			stream := ldb.LGet(msg.Chain, ldbBroadcastTrans, msg.Key)
-			if len(stream) > 0 {
-				return nil
-			}
-			ldb.LSet(msg.Chain, ldbBroadcastTrans, msg.Key, []byte{1})
-
-			err = core.CheckTransaction(msg.Chain, msg.Key)
-			if err != nil {
-				return nil
-			}
-
-			info := messages.TransactionInfo{}
-			info.Chain = msg.Chain
-			info.Time = head.Time
-			info.Key = msg.Key
-			info.User = head.User[:]
-			network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
-			return nil
-		}
-		e = ctx.GetSession().GetEnv(getEnvKey(msg.Chain, transOfBlock))
-		if e != k {
-			return nil
-		}
-
-		ctx.GetSession().SetEnv(getEnvKey(msg.Chain, transOfBlock), "")
-		err := processTransaction(msg.Chain, msg.Key, msg.Data)
-		if err != nil {
-			return err
-		}
-		e = ctx.GetSession().GetEnv(getEnvKey(msg.Chain, transOwner))
-		if e == "" {
-			return nil
-		}
-		ctx.GetSession().SetEnv(getEnvKey(msg.Chain, transOwner), "")
-
-		bk, _ := hex.DecodeString(e)
-		p.downloadBlockDepend(ctx, msg.Chain, bk)
-
 	default:
 		//log.Println("msg", ctx.GetPeerID(), msg)
 		if first {
@@ -422,79 +260,6 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 		info.PreKey = rel.Previous[:]
 		network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
 	}
-
-	return
-}
-
-func (p *MsgPlugin) downloadBlockDepend(ctx libp2p.Event, chain uint64, key []byte) {
-	log.Printf("downloadBlockDepend,chain:%d,key:%x\n", chain, key)
-	rel := ReadBlockReliability(chain, key)
-	if rel.Ready {
-		ctx.GetSession().SetEnv(getEnvKey(chain, transOwner), "")
-		return
-	}
-	if !rel.Previous.Empty() && !core.IsExistBlock(chain, rel.Previous[:]) {
-		log.Printf("previous is not exist")
-		return
-	}
-	if !rel.Parent.Empty() && !core.IsExistBlock(chain/2, rel.Parent[:]) {
-		log.Printf("parent is not exist")
-		return
-	}
-	if !rel.LeftChild.Empty() && !core.IsExistBlock(chain*2, rel.LeftChild[:]) {
-		log.Printf("leftChild is not exist")
-		return
-	}
-	if !rel.RightChild.Empty() && !core.IsExistBlock(chain*2+1, rel.RightChild[:]) {
-		log.Printf("rightChild is not exist")
-		return
-	}
-	var transList []core.Hash
-	if !rel.TransListHash.Empty() {
-		transList = GetTransList(chain, key)
-		if len(transList) == 0 {
-			data := core.ReadTransList(chain, rel.TransListHash[:])
-			transList = core.ParseTransList(data)
-			if len(transList) == 0 {
-				ctx.Reply(&messages.ReqTransList{Chain: chain, Key: rel.TransListHash[:]})
-				return
-			}
-			SaveTransList(chain, rel.TransListHash[:], transList)
-		}
-	}
-
-	for _, it := range transList {
-		if core.IsExistTransaction(chain, it[:]) {
-			continue
-		}
-		e := hex.EncodeToString(it[:])
-		ctx.GetSession().SetEnv(getEnvKey(chain, transOfBlock), e)
-		e = hex.EncodeToString(key)
-		ctx.GetSession().SetEnv(getEnvKey(chain, transOwner), e)
-		ctx.Reply(&messages.ReqTransaction{Chain: chain, Key: it[:]})
-		// log.Printf("trans is not exist,chain:%d,key:%x\n", chain, it)
-		return
-	}
-	rel.Recalculation(chain)
-	rel.Ready = true
-	SaveBlockReliability(chain, rel.Key[:], rel)
-	ctx.GetSession().SetEnv(getEnvKey(chain, transOwner), "")
-
-	log.Printf("setIDBlocks,chain:%d,index:%d,key:%x,hp:%d\n", chain, rel.Index, rel.Key, rel.HashPower)
-	setIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
-
-	if rel.Time+tMinute > getCoreTimeNow() && needBroadcastBlock(chain, rel) {
-		log.Printf("BroadcastBlock,chain:%d,index:%d,key:%x\n", chain, rel.Index, rel.Key)
-		info := messages.BlockInfo{}
-		info.Chain = chain
-		info.Index = rel.Index
-		info.Key = rel.Key[:]
-		info.HashPower = rel.HashPower
-		info.PreKey = rel.Previous[:]
-		network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
-	}
-
-	go processEvent(chain)
 	return
 }
 

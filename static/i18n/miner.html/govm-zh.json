@@ -6,6 +6,8 @@
     "index": "区块序号",
     "cost": "押金",
     "energy": "手续费",
+    "miner":"矿工",
+    "block":"区块",
     "submit": "提交",
     "go": "查询",
     "search": "查询",

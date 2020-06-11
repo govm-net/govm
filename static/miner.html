@@ -57,6 +57,34 @@
                 <div id="result">
                 </div>
             </div>
+
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title" data-localize="miner_info">
+                        Miner Info
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="chain">Chain:</span>
+                        <input type="number" min="1" class="form-control" id="s_chain" value="1">
+                        <span class="input-group-addon label-success">*</span>
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="miner">Miner:</span>
+                        <input type="text" class="form-control" id="s_miner">
+                    </div>
+                    <br>
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="block">Block:</span>
+                        <span class="form-control" id="block"></span>
+                    </div>
+                    <br>
+                    <button type="button" class="btn btn-success pull-right" id="search"
+                        data-localize="search">Search</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -68,10 +96,11 @@
     <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
     <script src="js/jquery.localize.min.js"></script>
     <script src="js/load.js?v=3"></script>
+    <script src="js/encode.js?v=4"></script>
 
     <script type="text/javascript">
         $("#base_energy").html(gCostBase);
-        $("#search_chain").val(gChainID);
+        $("#s_chain").val(gChainID);
         $("input[name='chain']").val(gChainID);
 
         $('#submit').on('click', function () {
@@ -80,7 +109,7 @@
             base = getBaseByName(gCostBase)
             data.energy = parseInt(data.energy * base)
             data.cost = parseInt(data.cost * getBaseByName("govm"))
-            if (data.cost < 0){
+            if (data.cost < 0) {
                 return
             }
             $("#result").html("Please enter the identifying code in the background govm window.");
@@ -104,6 +133,28 @@
                 error: function (XMLHttpRequest, textStatus, errorThrown) {
                     $("#result").html("<span class=\"label label-danger\">error code:" + XMLHttpRequest.status +
                         ". msg: " + XMLHttpRequest.responseText + "</span>");
+                }
+            });
+        });
+
+        $('#search').on('click', function () {
+            var chainID = $("#s_chain").val();
+            var address = $("#s_miner").val();
+            $("#block").html("")
+            console.log("search:", chainID, address)
+            var urlStr = "/api/v1/" + chainID + "/data?app_name=ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+            urlStr += "&is_db_data=true&struct_name=dbMiner&key=" + address
+            $.get(urlStr, function (data, status) {
+                if (status != "success") {
+                    console.log("miner,Data: " + data + "\nStatus: " + status);
+                } else {
+                    console.log("miner:", data.value)
+                    var id = dataEncode(data.value, "hex2int")
+                    if(id == 0){
+                        $("#block").html("not miner")
+                    }else{
+                        $("#block").html(id)
+                    }
                 }
             });
         });

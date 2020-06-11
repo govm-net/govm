@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/govm-net/govm/event"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/govm-net/govm/conf"
+	core "github.com/govm-net/govm/core"
 	"github.com/govm-net/govm/database"
 	"github.com/govm-net/govm/messages"
 	"github.com/lengzhao/libp2p"
@@ -47,6 +49,7 @@ var (
 	timeOfReport int64
 	timeString   string
 	startTime    int64
+	minerNum     int
 )
 
 // Startup is called only once when the plugin is loaded
@@ -59,6 +62,14 @@ func (p *NATTPlugin) Startup(n libp2p.Network) {
 	SelfAddress = n.GetAddress()
 	Nodes = make(map[string]string)
 	startTime = time.Now().Unix()
+
+	event.RegisterConsumer(func(m event.Message) error {
+		switch msg := m.(type) {
+		case *messages.MinerInfo:
+			minerNum = msg.Total
+		}
+		return nil
+	})
 	go p.connectNodes()
 }
 
@@ -136,6 +147,8 @@ func (p *NATTPlugin) Receive(ctx libp2p.Event) error {
 		info.Version = conf.Version
 		info.NodesConnected = NodesCount
 		info.RunTime = startTime
+		info.Height = core.GetLastBlockIndex(1)
+		info.MinersConnected = minerNum
 		ctx.Reply(&info)
 	}
 

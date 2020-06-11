@@ -38,7 +38,8 @@ const (
 	ldbReliability    = "reliability"     //blockKey:relia
 	ldbBroadcastTrans = "broadcast_trans" //key:1
 	ldbStatus         = "ldbStatus"       //status
-	ldbProducer       = "producer"
+	ldbProducer       = "producer"        //blockID:producer
+	ldbBlockLocked    = "block_locked"    //key:hp
 )
 
 const downloadTimeout = 10
@@ -66,6 +67,7 @@ func Init() {
 	ldb.SetNotDisk(ldbBroadcastTrans, 50000)
 	ldb.SetNotDisk(ldbStatus, 10000)
 	ldb.SetNotDisk(ldbProducer, 1000)
+	ldb.SetNotDisk(ldbBlockLocked, 10000)
 	transForMinging = make(map[uint64][]*transInfo)
 	time.AfterFunc(time.Second*5, updateTimeDifference)
 	time.AfterFunc(time.Second*2, startCheckBlock)
@@ -496,4 +498,26 @@ func getCountOfLast10Blocks(chain, index uint64, producer core.Address) int {
 		}
 	}
 	return out
+}
+
+func getBlockLock(chain uint64, key []byte) uint64 {
+	var out uint64
+	rst := ldb.LGet(chain, ldbBlockLocked, key)
+	if len(rst) >= 8 {
+		runtime.Decode(rst, &out)
+	}
+	return out
+}
+
+func setBlockLock(chain uint64, key []byte, val uint64) bool {
+	var old uint64
+	rst := ldb.LGet(chain, ldbBlockLocked, key)
+	if len(rst) >= 8 {
+		runtime.Decode(rst, &old)
+	}
+	if val > old {
+		ldb.LSet(chain, ldbBlockLocked, key, runtime.Encode(val))
+		return true
+	}
+	return false
 }

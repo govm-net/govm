@@ -70,11 +70,12 @@ type TransactionData struct {
 
 // NodeInfo node info
 type NodeInfo struct {
-	Alias           string
-	Version         string
-	RunTime         int64
-	NodesConnected  int
-	MinersConnected int
+	Alias           string `json:"alias,omitempty"`
+	Version         string `json:"version,omitempty"`
+	RunTime         int64  `json:"run_time,omitempty"`
+	NodesConnected  int    `json:"nodes_connected,omitempty"`
+	MinersConnected int    `json:"miners_connected,omitempty"`
+	Height          uint64 `json:"height,omitempty"`
 }
 
 func init() {
