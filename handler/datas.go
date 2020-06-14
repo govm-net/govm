@@ -254,7 +254,7 @@ type TReliability struct {
 	Time          uint64       `json:"time,omitempty"`
 	Index         uint64       `json:"index,omitempty"`
 	HashPower     uint64       `json:"hash_power,omitempty"`
-	Miner         bool         `json:"miner,omitempty"`
+	Admin         bool         `json:"admin,omitempty"`
 	Ready         bool         `json:"ready,omitempty"`
 }
 
@@ -331,8 +331,8 @@ func (r *TReliability) Recalculation(chain uint64) {
 			if id < uint64(i) {
 				id += core.AdminNum
 			}
-			hp = id - uint64(i) + 50
-			r.Miner = true
+			hp = id - uint64(i) + 50 + getHashPower(r.Key[:])
+			r.Admin = true
 			break
 		}
 	}

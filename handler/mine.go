@@ -98,13 +98,14 @@ func doMining(chain uint64) {
 
 	old := GetBlockForMining(chain)
 	if old != nil {
-		if old.Time > getCoreTimeNow() {
+		if old.Index > 2 && old.Time > getCoreTimeNow() {
 			return
 		}
 	}
 
 	block := core.NewBlock(chain, myAddr)
-	if old != nil && old.Previous == block.Previous && old.Parent == block.Parent {
+	if block.Index > 2 && old != nil &&
+		old.Previous == block.Previous && old.Parent == block.Parent {
 		return
 	}
 

@@ -28,9 +28,8 @@
                     </h3>
                 </div>
                 <div class="panel-body">
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="vote_reward">Vote Reward</span>
-                        <span class="form-control" id="vote_reward"></span>
+                    <h3 class="panel-title" data-localize="vote_reward">Vote Reward:10000votes one day</h3>
+                    <div id="vote_rewards">
                     </div>
                     <br>
                     <div id="admins">
@@ -45,6 +44,11 @@
                     </h3>
                 </div>
                 <div class="panel-body">
+                    <div class="input-group">
+                        <span class="input-group-addon" data-localize="chain">Chain:</span>
+                        <input type="number" min="1" class="form-control" id="chain" value="1">
+                        <span class="input-group-addon label-success">*</span>
+                    </div>
                     <div class="input-group">
                         <span class="input-group-addon" data-localize="address">Address</span>
                         <span class="form-control" id="address"></span>
@@ -75,6 +79,7 @@
 
     <script type="text/javascript">
         var preAdmin = "";
+        $("#chain").val(gChainID);
         function getAdmins(chain) {
             console.log("start to get admins");
             $("#admins").html("");
@@ -126,16 +131,28 @@
         }
 
         $('#next').on('click', function () {
-            getNextAdminInfo(gChainID, preAdmin);
+            var chain = $("#chain").val();
+            getNextAdminInfo(chain, preAdmin);
         });
+
+        function getVoteReward(chain) {
+            $.get("/api/v1/" + chain + "/vote_reward", function (data, status) {
+                if (status != "success" || data.reward === undefined) {
+                    return
+                }
+                $("#vote_rewards").append($("<div class='input-group'>").append(
+                    $("<span class='input-group-addon'>").append("Chain" + chain)
+                ).append(
+                    $("<span class='form-control'>").append(getValueWithBase(data.reward * 7, "t6") + "govm")
+                ))
+                getVoteReward(chain * 2)
+                getVoteReward(chain * 2 + 1)
+            });
+        }
+        
         getAdmins(gChainID);
         getNextAdminInfo(gChainID, preAdmin);
-
-        $.get("/api/v1/" + gChainID + "/vote_reward", function (data, status) {
-            $("#vote_reward").html(getValueWithBase(data.reward*7, "t6")+"govm(10000votes one day)")
-            //console.log(data);
-        }).fail(function () {
-        });
+        getVoteReward(1);
     </script>
 </body>
 
