@@ -168,7 +168,7 @@ func WSBlockForMining(ws *websocket.Conn) {
 	}
 
 	msg := make([]byte, 1000)
-	ws.SetReadDeadline(time.Now().Add(time.Minute))
+	ws.SetDeadline(time.Now().Add(time.Minute * 3))
 	n, err := ws.Read(msg)
 	if err != nil {
 		return
