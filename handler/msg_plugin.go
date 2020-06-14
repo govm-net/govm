@@ -232,10 +232,10 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 	SaveBlockReliability(chain, block.Key[:], rel)
 	if needSave {
 		core.WriteBlock(chain, data)
-		val := uint64(1) << hp
-		if hp < 20 {
-			val = uint64(1) << 20
+		if hp > 20 {
+			hp = core.GetHashPowerLimit(chain)
 		}
+		val := uint64(1) << hp
 		hpi := int64(block.Time / 1000 / 60)
 		old, ok := blockHP.Get(keyOfBlockHP{chain, hpi})
 		if ok {

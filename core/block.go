@@ -231,6 +231,13 @@ func TransListExist(chain uint64, key []byte) bool {
 	return runtime.DbExist(dbTransList{}, chain, key)
 }
 
+// GetHashPowerLimit ge hash power limit
+func GetHashPowerLimit(chain uint64) uint64 {
+	var hashPowerLimit uint64
+	getDataFormDB(chain, dbStat{}, []byte{StatHashPower}, &hashPowerLimit)
+	return hashPowerLimit / 1000
+}
+
 // DecodeBlock decode data and check sign, check hash
 func DecodeBlock(data []byte) *StBlock {
 	out := new(StBlock)

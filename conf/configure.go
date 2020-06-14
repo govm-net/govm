@@ -33,12 +33,13 @@ type TConfig struct {
 	SaveNodeInfo    bool   `json:"save_node_info,omitempty"`
 	NetID           string `json:"net_id,omitempty"`
 	OneConnPerMiner bool   `json:"one_conn_per_miner,omitempty"`
+	MinerConnLimit  int    `json:"miner_conn_limit,omitempty"`
 }
 
 var (
 	conf TConfig
 	// Version software version
-	Version string = "v0.5.3"
+	Version string = "v0.5.4"
 	// BuildTime build time
 	BuildTime string
 	// GitHead git head

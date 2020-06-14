@@ -107,11 +107,7 @@ func (h *hub) broadcastMessage() {
 	if h.content == nil {
 		return
 	}
-	now := time.Now().Unix()
-	if h.lastTime+5 > now {
-		return
-	}
-	h.lastTime = now
+
 	for _, c := range h.clients {
 		if c.chain != h.content.Chain && c.chain != 0 {
 			continue
@@ -160,6 +156,10 @@ func WSBlockForMining(ws *websocket.Conn) {
 	if err != nil || chain > 100 {
 		return
 	}
+	limit := conf.GetConf().MinerConnLimit
+	if limit > 0 && minerNum > limit {
+		return
+	}
 	// fmt.Println("remote:", ws.Request().RemoteAddr)
 	c := &wsConn{
 		send:  make(chan []byte, 1),
@@ -168,6 +168,7 @@ func WSBlockForMining(ws *websocket.Conn) {
 	}
 
 	msg := make([]byte, 1000)
+	ws.SetReadDeadline(time.Now().Add(time.Minute))
 	n, err := ws.Read(msg)
 	if err != nil {
 		return
