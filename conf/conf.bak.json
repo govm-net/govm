@@ -6,7 +6,7 @@
     "db_server_addr": "127.0.0.1:17777",
     "wallet_file":"./conf/wallet.key",
     "save_log":true,
-    "identifying_code":true,
+    "identifying_code":false,
     "trusted_server":"http://govm.top:9090",
     "check_block":true,
     "auto_rollback":false,
@@ -14,5 +14,8 @@
     "net_id":"govm0",
     "one_conn_per_miner":false,
     "password":"govm_pwd@2019",
-    "miner_conn_limit":1000
+    "miner_conn_limit":1000,
+    "verify_net_data":true,
+    "safe_environment":false,
+    "pprof_addr":""
 }

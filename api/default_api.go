@@ -33,6 +33,9 @@ var inputString chan string
 func init() {
 	rand.Seed(time.Now().UnixNano())
 	inputString = make(chan string, 1)
+	if !conf.GetConf().IdentifyingCode {
+		return
+	}
 	go func() {
 		for {
 			var in string
@@ -42,7 +45,6 @@ func init() {
 			}
 			select {
 			case <-inputString:
-				// log.Println("drop old input of IdentifyingCode")
 				inputString <- in
 			case inputString <- in:
 			}
@@ -52,8 +54,9 @@ func init() {
 
 // identifying code,before new transaction,user need input it.
 func identifyBeforeTransaction(msg ...interface{}) error {
-	if !conf.GetConf().IdentifyingCode {
-		return nil
+	c := conf.GetConf()
+	if !c.IdentifyingCode && !c.SafeEnvironment {
+		return fmt.Errorf("not support, IdentifyingCode closed")
 	}
 	//clean inputString if exist
 	select {

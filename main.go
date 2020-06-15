@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"time"
 
@@ -60,6 +61,9 @@ func main() {
 				os.Exit(2)
 			}
 		}()
+		if c.PProfAddr != "" {
+			go http.ListenAndServe(c.PProfAddr, nil)
+		}
 	}
 	n := network.New()
 	if n == nil {
@@ -83,7 +87,7 @@ func main() {
 	n.RegistPlugin(new(plugins.DiscoveryPlugin))
 	n.RegistPlugin(new(plugins.Broadcast))
 	key := loadNodeKey()
-	rk := wallet.EcdsaKey{Type: c.NetID}
+	rk := wallet.EcdsaKey{Type: c.NetID, NeedVerify: c.VerifyNetData}
 	cp := crypto.NewMgr()
 	cp.Register(&rk)
 	cp.SetPrivKey(rk.GetType(), key)
