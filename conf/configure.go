@@ -34,12 +34,15 @@ type TConfig struct {
 	NetID           string `json:"net_id,omitempty"`
 	OneConnPerMiner bool   `json:"one_conn_per_miner,omitempty"`
 	MinerConnLimit  int    `json:"miner_conn_limit,omitempty"`
+	VerifyNetData   bool   `json:"verify_net_data,omitempty"`
+	SafeEnvironment bool   `json:"safe_environment,omitempty"`
+	PProfAddr       string `json:"pprof_addr,omitempty"`
 }
 
 var (
 	conf TConfig
 	// Version software version
-	Version string = "v0.5.4"
+	Version string = "v0.5.5"
 	// BuildTime build time
 	BuildTime string
 	// GitHead git head
@@ -63,6 +66,7 @@ func init() {
 func loadConfig() error {
 	conf.CheckBlock = true
 	conf.AutoRollback = true
+	conf.VerifyNetData = true
 	fn := "./conf/conf.json"
 	if _, err := os.Stat(fn); os.IsNotExist(err) {
 		data, _ := ioutil.ReadFile("./conf/conf.bak.json")
@@ -87,7 +91,7 @@ func loadConfig() error {
 		conf.WalletFile = "./conf/wallet.key"
 	}
 	if conf.Password == "" {
-		conf.Password = "govm_pwd_2019"
+		conf.Password = "govm_pwd@2019"
 	}
 	if conf.HTTPAddress == "" {
 		conf.HTTPAddress = "127.0.0.1"

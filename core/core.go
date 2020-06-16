@@ -224,6 +224,8 @@ const (
 	OpsUnvote
 	// OpsReportError error block
 	OpsReportError
+	// OpsConfig config
+	OpsConfig
 )
 
 var (
@@ -1218,6 +1220,8 @@ func (p *processer) processTransaction(block BlockInfo, key Hash) uint64 {
 		p.pUnvote(trans.User, trans.data)
 	case OpsReportError:
 		p.pReportError(trans.User, trans.data)
+	case OpsConfig:
+		p.pConfig(trans.User, trans.Cost, trans.data)
 	default:
 		assert(false)
 	}
@@ -1669,6 +1673,7 @@ func (p *processer) pVote(user Address, data []byte, cost uint64) {
 	voteDB.SetValue(user[:], vote, maxDbLife)
 	p.adminTransfer(user, Address{}, cost)
 
+	p.Event(dbVote{}, "vote", addr[:], user[:])
 	if admin.Votes < totalVotes/1000 {
 		return
 	}
@@ -1740,6 +1745,8 @@ func (p *processer) pUnvote(user Address, data []byte) {
 
 	p.pDbAdmin.SetValue(vote.Admin[:], admin, maxDbLife)
 	db.Set(user[:], nil, 0)
+
+	p.Event(dbVote{}, "unvote", vote.Admin[:], user[:])
 }
 
 func (p *processer) pVoteRewardValue(user Address, voter VoteInfo) {
@@ -1836,6 +1843,51 @@ func (p *processer) pErrorBlock(user Address, data []byte) {
 
 	db.SetValue(k[:], count+1, TimeYear)
 	p.pDbMiner.SetValue(block.Producer[:], p.ID+100, TimeYear)
+}
+
+// admin change the config
+func (p *processer) pConfig(user Address, cost uint64, data []byte) {
+	assertMsg(cost >= 100*maxGuerdon, "not enough cost")
+	var ops uint8
+	var newSize uint64
+	ops = data[0]
+	p.Decode(0, data[1:], &newSize)
+	var adminList [AdminNum]Address
+	p.pDbStat.GetValue([]byte{StatAdmin}, &adminList)
+	var isAdmin bool
+	for _, it := range adminList {
+		if it == user {
+			isAdmin = true
+			break
+		}
+	}
+	assertMsg(isAdmin, "request admin")
+	assert(p.pDbStat.GetInt([]byte{StatChangingConfig}) == 0)
+	p.pDbStat.SetValue([]byte{StatChangingConfig}, uint64(1), TimeMillisecond)
+	var min, max uint64
+	switch ops {
+	case StatBlockSizeLimit:
+		min = blockSizeLimit
+		max = 1<<32 - 1
+	case StatBlockInterval:
+		min = minBlockInterval
+		max = maxBlockInterval
+	default:
+		assert(false)
+	}
+	v := newSize
+	s := p.pDbStat.GetInt([]byte{ops})
+	if s == 0 {
+		s = max + min/2
+	}
+	rangeVal := s/100 + 1
+	assert(v <= s+rangeVal)
+	assert(v >= s-rangeVal)
+	assert(v >= min)
+	assert(v <= max)
+	p.pDbStat.SetValue([]byte{ops}, v, maxDbLife)
+	p.adminTransfer(user, gPublicAddr, cost)
+	p.Event(dbStat{}, "config", []byte{ops}, p.Encode(0, v))
 }
 
 // ops of sync

@@ -2,7 +2,8 @@ package wallet
 
 // EcdsaKey ecdsa key
 type EcdsaKey struct {
-	Type string
+	Type       string
+	NeedVerify bool
 }
 
 // GetType get type
@@ -15,6 +16,9 @@ func (k *EcdsaKey) GetType() string {
 
 // Verify verify
 func (k *EcdsaKey) Verify(data, sig, pubKey []byte) bool {
+	if !k.NeedVerify {
+		return true
+	}
 	return Recover(pubKey, sig, data)
 }
 
