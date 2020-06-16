@@ -1282,7 +1282,7 @@ func NodesGet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 	enc := json.NewEncoder(w)
-	enc.Encode(handler.Nodes)
+	enc.Encode(handler.GetNodes())
 }
 
 // NodeInfo node info

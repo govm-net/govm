@@ -23,7 +23,7 @@ type InternalPlugin struct {
 }
 
 const (
-	reconnNum = 15
+	reconnNum = 5
 )
 
 // Startup is called only once when the plugin is loaded
@@ -69,7 +69,7 @@ func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for k := range p.reconn {
-		if k == id || len(p.reconn) > reconnNum-2 {
+		if k == id || len(p.reconn) > reconnNum {
 			delete(p.reconn, k)
 		}
 	}

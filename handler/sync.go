@@ -62,7 +62,6 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 			rel := ReadBlockReliability(msg.Chain, msg.Key)
 			if !rel.Ready || rel.Index == 0 {
 				// log.Printf("start sync,chain:%d,index:%d,block:%x\n", msg.Chain, msg.Index, msg.Key)
-				//start sync
 				go p.syncDepend(ctx, msg.Chain, msg.Key)
 			} else {
 				setIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)

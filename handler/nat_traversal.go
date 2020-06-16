@@ -29,6 +29,7 @@ type NATTPlugin struct {
 	myAddress string
 	info      addressInfo
 	sid       string
+	Nodes     map[string]libp2p.Session
 }
 
 type addressInfo struct {
@@ -37,20 +38,22 @@ type addressInfo struct {
 }
 
 const keyMyAddr = "report_my_address"
-const keyNodeInfo = "report_my_info"
+const keyReportInfo = "report_my_info"
+const keyNodeInfo = "node_info"
 
 var (
 	// SelfAddress node address
 	SelfAddress string
-	// NodesCount nodes number
-	NodesCount int
-	// Nodes p2p nodes
-	Nodes        map[string]string
+	// NodesCount nodes count
+	NodesCount   int
 	timeOfReport int64
 	timeString   string
 	startTime    int64
 	minerNum     int
 )
+
+// GetNodes get p2p nodes
+var GetNodes func() map[string]string
 
 // Startup is called only once when the plugin is loaded
 func (p *NATTPlugin) Startup(n libp2p.Network) {
@@ -60,7 +63,7 @@ func (p *NATTPlugin) Startup(n libp2p.Network) {
 	u, _ := url.Parse(n.GetAddress())
 	p.sid = u.User.Username()
 	SelfAddress = n.GetAddress()
-	Nodes = make(map[string]string)
+	p.Nodes = make(map[string]libp2p.Session)
 	startTime = time.Now().Unix()
 
 	event.RegisterConsumer(func(m event.Message) error {
@@ -70,6 +73,7 @@ func (p *NATTPlugin) Startup(n libp2p.Network) {
 		}
 		return nil
 	})
+	GetNodes = p.GetNodes
 	go p.connectNodes()
 }
 
@@ -78,12 +82,11 @@ func (p *NATTPlugin) PeerConnect(s libp2p.Session) {
 	peer := s.GetPeerAddr()
 	user := peer.User()
 	p.mu.Lock()
+	id := s.GetEnv(libp2p.EnvConnectID)
+	p.Nodes[id] = s
 	p.peers[user] = p.peers[user] + 1
 	if p.peers[user] == 1 {
 		NodesCount++
-		if len(Nodes) < 20 {
-			Nodes[peer.String()] = "nil"
-		}
 	}
 	p.mu.Unlock()
 }
@@ -103,8 +106,30 @@ func (p *NATTPlugin) PeerDisconnect(s libp2p.Session) {
 			go p.connectNodes()
 		}
 	}
-	delete(Nodes, s.GetPeerAddr().String())
+	id := s.GetEnv(libp2p.EnvConnectID)
+	delete(p.Nodes, id)
 	p.mu.Unlock()
+}
+
+// GetNodes get nodes
+func (p *NATTPlugin) GetNodes() map[string]string {
+	out := make(map[string]string)
+	nid := make(map[string]bool)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, session := range p.Nodes {
+		uid := session.GetPeerAddr().User()
+		if nid[uid] {
+			continue
+		}
+		nid[uid] = true
+		addr := session.GetPeerAddr().String()
+		out[addr] = session.GetEnv(keyNodeInfo)
+		if len(out) >= 20 {
+			break
+		}
+	}
+	return out
 }
 
 func (p *NATTPlugin) connectNodes() {
@@ -141,8 +166,8 @@ func (p *NATTPlugin) Receive(ctx libp2p.Event) error {
 		timeString = fmt.Sprintf("%d", timeOfReport)
 	}
 	session := ctx.GetSession()
-	if session.GetEnv(keyNodeInfo) != timeString {
-		session.SetEnv(keyNodeInfo, timeString)
+	if session.GetEnv(keyReportInfo) != timeString {
+		session.SetEnv(keyReportInfo, timeString)
 		info := messages.NodeInfo{}
 		info.Version = conf.Version
 		info.NodesConnected = NodesCount
@@ -224,14 +249,8 @@ func (p *NATTPlugin) Receive(ctx libp2p.Event) error {
 			ctx.Reply(trav)
 		}
 	case *messages.NodeInfo:
-		peer := ctx.GetSession().GetPeerAddr().String()
-		p.mu.Lock()
-		_, ok := Nodes[peer]
-		if ok {
-			data, _ := json.Marshal(msg)
-			Nodes[peer] = string(data)
-		}
-		p.mu.Unlock()
+		data, _ := json.Marshal(msg)
+		ctx.GetSession().SetEnv(keyNodeInfo, string(data))
 	}
 	return nil
 }
