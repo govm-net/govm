@@ -26,10 +26,10 @@ type logBlockInfo struct{}
 type logSync struct{}
 type statMining struct{}
 type statTransferIn struct{}
-type statTransferOut struct{}
 type statTransList struct{}
 type statMove struct{}
 type statAPPRun struct{}
+type statVoteReward struct{}
 
 // Hash The KEY of the block of transaction
 type Hash [HashLen]byte
@@ -177,7 +177,7 @@ const (
 	voteCost           = 1000000000
 	defaultHashPower   = 20000
 	hpStep             = 1000
-	redemptionTotal    = 3103270425939320
+	redemptionTotal    = 3103870425939320
 )
 
 //Key of the running state
@@ -750,7 +750,7 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 		assert(b != nil)
 		info.ParentID = b.Index
 		p.ParentID = b.Index
-		log.Print("parent:", b.Time, ",self:", block.Time)
+		// log.Print("parent:", b.Time, ",self:", block.Time)
 		assert(b.Time+blockSyncMax > block.Time)
 
 		var cb *BlockInfo
@@ -827,12 +827,7 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 	p.adminTransfer(Address{}, team, guerdon/5)
 
 	old := p.pDbStat.GetInt([]byte{StatTotalCoins})
-	if old == 0 {
-		old = redemptionTotal
-		old += p.ID*guerdon*2 - maxGuerdon
-	} else {
-		old += 2 * guerdon
-	}
+	old += 2 * guerdon
 	p.pDbStat.SetValue([]byte{StatTotalCoins}, old, maxDbLife)
 
 	// Every pre year, the reward is halved
@@ -1214,7 +1209,7 @@ func (p *processer) processTransaction(block BlockInfo, key Hash) uint64 {
 		p.pRegisterAdmin(trans.User, trans.Cost)
 	case OpsVote:
 		assert(dataLen < 300)
-		p.pVote(trans.User, trans.data, trans.Cost)
+		p.pVote(trans)
 	case OpsUnvote:
 		assert(dataLen < 300)
 		p.pUnvote(trans.User, trans.data)
@@ -1237,14 +1232,6 @@ func (p *processer) pTransfer(t Transaction) {
 	assert(t.Cost > 0)
 	assert(!payee.Empty())
 	p.adminTransfer(t.User, payee, t.Cost)
-
-	if Switch.SWTransferOut {
-		db := p.GetDB(statTransferOut{})
-		id := db.GetInt(t.User[:]) + 1
-		db.SetValue(t.User[:], id, TimeYear)
-		rk := append(t.User[:], runtime.Encode(id)...)
-		db.Set(rk, t.key[:], TimeMonth)
-	}
 
 	if Switch.SWTransferIn {
 		db := p.GetDB(statTransferIn{})
@@ -1638,14 +1625,21 @@ type VoteInfo struct {
 }
 
 // pVote vote admin
-func (p *processer) pVote(user Address, data []byte, cost uint64) {
-	assert(cost%voteCost == 0)
-
+func (p *processer) pVote(trans Transaction) {
+	cost := trans.Cost
+	user := trans.User
+	data := trans.data
+	assert(trans.Cost%voteCost == 0)
 	voteDB := p.GetDB(dbVote{})
 	var vote VoteInfo
 	voteDB.GetValue(user[:], &vote)
 	p.pVoteRewardValue(user, vote)
-	if cost == 0 {
+	have := p.pDbCoin.GetInt(user[:])
+	if cost == 0 || have < cost {
+		if have < cost {
+			log.Printf("warning vote, chain:%d,have:%d,cost:%d,user:%x\n",
+				p.Chain, have, cost, user)
+		}
 		return
 	}
 
@@ -1749,6 +1743,12 @@ func (p *processer) pUnvote(user Address, data []byte) {
 	p.Event(dbVote{}, "unvote", vote.Admin[:], user[:])
 }
 
+type rewardResult struct {
+	User    Address
+	BlockID uint64
+	Reward  uint64
+}
+
 func (p *processer) pVoteRewardValue(user Address, voter VoteInfo) {
 	votes := voter.Cost / voteCost
 	if votes == 0 {
@@ -1784,6 +1784,15 @@ func (p *processer) pVoteRewardValue(user Address, voter VoteInfo) {
 		out = v
 	}
 	p.adminTransfer(gPublicAddr, user, out)
+	vdb := p.GetDB(dbVote{})
+	voter.StartDay = (p.Time + TimeDay) / TimeDay
+	vdb.SetValue(user[:], voter, maxDbLife)
+
+	result := rewardResult{user, p.ID, out}
+	rdb := p.GetDB(statVoteReward{})
+	id := rdb.GetInt([]byte{0}) + 1
+	rdb.SetValue([]byte{0}, id, TimeYear)
+	rdb.SetValue(p.Encode(0, id), result, TimeYear)
 }
 
 func (p *processer) pReportError(user Address, data []byte) {
@@ -2051,7 +2060,7 @@ func (p *processer) syncInfo(from uint64, ops uint8, data []byte) {
 			id := db.GetInt(mi.User[:]) + 1
 			db.SetValue(mi.User[:], id, TimeYear)
 			rk := append(mi.User[:], runtime.Encode(id)...)
-			db.Set(rk, mi.Key[:], TimeMonth)
+			db.Set(rk, data, TimeMonth)
 		}
 	case SyncOpsNewChain:
 		var nc syncNewChain

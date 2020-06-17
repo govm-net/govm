@@ -53,7 +53,7 @@ var (
 )
 
 // GetNodes get p2p nodes
-var GetNodes func() map[string]string
+var GetNodes func() map[string]string = func() map[string]string { return nil }
 
 // Startup is called only once when the plugin is loaded
 func (p *NATTPlugin) Startup(n libp2p.Network) {
@@ -114,17 +114,18 @@ func (p *NATTPlugin) PeerDisconnect(s libp2p.Session) {
 // GetNodes get nodes
 func (p *NATTPlugin) GetNodes() map[string]string {
 	out := make(map[string]string)
-	nid := make(map[string]bool)
+	nid := make(map[string]string)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for _, session := range p.Nodes {
 		uid := session.GetPeerAddr().User()
-		if nid[uid] {
+		if nid[uid] != "" {
 			continue
 		}
-		nid[uid] = true
+		info := session.GetEnv(keyNodeInfo)
+		nid[uid] = info
 		addr := session.GetPeerAddr().String()
-		out[addr] = session.GetEnv(keyNodeInfo)
+		out[addr] = info
 		if len(out) >= 20 {
 			break
 		}

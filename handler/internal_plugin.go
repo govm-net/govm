@@ -47,6 +47,9 @@ func (p *InternalPlugin) timeout() {
 	nodes := make(map[string]string)
 	p.mu.Lock()
 	for k, v := range p.reconn {
+		if len(p.reconn) >= reconnNum {
+			delete(p.reconn, k)
+		}
 		nodes[k] = v
 	}
 	p.mu.Unlock()
