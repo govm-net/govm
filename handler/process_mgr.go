@@ -30,7 +30,7 @@ const (
 	tDay             = 24 * tHour
 	blockAcceptTime  = tMinute
 	transAcceptTime  = 9 * tDay
-	blockSyncTime    = 5 * tMinute
+	blockSyncTime    = 4 * tMinute
 	procTimeOut      = 2 * tMinute
 	processTransTime = 5 * tMinute
 )
