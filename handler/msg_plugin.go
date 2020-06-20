@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
+	"expvar"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -40,6 +41,7 @@ type keyOfBlockHP struct {
 var network libp2p.Network
 var activeNode libp2p.Session
 var blockHP *database.LRUCache
+var msgStat = expvar.NewMap("blocks")
 
 const blockHPNumber = 120
 
@@ -82,6 +84,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		resp.PreKey = rel.Previous[:]
 		resp.HashPower = rel.HashPower
 		ctx.Reply(resp)
+		msgStat.Add("ReqBlockInfo", 1)
 		return nil
 	case *messages.TransactionInfo:
 		if len(msg.Key) != core.HashLen {
@@ -101,7 +104,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		// log.Printf("<%x> TransactionInfo %d %x\n", ctx.GetPeerID(), msg.Chain, msg.Key)
 		ctx.GetSession().SetEnv(getEnvKey(msg.Chain, reqTrans), hex.EncodeToString(msg.Key))
 		ctx.Reply(&messages.ReqTransaction{Chain: msg.Chain, Key: msg.Key})
-
+		msgStat.Add("TransactionInfo", 1)
 	case *messages.ReqBlock:
 		if len(msg.Key) == 0 {
 			return nil
@@ -112,6 +115,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			log.Printf("not found.ReqBlock chain:%d index:%d key:%x\n", msg.Chain, msg.Index, msg.Key)
 			return nil
 		}
+		msgStat.Add("ReqBlock", 1)
 		// log.Printf("<%x> ReqBlock %d %x\n", ctx.GetPeerID(), msg.Chain, msg.Key)
 		ctx.Reply(&messages.BlockData{Chain: msg.Chain, Key: msg.Key, Data: data})
 	case *messages.ReqTransList:
@@ -128,6 +132,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 		if len(data) == 0 {
 			return nil
 		}
+		msgStat.Add("ReqTransList", 1)
 		ctx.Reply(&messages.TransactionList{Chain: msg.Chain, Key: msg.Key, Data: data})
 	case *messages.ReqTransaction:
 		data := core.ReadTransactionData(msg.Chain, msg.Key)
@@ -135,6 +140,7 @@ func (p *MsgPlugin) Receive(ctx libp2p.Event) error {
 			log.Printf("not found the transaction,chain:%d,key:%x\n", msg.Chain, msg.Key)
 			return nil
 		}
+		msgStat.Add("ReqTransaction", 1)
 		// log.Printf("<%x> ReqTransaction %d %x\n", ctx.GetPeerID(), msg.Chain, msg.Key)
 		ctx.Reply(&messages.TransactionData{Chain: msg.Chain, Key: msg.Key, Data: data})
 	default:
@@ -227,7 +233,7 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 			return errors.New("error block.Time")
 		}
 	}
-
+	msgStat.Add("processBlock", 1)
 	rel := getReliability(block)
 	SaveBlockReliability(chain, block.Key[:], rel)
 	if needSave {
@@ -305,6 +311,7 @@ func processTransaction(chain uint64, key, data []byte) error {
 		saveTransInfo(chain, trans.Key, tInfo)
 		pushTransInfo(chain, &tInfo)
 	}
+	msgStat.Add("processTransaction", 1)
 
 	return nil
 }
@@ -327,6 +334,7 @@ func dbRollBack(chain, index uint64, key []byte) error {
 	lKey = core.GetTheBlockKey(chain, nIndex)
 	client := database.GetClient()
 	for nIndex >= index {
+		msgStat.Add("dbRollBack", 1)
 		lKey = core.GetTheBlockKey(chain, nIndex)
 		err = client.Rollback(chain, lKey)
 		log.Printf("dbRollBack,chain:%d,index:%d,key:%x\n", chain, nIndex, lKey)

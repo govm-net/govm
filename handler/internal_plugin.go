@@ -2,8 +2,10 @@ package handler
 
 import (
 	"errors"
+	"expvar"
 	"fmt"
 	"log"
+	"strconv"
 	"sync"
 	"time"
 
@@ -23,13 +25,15 @@ type InternalPlugin struct {
 }
 
 const (
-	reconnNum = 5
+	reconnNum   = 15
+	connectTime = "conn_start_time"
 )
+
+var reconnStat = expvar.NewMap("reconnect")
 
 // Startup is called only once when the plugin is loaded
 func (p *InternalPlugin) Startup(n libp2p.Network) {
 	Init()
-
 	p.network = n
 	p.reconn = make(map[string]string)
 	event.RegisterConsumer(p.event)
@@ -42,22 +46,31 @@ func (p *InternalPlugin) Cleanup(n libp2p.Network) {
 }
 
 func (p *InternalPlugin) timeout() {
-	time.AfterFunc(time.Minute*2, p.timeout)
+	time.AfterFunc(time.Minute*5, p.timeout)
 	p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.RandsendMsg, Msg: plugins.Ping{}})
 	nodes := make(map[string]string)
+	var i int
 	p.mu.Lock()
 	for k, v := range p.reconn {
-		if len(p.reconn) >= reconnNum {
+		if i == 0 {
 			delete(p.reconn, k)
 		}
+		i++
 		nodes[k] = v
 	}
 	p.mu.Unlock()
-	for _, node := range nodes {
+	for k, node := range nodes {
 		s, err := p.network.NewSession(node)
 		if err != nil {
 			continue
 		}
+		if s.GetEnv(keyOldConn) != "" {
+			p.mu.Lock()
+			delete(p.reconn, k)
+			p.mu.Unlock()
+			continue
+		}
+		reconnStat.Add("sendPing", 1)
 		s.Send(plugins.Ping{IsServer: s.GetSelfAddr().IsServer()})
 	}
 }
@@ -69,6 +82,8 @@ func (p *InternalPlugin) PeerConnect(s libp2p.Session) {
 	if id == "" {
 		return
 	}
+	now := time.Now().Unix()
+	s.SetEnv(connectTime, fmt.Sprintf("%d", now))
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for k := range p.reconn {
@@ -87,7 +102,18 @@ func (p *InternalPlugin) PeerDisconnect(s libp2p.Session) {
 		if len(p.reconn) > reconnNum {
 			return
 		}
-		p.reconn[peer.User()] = peer.String()
+		var t int64
+		tStr := s.GetEnv(connectTime)
+		if tStr != "" {
+			t, _ = strconv.ParseInt(tStr, 10, 64)
+		}
+		if t+60 > time.Now().Unix() {
+			return
+		}
+		if s.GetEnv("inDHT") == "true" {
+			reconnStat.Add("add_node", 1)
+			p.reconn[peer.User()] = peer.String()
+		}
 	}
 }
 

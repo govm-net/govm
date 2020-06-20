@@ -37,12 +37,13 @@ type TConfig struct {
 	VerifyNetData   bool   `json:"verify_net_data,omitempty"`
 	SafeEnvironment bool   `json:"safe_environment,omitempty"`
 	PProfAddr       string `json:"pprof_addr,omitempty"`
+	RestfulLog      bool   `json:"restful_log,omitempty"`
 }
 
 var (
 	conf TConfig
 	// Version software version
-	Version string = "v0.5.6"
+	Version string = "v0.5.7"
 	// BuildTime build time
 	BuildTime string
 	// GitHead git head

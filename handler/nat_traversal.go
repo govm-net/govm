@@ -40,6 +40,7 @@ type addressInfo struct {
 const keyMyAddr = "report_my_address"
 const keyReportInfo = "report_my_info"
 const keyNodeInfo = "node_info"
+const keyOldConn = "old_conn"
 
 var (
 	// SelfAddress node address
@@ -81,6 +82,7 @@ func (p *NATTPlugin) Startup(n libp2p.Network) {
 func (p *NATTPlugin) PeerConnect(s libp2p.Session) {
 	peer := s.GetPeerAddr()
 	user := peer.User()
+	s.SetEnv(keyOldConn, "true")
 	p.mu.Lock()
 	id := s.GetEnv(libp2p.EnvConnectID)
 	p.Nodes[id] = s
@@ -153,6 +155,9 @@ func (p *NATTPlugin) connectNodes() {
 	for k := range peers {
 		s, err := p.network.NewSession(k)
 		if err != nil {
+			continue
+		}
+		if s.GetEnv(keyOldConn) != "" {
 			continue
 		}
 		s.Send(plugins.Ping{IsServer: s.GetSelfAddr().IsServer()})
