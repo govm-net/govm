@@ -8,24 +8,29 @@
 package api
 
 import (
+	"expvar"
+	"github.com/govm-net/govm/conf"
 	"log"
 	"net/http"
 	"time"
 )
 
+var stat = expvar.NewMap("restful")
+
 // Logger print log
 func Logger(inner http.Handler, name string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-
 		inner.ServeHTTP(w, r)
-
-		log.Printf(
-			"%s %s %s %s",
-			r.Method,
-			r.RequestURI,
-			name,
-			time.Since(start),
-		)
+		stat.Add(name, 1)
+		if conf.GetConf().RestfulLog {
+			log.Printf(
+				"%s %s %s %s",
+				r.Method,
+				r.RequestURI,
+				name,
+				time.Since(start),
+			)
+		}
 	})
 }

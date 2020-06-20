@@ -55,7 +55,7 @@ func (h *hub) run() {
 					break
 				}
 			}
-
+			stat.Add("ws_connect", 1)
 			log.Println("ws connect number:", len(h.clients), c.peer)
 			h.clients[c.peer] = c
 			minerNum = len(h.clients)
@@ -96,7 +96,7 @@ func (h *hub) run() {
 				// log.Println("same block for mining")
 				break
 			}
-
+			stat.Add("ws_broadcast_package", 1)
 			h.content = m
 			h.broadcastMessage()
 		}
@@ -210,6 +210,7 @@ func WSBlockForMining(ws *websocket.Conn) {
 		if len(data) == 0 {
 			continue
 		}
+		stat.Add("ws_send", 1)
 		_, err := ws.Write(data)
 		if err != nil {
 			break

@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"encoding/hex"
+	"expvar"
 	"fmt"
 	"log"
 	"runtime/debug"
@@ -25,6 +26,8 @@ const (
 	maxSyncNum    = 100
 	acceptOldID   = 10
 )
+
+var syncStat = expvar.NewMap("sync")
 
 func getSyncEnvKey(chain uint64, typ byte) string {
 	return fmt.Sprintf("sync_%x_%x", chain, typ)
@@ -57,7 +60,7 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 			}
 			return nil
 		}
-
+		syncStat.Add("BlockInfo", 1)
 		if core.IsExistBlock(msg.Chain, msg.Key) {
 			rel := ReadBlockReliability(msg.Chain, msg.Key)
 			if !rel.Ready || rel.Index == 0 {
@@ -76,6 +79,7 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 		if len(msg.Data) > 102400 {
 			return nil
 		}
+		syncStat.Add("BlockData", 1)
 		// log.Printf("<%x> BlockData %d %x\n", ctx.GetPeerID()[:6], msg.Chain, msg.Key)
 		err := processBlock(msg.Chain, msg.Key, msg.Data)
 		if err != nil {
@@ -94,6 +98,7 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 		if bytes.Compare(hk[:], msg.Key) != 0 {
 			return nil
 		}
+		syncStat.Add("TransactionList", 1)
 		SaveTransList(msg.Chain, msg.Key, transList)
 		core.WriteTransList(msg.Chain, transList)
 		s := ctx.GetSession()
@@ -109,6 +114,7 @@ func (p *SyncPlugin) Receive(ctx libp2p.Event) error {
 		}
 		go p.syncDepend(ctx, msg.Chain, key)
 	case *messages.TransactionData:
+		syncStat.Add("TransactionData", 1)
 		err := processTransaction(msg.Chain, msg.Key, msg.Data)
 		if err != nil {
 			return err
