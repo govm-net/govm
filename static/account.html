@@ -117,7 +117,7 @@
         $("#chain").html(gChainID);
         function updateAccount(chain, address) {
             if (address === undefined) {
-                address = "";
+                return;
             }
             $("#address").val("");
             $("#balance").val("");
@@ -173,7 +173,7 @@
                     var myDate = new Date()
                     myDate.setTime(data.start_day*24*3600*1000)
                     // $("#v_address").val(data.address);
-                    $("#votes").html(data.votes);
+                    $("#votes").html(data.votes|0);
                     $("#admin").html(data.admin);
                     $("#time").html(myDate.toString());
                 }
@@ -239,6 +239,12 @@
             nextKey = "";
             // console.log("start getAllAccount");
             getNext(result, chainID, nextKey);
+        }
+        var chain = getUrlParam('chain');
+        var key = getUrlParam('key');
+        if (chain != "" && key != "") {
+            $("#chain").val(chain);
+            updateAccount(chain, key);
         }
     </script>
 

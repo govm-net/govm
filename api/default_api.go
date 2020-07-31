@@ -55,7 +55,10 @@ func init() {
 // identifying code,before new transaction,user need input it.
 func identifyBeforeTransaction(msg ...interface{}) error {
 	c := conf.GetConf()
-	if !c.IdentifyingCode && !c.SafeEnvironment {
+	if c.SafeEnvironment {
+		return nil
+	}
+	if !c.IdentifyingCode {
 		return fmt.Errorf("not support, IdentifyingCode closed")
 	}
 	//clean inputString if exist
@@ -1157,6 +1160,43 @@ func DataPost(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// DataExist return 200OK when exist the key
+func DataExist(w http.ResponseWriter, r *http.Request) {
+	info := DataInfo{}
+	vars := mux.Vars(r)
+	chainStr := vars["chain"]
+	r.ParseForm()
+	info.AppName = r.Form.Get("app_name")
+	info.StructName = r.Form.Get("struct_name")
+	info.Key = r.Form.Get("key")
+	if r.Form.Get("is_db_data") == "true" {
+		info.IsDBData = true
+	}
+	if info.AppName == "" {
+		info.AppName = "ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+	}
+
+	chain, err := strconv.ParseUint(chainStr, 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("error chain"))
+		return
+	}
+
+	key, err := hex.DecodeString(info.Key)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "fail to Decode preKey,", info.Key, err)
+		return
+	}
+	exist := runtime.KeyExist(chain, info.IsDBData, info.AppName, info.StructName, key)
+	if exist {
+		w.WriteHeader(http.StatusOK)
+	} else {
+		w.WriteHeader(http.StatusNotFound)
+	}
+}
+
 // DataNextKey the next key of data
 type DataNextKey struct {
 	AppName    string `json:"app_name,omitempty"`
@@ -1716,6 +1756,27 @@ func VoteRewardGet(w http.ResponseWriter, r *http.Request) {
 	out.Day = day
 	info := core.GetVoteReward(chain, day)
 	out.Reward = info.Reward
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	enc.Encode(out)
+}
+
+// ChainsGet get chains list
+func ChainsGet(w http.ResponseWriter, r *http.Request) {
+	out := make([]uint64, 0, 100)
+	visit := make([]uint64, 1, 100)
+	visit[0] = 1
+	for len(visit) > 0 {
+		chain := visit[0]
+		visit = visit[1:]
+		id := core.GetLastBlockIndex(chain)
+		if id == 0 {
+			continue
+		}
+		visit = append(visit, chain*2, chain*2+1)
+		out = append(out, chain)
+	}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 	enc := json.NewEncoder(w)

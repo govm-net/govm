@@ -13,11 +13,13 @@
     <div id="MenuCollaspe" class="navbar-collapse collapse">
       <ul class="nav navbar-nav">
         <li><a href="/index.html"  data-localize="navbar.home">Home</a></li>
+        <li><a href="/dpos.html"  data-localize="navbar.dpos">DPOS Nodes</a></li>
         <li><a href="/account.html"  data-localize="navbar.account">Account</a></li>
         <li><a href="/block.html" data-localize="navbar.block">Block</a></li>
         <li><a href="/transaction.html" data-localize="navbar.transaction">Transaction</a></li>
         <li><a href="/nodes.html" data-localize="navbar.node">Node</a></li>
         <li><a href="/setting.html" data-localize="navbar.setting">Setting</a></li>
+        <li><a href="/api.html" data-localize="navbar.openapi">API</a></li>
       </ul>
     </div>
 </nav>
