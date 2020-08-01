@@ -377,7 +377,8 @@ func processEvent(chain uint64) {
 	log.Printf("process block,chain:%d,index:%d,key:%x\n", chain, relia.Index, relia.Key)
 	err = core.ProcessBlockOfChain(chain, relia.Key[:])
 	if err != nil {
-		log.Printf("fail to process block,chain:%d,index:%d,key:%x,error:%s\n", chain, index+1, relia.Key, err)
+		log.Printf("fail to process block,chain:%d,index:%d,key:%x,miner:%x,error:%s\n",
+			chain, index+1, relia.Key, relia.Producer, err)
 		SaveBlockRunStat(chain, relia.Key[:], stat)
 		setIDBlocks(chain, relia.Index, relia.Key, 0)
 		relia.Ready = false

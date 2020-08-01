@@ -124,6 +124,7 @@ type processer struct {
 	pDbMiner           *DB
 	pLogSync           *Log
 	pLogBlockInfo      *Log
+	TransKey           Hash
 }
 
 // StatSwitch define switch of govm status
@@ -1137,6 +1138,7 @@ func (p *processer) processTransaction(block BlockInfo, key Hash) uint64 {
 	assert(signLen > 30)
 	k := p.getHash(data)
 	assert(k == key)
+	p.TransKey = key
 
 	sign := data[1 : signLen+1]
 	signData := data[signLen+1:]
@@ -1793,6 +1795,7 @@ func (p *processer) pVoteRewardValue(user Address, voter VoteInfo) {
 	id := rdb.GetInt([]byte{0}) + 1
 	rdb.SetValue([]byte{0}, id, TimeYear)
 	rdb.SetValue(p.Encode(0, id), result, TimeYear)
+	rdb.SetValue(p.TransKey[:], out, TimeYear)
 }
 
 func (p *processer) pReportError(user Address, data []byte) {

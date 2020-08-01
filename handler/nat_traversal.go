@@ -3,7 +3,6 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/govm-net/govm/event"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -11,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/govm-net/govm/event"
 	"github.com/govm-net/govm/conf"
 	core "github.com/govm-net/govm/core"
 	"github.com/govm-net/govm/database"
@@ -89,6 +89,10 @@ func (p *NATTPlugin) PeerConnect(s libp2p.Session) {
 	p.peers[user] = p.peers[user] + 1
 	if p.peers[user] == 1 {
 		NodesCount++
+		if NodesCount < 100 {
+			// not close the session
+			s.SetEnv("inDHT", "true")
+		}
 	}
 	p.mu.Unlock()
 }
