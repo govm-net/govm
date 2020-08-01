@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>GOVM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/govm.css" rel="stylesheet">
+    <link rel="icon" type="image/x-ico" href="logo.ico" />
+    <link rel="shortcut icon" href="logo.ico">
+</head>
+
+<body ng-app="">
+    <div class="container">
+        <div id="navbar"></div>
+        <div class="col-md-6">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title" data-localize="openapi">
+                        OpenAPI
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <ul class="list-group">
+                        <li class="list-group-item">open swagger 
+                            <a href="https://editor.swagger.io/">https://editor.swagger.io/</a></li>
+                        <li class="list-group-item">download api documentation <a href="/openapi.yaml">openapi.yaml</a>
+                        </li>
+                        <li class="list-group-item">"Import file" in Swagger Editor</li>
+                        <li class="list-group-item">view the api</li>
+                        <li class="list-group-item">"Generate Client" by Swagger Editor</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title" data-localize="precautions">
+                        Precautions
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <ul class="list-group">
+                        <li class="list-group-item">By default, "POST" is not supported.</li>
+                        <li class="list-group-item">How to support</li>
+                        <li class="list-group-item">1. open conf/conf.json</li>
+                        <li class="list-group-item">2. set the value of "http_address" to "127.0.0.1"</li>
+                        <li class="list-group-item">3. set the value of "safe_environment" to "true"</li>
+                        <li class="list-group-item">4. set the value of "identifying_code" to "false"</li>
+                        <li class="list-group-item">5. restart govm.exe</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title" data-localize="example">
+                        Examples
+                    </h3>
+                </div>
+                <div class="panel-body">
+                    <ul class="list-group">
+                        <li class="list-group-item"><a href="https://github.com/govm-net/govm">https://github.com/govm-net/govm</a> ,"static/index.html"</li>
+                        <li class="list-group-item"><a href="https://github.com/govm-net/wallet">https://github.com/govm-net/wallet</a> ,"bin/gui/screens"</li>
+                        <li class="list-group-item"><a href="https://github.com/govm-net/wallet">https://github.com/govm-net/wallet</a> ,"bin/html"</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery (Bootstrap 的 JavaScript 插件需要引入 jQuery) -->
+    <script src="js/jquery-3.3.1.min.js"></script>
+    <!-- 包括所有已编译的插件 -->
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/jquery.localize.min.js"></script>
+    <script src="js/load.js?v=3"></script>
+</body>
+
+</html>

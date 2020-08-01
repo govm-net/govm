@@ -1,0 +1,6 @@
+
+.govm_fixed {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}

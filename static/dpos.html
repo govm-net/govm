@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>GOVM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 引入 Bootstrap -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link rel="icon" type="image/x-ico" href="logo.ico" />
+    <link rel="shortcut icon" href="logo.ico">
+
+    <!-- HTML5 Shiv 和 Respond.js 用于让 IE8 支持 HTML5元素和媒体查询 -->
+    <!-- 注意： 如果通过 file://  引入 Respond.js 文件，则该文件无法起效果 -->
+    <!--[if lt IE 9]>
+         <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+         <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+      <![endif]-->
+</head>
+
+<body>
+    <div class="container">
+        <div id="navbar"></div>
+        <div class="column col-md-8 col-md-offset-2">
+            <div>
+                <ul class="nav nav-pills" id="chain_tabs">
+                </ul>
+                <div class="tab-content" id="tab_contents">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery (Bootstrap 的 JavaScript 插件需要引入 jQuery) -->
+    <script src="js/jquery-3.3.1.min.js"></script>
+    <!-- 包括所有已编译的插件 -->
+    <script src="js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
+    <script src="js/jquery.localize.min.js"></script>
+    <script src="js/load.js?v=5"></script>
+    <script src="js/encode.js?v=5"></script>
+
+    <script type="text/javascript">
+        function getAdmins(chain) {
+            $.get("/api/v1/" + chain + "/admins", function (data, status) {
+                var tbBody = $('<tbody>')
+                var tbHead = $('<table class="table table-striped table-bordered">').append($('<thead>').append(
+                    $('<tr>').append($('<th>').append('ID')).append(
+                        $('<th>').append('DPOS Address')).append($('<th>').append('Votes'))
+                )).append(tbBody)
+
+                for (key in data) {
+                    var votes = $('<td>');
+                    tbBody.append($('<tr>').append(
+                        $('<td>').append(key)
+                    ).append($('<td>').append(data[key])).append(votes));
+                        getAdminInfo(chain,data[key],votes);
+                }
+                $("#tb_admin" + chain).html(tbHead);
+                //console.log(data);
+            });
+        }
+
+        function getAdminInfo(chain, key, element) {
+            $.get("/api/v1/" + chain + "/admin?key=" + key, function (data, status) {
+                element.append(data.votes)
+                //console.log(data);
+            });
+        }
+
+        function getVoteReward(chain) {
+            $.get("/api/v1/" + chain + "/vote_reward", function (data, status) {
+                if (status != "success" || data.reward === undefined) {
+                    return
+                }
+                $("#vote_rewards" + chain).append(
+                    "Vote Rewards(10000votes one day): " + getValueWithBase(data.reward * 7, "t6") + "govm")
+            });
+        }
+
+        $.get("/api/v1/chains", function (data, status) {
+            chainList = data;
+            console.log("chains:", chainList)
+            $("#chain_tabs").html("");
+            $("#tab_contents").html("");
+            for (var i in data) {
+                var chain = data[i];
+                var liElement = $("<li  class='bg-success'>");
+                if (i == 0) {
+                    liElement = $("<li class='active  bg-success'>");
+                }
+                liElement.append($("<a href='#tab_chain" + chain + "' data-toggle='tab'>").append("Chain" + chain));
+                $("#chain_tabs").append(liElement);
+
+                var contTab = $("<div class='tab-pane' id='tab_chain" + chain + "'>");
+                if (i == 0) {
+                    contTab = $("<div class='tab-pane active' id='tab_chain" + chain + "'>");
+                }
+                contTab.append($("<h3 id=vote_rewards" + chain + ">"))
+                contTab.append($("<div id=tb_admin" + chain + ">"))
+                $("#tab_contents").append(contTab);
+                // getBlocks(chain);
+                getAdmins(chain);
+                getVoteReward(chain);
+            }
+        });
+    </script>
+</body>
+
+</html>

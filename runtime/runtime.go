@@ -3,13 +3,14 @@ package runtime
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"reflect"
+	"strings"
+
 	"github.com/govm-net/govm/counter"
 	db "github.com/govm-net/govm/database"
 	"github.com/govm-net/govm/wallet"
 	"github.com/lengzhao/database/client"
-	"log"
-	"reflect"
-	"strings"
 )
 
 // TRuntime 执行机的结构体定义
@@ -330,6 +331,19 @@ func GetValue(chain uint64, isDb bool, appName, structName string, key []byte) (
 	var life uint64
 	Decode(lifeBytes, &life)
 	return data[:n-8], life
+}
+
+// KeyExist return true if exist
+func KeyExist(chain uint64, isDb bool, appName, structName string, key []byte) bool {
+	var tbName string
+	if isDb {
+		tbName = string(startOfDB)
+	} else {
+		tbName = string(startOfLog)
+	}
+	tbName += appName + "." + structName
+	// log.Printf("GetNextKey,tbName:%s\n", string(tbName))
+	return db.GetClient().Exist(chain, []byte(tbName), key)
 }
 
 // Recover 校验签名信息

@@ -13,7 +13,9 @@ if (gCostBase == "" || gCostBase == "tc") {
 }
 gLanguage = getCookie("language")
 
-$.get("navbar.page?v=0606", function (data) {
+var now = new Date();
+var v = now.getDate().toString();
+$.get("node_navbar.page?v="+v, function (data) {
     $("#navbar").html(data);
     var url = window.location.pathname;
     if (url == "/") {
@@ -24,6 +26,19 @@ $.get("navbar.page?v=0606", function (data) {
         return this.href.pathname == url;
     }).parent().addClass('active');
     loadLanguage();
+}).fail(function () {
+    $.get("navbar.page?v="+v, function (data) {
+        $("#navbar").html(data);
+        var url = window.location.pathname;
+        if (url == "/") {
+            url = "/index.html";
+        }
+        $('ul.nav a[href="' + url + '"]').parent().addClass('active');
+        $('ul.nav a').filter(function () {
+            return this.href.pathname == url;
+        }).parent().addClass('active');
+        loadLanguage();
+    })
 });
 
 function loadLanguage() {

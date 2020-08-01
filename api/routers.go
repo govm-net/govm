@@ -196,6 +196,13 @@ var routes = Routes{
 	},
 
 	Route{
+		"DataExist",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/data/exist",
+		DataExist,
+	},
+
+	Route{
 		"DataPost",
 		strings.ToUpper("Post"),
 		"/api/v1/{chain}/data",
@@ -291,6 +298,12 @@ var routes = Routes{
 		strings.ToUpper("Get"),
 		"/api/v1/time",
 		TimeGet,
+	},
+	Route{
+		"ChainsGet",
+		strings.ToUpper("Get"),
+		"/api/v1/chains",
+		ChainsGet,
 	},
 }
 

@@ -11,6 +11,13 @@ var mu sync.Mutex
 var energy uint64 = defaultEnergy
 var used uint64
 
+// ResetEnergy reset energy
+func ResetEnergy() {
+	log.Printf("energy. used:%d,energy:%d\n", used, energy)
+	used = 0
+	energy = defaultEnergy
+}
+
 // SetEnergy set energy
 func SetEnergy(n uint64) {
 	mu.Lock()
@@ -26,7 +33,7 @@ func SetEnergy(n uint64) {
 }
 
 // ConsumeEnergy consume energy
-func ConsumeEnergy(n uint64) {
+func ConsumeEnergy(n uint64) uint64 {
 	if n == 0 {
 		n = 10
 	}
@@ -38,4 +45,5 @@ func ConsumeEnergy(n uint64) {
 		log.Printf("energy.hope:%d,have:%d\n", used, energy)
 		panic("not enough energy")
 	}
+	return energy - used
 }

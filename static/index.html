@@ -4,66 +4,40 @@
 <head>
     <title>GOVM</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- 引入 Bootstrap -->
+    <meta charset="utf-8">
     <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/govm.css" rel="stylesheet">
     <link rel="icon" type="image/x-ico" href="logo.ico" />
     <link rel="shortcut icon" href="logo.ico">
-
-    <!-- HTML5 Shiv 和 Respond.js 用于让 IE8 支持 HTML5元素和媒体查询 -->
-    <!-- 注意： 如果通过 file://  引入 Respond.js 文件，则该文件无法起效果 -->
-    <!--[if lt IE 9]>
-         <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-         <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
-      <![endif]-->
 </head>
 
-<body>
+<body ng-app="">
     <div class="container">
         <div id="navbar"></div>
-        <div class="col-md-12 column">
-            <div class="panel panel-default">
+        <div class="col-md-6 col-md-offset-3">
+            <div class="panel panel-info">
                 <div class="panel-heading">
-                    <h3 class="panel-title" data-localize="admins">
-                        Admins
+                    <h3 class="panel-title text-center" data-localize="search">
+                        Search
                     </h3>
                 </div>
                 <div class="panel-body">
-                    <h3 class="panel-title" data-localize="vote_reward">Vote Reward:10000votes one day</h3>
-                    <div id="vote_rewards">
-                    </div>
-                    <br>
-                    <div id="admins">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="search_key" placeholder="block,transaction,address">
+                        <span class="input-group-btn">
+                            <button class="btn btn-primary" type="button" id="btn_key" data-localize="go">Go!</button>
+                        </span>
                     </div>
                 </div>
+                <ul class="list-group govm_fixed col-12" id="result">
+                </ul>
             </div>
+        </div>
 
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <h3 class="panel-title" data-localize="admin_info">
-                        Admin Details(Including candidates)
-                    </h3>
-                </div>
-                <div class="panel-body">
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="chain">Chain:</span>
-                        <input type="number" min="1" class="form-control" id="chain" value="1">
-                        <span class="input-group-addon label-success">*</span>
-                    </div>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="address">Address</span>
-                        <span class="form-control" id="address"></span>
-                    </div>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="deposit">Deposit</span>
-                        <span class="form-control" id="deposit"></span>
-                    </div>
-                    <div class="input-group">
-                        <span class="input-group-addon" data-localize="votes">Votes</span>
-                        <span class="form-control" id="votes"></span>
-                    </div>
-                    <button type="button" class="btn btn-success pull-right" id="next"
-                        data-localize="next">Next</button>
-                </div>
+        <div class="col-md-8 col-md-offset-2">
+            <ul class="nav nav-pills" id="chain_tabs">
+            </ul>
+            <div class="tab-content govm_fixed col-12" id="tab_contents">
             </div>
         </div>
     </div>
@@ -72,87 +46,144 @@
     <script src="js/jquery-3.3.1.min.js"></script>
     <!-- 包括所有已编译的插件 -->
     <script src="js/bootstrap.min.js"></script>
-    <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
     <script src="js/jquery.localize.min.js"></script>
-    <script src="js/load.js?v=5"></script>
-    <script src="js/encode.js?v=5"></script>
+    <script src="js/load.js?v=3"></script>
 
     <script type="text/javascript">
-        var preAdmin = "";
-        $("#chain").val(gChainID);
-        function getAdmins(chain) {
-            console.log("start to get admins");
-            $("#admins").html("");
-            $.get("/api/v1/" + chain + "/admins", function (data, status) {
-                for (key in data) {
-                    $("#admins").append($("<div class='input-group'>").append(
-                        $("<span class='input-group-addon'></span>").append("Admin" + key)
-                    ).append(
-                        $("<span class='form-control'>").append(data[key])
-                    ));
+        var chainList = [1];
+        var viewObjects = [{ name: "Block", db: "dbBlockData", link: "block.html", lenLimit: 64 },
+        { name: "Transaction", db: "dbTransactionData", link: "transaction.html", lenLimit: 64 },
+        { name: "Address", db: "dbCoin", link: "account.html", lenLimit: 48 }];
+
+        var gBlocks = {};
+
+        function getBlockKey(chain, index, key) {
+            var bk = gBlocks[key];
+            if (bk !== undefined) {
+                var link = "block.html?chain=" + chain + "&key=" + bk
+                var info = "Block:" + index + ", key:" + bk
+                $("#" + key).html($("<a href='" + link + "' title='" + info + "'>").append(info));
+                return
+            }
+            $.get("/api/v1/" + chain + "/block/info?index=" + index, function (data, status) {
+                var link = "block.html?chain=" + chain + "&key=" + data.key
+                var info = "Block:" + index + ", key:" + data.key
+                $("#" + key).html($("<a href='" + link + "' title='" + info + "'>").append(info));
+                if (gBlocks.length > 1000) {
+                    gBlocks = {};
                 }
-                //console.log(data);
-            }).fail(function () {
-            });
+                gBlocks[key] = data.key;
+            })
         }
+        function getBlocks(chain) {
+            // var blocks = $("#c"+chain+"_block");
+            var key = "c" + chain + "_blocks";
 
-        function getNextAdminInfo(chain, pre_key) {
-            $("#address").html("")
-            $("#deposit").html("")
-            $("#votes").html("")
-            $.ajax({
-                type: "GET",
-                url: "/api/v1/" + chain + "/data/visit",
-                data: {
-                    "app_name": "ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
-                    "struct_name": "dbAdmin", "is_db_data": true, "pre_key": pre_key
-                },
-                dataType: "json",
-                success: function (rst) {
-                    if (rst.key === undefined || rst.key == "") {
-                        preAdmin = "";
-                        return
-                    }
-                    preAdmin = rst.key;
-                    $.get("/api/v1/" + chain + "/admin?key=" + rst.key, function (data, status) {
-                        $("#address").html(data.address)
-                        $("#deposit").html(getValueWithBase(data.deposit, "govm") + " govm")
-                        $("#votes").html(data.votes)
-                        //console.log(data);
-                    }).fail(function () {
-                    });
-                },
-                error: function (XMLHttpRequest, textStatus, errorThrown) {
-                    console.log(XMLHttpRequest.responseText);
-                    console.log(textStatus);
-                    preAdmin = "";
-                }
-            });
-        }
-
-        $('#next').on('click', function () {
-            var chain = $("#chain").val();
-            getNextAdminInfo(chain, preAdmin);
-        });
-
-        function getVoteReward(chain) {
-            $.get("/api/v1/" + chain + "/vote_reward", function (data, status) {
-                if (status != "success" || data.reward === undefined) {
+            $.get("/api/v1/" + chain + "/block/info", function (data, status) {
+                var id = data.index;
+                var bk = gBlocks[key + id];
+                if (bk !== undefined) {
                     return
                 }
-                $("#vote_rewards").append($("<div class='input-group'>").append(
-                    $("<span class='input-group-addon'>").append("Chain" + chain)
-                ).append(
-                    $("<span class='form-control'>").append(getValueWithBase(data.reward * 7, "t6") + "govm")
-                ))
-                getVoteReward(chain * 2)
-                getVoteReward(chain * 2 + 1)
+                gBlocks[key + id] = data.key;
+                $("#" + key).html("");
+
+                var now = new Date();
+                var t = new Date();
+                t.setTime(data.time)
+                if (now.getTime() > data.time + 5 * 60 * 1000) {
+                    $("#" + key).append(
+                        $("<li class='list-group-item list-group-item-danger'>").append("Warning,the blocks are too old."))
+                }
+                $("#" + key).append(
+                    $("<li class='list-group-item' title='"+t.toString()+"'>").append("Last Block Time:" + t.toString()))
+                for (var i = id; i > id - 10 && i > 0; i--) {
+                    if (i % 2 == 0) {
+                        $("#" + key).append(
+                            $("<li class='list-group-item list-group-item-info govm_fixed col-12' id='" + key + i + "'>").append("Block:" + i))
+                    } else {
+                        $("#" + key).append(
+                            $("<li class='list-group-item govm_fixed col-12' id='" + key + i + "'>").append("Block:" + i))
+                    }
+                    getBlockKey(chain, i, key + i);
+                }
+
             });
         }
-        
-        getAdmins(gChainID);
-        getNextAdminInfo(gChainID, preAdmin);
-        getVoteReward(1);
+
+        function checkExist(item, chain, key) {
+            var urlStr = "/api/v1/" + chain + "/data/exist?app_name=ff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+            urlStr += "&struct_name=" + item.db + "&is_db_data=true&key=" + key;
+            $.get(urlStr, function (data, status) {
+                if (status == "success") {
+                    console.log("exist key:", chain, item.name, key)
+                    var link = item.link + "?chain=" + chain + "&key=" + key
+                    var info = item.name + ", " + "Chain:" + chain + ", key:" + key
+                    $("#result").append($("<li class='list-group-item govm_fixed col-12'>").append(
+                        $("<a href='" + link + "' title='" + info + "'>").append(
+                            info)
+                    ))
+                }
+            });
+        }
+
+        $("#btn_key").click(function () {
+            var key = $("#search_key").val();
+            if (key == "") {
+                return
+            }
+            $("#result").html("")
+            $.get("/api/v1/chains", function (data, status) {
+                for (var i in data) {
+                    var chain = data[i];
+                    console.log("chain:", chain)
+                    for (var j in viewObjects) {
+                        var item = viewObjects[j];
+                        if (item.lenLimit > 0 && key.length != item.lenLimit) {
+                            console.log("limit,", item.name);
+                            continue;
+                        }
+                        checkExist(item, chain, key)
+                    }
+                }
+            });
+        });
+
+        $.get("/api/v1/chains", function (data, status) {
+            chainList = data;
+            console.log("chains:", chainList)
+            $("#chain_tabs").html("");
+            $("#tab_contents").html("");
+            for (var i in data) {
+                var chain = data[i];
+                var liElement = $("<li  class='bg-success'>");
+                if (i == 0) {
+                    liElement = $("<li class='active  bg-success'>");
+                }
+                liElement.append($("<a href='#tab_chain" + chain + "' data-toggle='tab'>").append("Chain" + chain));
+                $("#chain_tabs").append(liElement);
+
+                var contTab = $("<div class='tab-pane' id='tab_chain" + chain + "'>");
+                if (i == 0) {
+                    contTab = $("<div class='tab-pane active' id='tab_chain" + chain + "'>");
+                }
+                contTab.append($("<div class='panel panel-default'>").append(
+                    $('<div class="panel-heading">').append(
+                        $('<h3 class="panel-title">').append("Blocks")
+                    )
+                ).append(
+                    $("<ul class='list-group' id='c" + chain + "_blocks'>")
+                ))
+                $("#tab_contents").append(contTab);
+                getBlocks(chain);
+            }
+            setInterval(function () {
+                for (var i in chainList) {
+                    var chain = chainList[i];
+                    getBlocks(chain);
+                }
+            }, 20000);
+        });
     </script>
 </body>
 

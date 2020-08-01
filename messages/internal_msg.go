@@ -35,14 +35,6 @@ type Mine struct {
 	Index uint64
 }
 
-// Rollback Rollback
-// type Rollback struct {
-// 	BaseMsg
-// 	Chain uint64
-// 	Index uint64
-// 	Key   []byte
-// }
-
 // ChainEvent ChainEvent
 type ChainEvent struct {
 	BaseMsg
