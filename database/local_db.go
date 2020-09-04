@@ -29,9 +29,12 @@ const (
 	gDbRoot = "db_dir"
 )
 
+// Permission Permission of local database
+var Permission os.FileMode = 0666
+
 // NewLDB new local db
 func NewLDB(name string, cacheCap int) *LDB {
-	os.Mkdir(gDbRoot, 0600)
+	os.Mkdir(gDbRoot, Permission)
 	out := LDB{}
 	out.cacheTB = make(map[string]bool)
 	out.memoryTB = make(map[string]*LRUCache)
@@ -39,7 +42,7 @@ func NewLDB(name string, cacheCap int) *LDB {
 	if name != "" {
 		var err error
 		fn := path.Join(gDbRoot, name)
-		out.ldb, err = bolt.Open(fn, 0600, nil)
+		out.ldb, err = bolt.Open(fn, Permission, nil)
 		if err != nil {
 			log.Println("fail to open file(ldb):", fn, err)
 			return nil

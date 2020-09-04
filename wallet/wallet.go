@@ -50,9 +50,7 @@ func GetHash(in []byte) []byte {
 // NewPrivateKey 获取一个随机的私钥
 func NewPrivateKey() []byte {
 	priKey, _ := btcec.NewPrivateKey(btcec.S256())
-	out := priKey.Serialize()
-	out = append(out, []byte(time.Now().String())...)
-	return GetHash(out)
+	return priKey.Serialize()
 }
 
 // NewChildPrivateKeyOfIBS create child key of the address,time(ms)
