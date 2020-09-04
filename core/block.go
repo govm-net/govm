@@ -211,10 +211,6 @@ func TransListToBytes(in []Hash) []byte {
 
 // WriteTransList write transList to db
 func WriteTransList(chain uint64, transList []Hash) error {
-	// transList := ParseTransList(data)
-	// if len(transList) == 0 {
-	// 	return fmt.Errorf("fail to parse transList")
-	// }
 	hk := GetHashOfTransList(transList)
 	data := TransListToBytes(transList)
 	return runtime.AdminDbSet(dbTransList{}, chain, hk[:], data, 2<<50)
