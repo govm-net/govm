@@ -18,5 +18,6 @@
     "verify_net_data":true,
     "safe_environment":false,
     "restful_log":false,
-    "pprof_addr":""
+    "tls_cert_file":"",
+    "tls_key_file":""
 }

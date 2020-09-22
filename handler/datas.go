@@ -69,6 +69,8 @@ func Init() {
 	ldb.SetNotDisk(ldbProducer, 1000)
 	ldb.SetNotDisk(ldbBlockLocked, 10000)
 	transForMinging = make(map[uint64][]*transInfo)
+	c := conf.GetConf()
+	core.InitDefaultDbMgr(c.DbAddrType, c.DbServerAddr, 20)
 	time.AfterFunc(time.Second*5, updateTimeDifference)
 	time.AfterFunc(time.Second*2, startCheckBlock)
 }
@@ -78,10 +80,7 @@ func SaveBlockRunStat(chain uint64, key []byte, rb BlockRunStat) {
 	if chain == 0 {
 		return
 	}
-	data, err := json.Marshal(rb)
-	if err != nil {
-		log.Fatal(err)
-	}
+	data, _ := json.Marshal(rb)
 	ldb.LSet(chain, ldbBlockRunStat, key, data)
 }
 

@@ -6,7 +6,7 @@
 package counter
 
 import (
-	"fmt"
+	"log"
 	"sort"
 )
 
@@ -45,7 +45,7 @@ func NewBuffer(data []byte) *Buffer {
 // Insert insert
 func (b *Buffer) Insert(pos int, new string) {
 	if pos < 0 || pos > len(b.old) {
-		panic("invalid edit position")
+		log.Panic("invalid edit position")
 	}
 	b.q = append(b.q, edit{pos, pos, new})
 }
@@ -53,7 +53,7 @@ func (b *Buffer) Insert(pos int, new string) {
 // Delete delete
 func (b *Buffer) Delete(start, end int) {
 	if end < start || start < 0 || end > len(b.old) {
-		panic("invalid edit position")
+		log.Panic("invalid edit position")
 	}
 	b.q = append(b.q, edit{start, end, ""})
 }
@@ -61,7 +61,7 @@ func (b *Buffer) Delete(start, end int) {
 // Replace replace
 func (b *Buffer) Replace(start, end int, new string) {
 	if end < start || start < 0 || end > len(b.old) {
-		panic("invalid edit position")
+		log.Panic("invalid edit position")
 	}
 	b.q = append(b.q, edit{start, end, new})
 }
@@ -79,7 +79,7 @@ func (b *Buffer) Bytes() []byte {
 	for i, e := range b.q {
 		if e.start < offset {
 			e0 := b.q[i-1]
-			panic(fmt.Sprintf("overlapping edits: [%d,%d)->%q, [%d,%d)->%q", e0.start, e0.end, e0.new, e.start, e.end, e.new))
+			log.Panicf("overlapping edits: [%d,%d)->%q, [%d,%d)->%q", e0.start, e0.end, e0.new, e.start, e.end, e.new)
 		}
 		new = append(new, b.old[offset:e.start]...)
 		offset = e.end

@@ -23,11 +23,11 @@ func SetEnergy(n uint64) {
 	mu.Lock()
 	defer mu.Unlock()
 	if energy > defaultEnergy {
-		panic(energy)
+		log.Panic("need reset energy first.")
 	}
 	energy += n
 	if energy <= defaultEnergy {
-		panic(energy)
+		log.Panicf("energy:%d < default", energy)
 	}
 	energy -= defaultEnergy
 }
@@ -42,8 +42,7 @@ func ConsumeEnergy(n uint64) uint64 {
 	used += used / 100000
 	used += n
 	if used > energy {
-		log.Printf("energy.hope:%d,have:%d\n", used, energy)
-		panic("not enough energy")
+		log.Panicf("energy.hope:%d,have:%d\n", used, energy)
 	}
 	return energy - used
 }

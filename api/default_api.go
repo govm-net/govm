@@ -30,7 +30,7 @@ import (
 
 var inputString chan string
 
-func init() {
+func initIdentifyingCode() {
 	rand.Seed(time.Now().UnixNano())
 	inputString = make(chan string, 1)
 	if !conf.GetConf().IdentifyingCode {

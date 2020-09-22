@@ -313,7 +313,7 @@ func assertMsg(cond bool, msg interface{}) {
 	}
 }
 
-func (p *processer) initEnv(chain uint64, flag []byte) {
+func (p *processer) initEnv(chain uint64, flag []byte, addrType, address string) {
 	bit := 32 << (^uint(0) >> 63)
 	assertMsg(bit == 64, "only support 64bit system")
 	p.pDbBlockData = p.GetDB(dbBlockData{})
@@ -327,7 +327,7 @@ func (p *processer) initEnv(chain uint64, flag []byte) {
 	p.pDbMiner = p.GetDB(dbMiner{})
 	p.pLogBlockInfo = p.GetLog(logBlockInfo{})
 	p.pLogSync = p.GetLog(logSync{})
-	runt := runtime.NewRuntime("", "")
+	runt := runtime.NewRuntime(addrType, address)
 	runt.SetInfo(chain, flag)
 	p.iRuntime = runt
 	stream, _ := p.DbGet(p.pDbStat.owner, []byte{StatBaseInfo})
@@ -592,9 +592,9 @@ func getBaseOpsEnergy(chain uint64) uint64 {
 	return out + 1
 }
 
-func run(chain uint64, flag []byte) {
+func run(chain uint64, flag []byte, addrType, address string) {
 	var proc processer
-	proc.initEnv(chain, flag)
+	proc.initEnv(chain, flag, addrType, address)
 	key := Hash{}
 	n := proc.Decode(0, flag, &key)
 	assert(n == len(flag))

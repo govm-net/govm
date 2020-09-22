@@ -78,22 +78,18 @@ func NewApp(chain uint64, name []byte, code []byte) {
 		coreFile := path.Join(BuildDir, "./core/core.tmpl")
 		s1, err := template.ParseFiles(coreFile)
 		if err != nil {
-			log.Println("fail to ParseFiles core.tmpl:", err)
-			panic(err)
+			log.Panic("fail to ParseFiles core.tmpl:", err)
 		}
 		f, err := os.Create(dstFileName)
 		if err != nil {
-			log.Println("fail to create run file:", dstFileName, err)
-			panic(err)
+			log.Panic("fail to create run file:", dstFileName, err)
 		}
 		defer f.Close()
 		packPath := GetPackPath(chain, name)
 		info := TAppInfo{hexToPackageName(name), packPath, filePath, chain}
 		err = s1.Execute(f, info)
 		if err != nil {
-			log.Println("fail to execute run file:", dstFileName, err)
-			f.Close()
-			panic(err)
+			log.Panic("fail to execute run file:", dstFileName, err)
 		}
 		return
 	}
@@ -102,7 +98,7 @@ func NewApp(chain uint64, name []byte, code []byte) {
 	n := Decode(code, &nInfo.TAppNewHead)
 	assert(nInfo.Type == 0)
 	if nInfo.Flag >= AppFlagEnd {
-		panic("error flag")
+		log.Panicf("error flag,%x", nInfo.Flag)
 	}
 	if NotRebuild {
 		var needBuild = false
@@ -139,18 +135,18 @@ func NewApp(chain uint64, name []byte, code []byte) {
 		var out bytes.Buffer
 		zr, err := gzip.NewReader(buf)
 		if err != nil {
-			log.Fatal("gzip.NewReader", err)
+			log.Panic("gzip.NewReader", err)
 		}
 		if _, err := io.Copy(&out, zr); err != nil {
-			log.Fatal("io.Copy", err)
+			log.Panic("io.Copy", err)
 		}
 
 		if err := zr.Close(); err != nil {
-			log.Fatal("zr.Close()", err)
+			log.Panic("zr.Close()", err)
 		}
 		code, err = ioutil.ReadAll(&out)
 		if err != nil {
-			log.Fatal("ioutil.ReadAll", err)
+			log.Panic("ioutil.ReadAll", err)
 		}
 	}
 
@@ -169,8 +165,7 @@ func NewApp(chain uint64, name []byte, code []byte) {
 	//生成原始代码文件
 	f, err := os.Create(srcRelFN)
 	if err != nil {
-		log.Println("fail to create go file:", srcRelFN, err)
-		panic(err)
+		log.Panic("fail to create go file:", srcRelFN, err)
 	}
 	createSourceFile(chain, appName, nInfo.Depends, code, f)
 	f.Close()
@@ -186,15 +181,13 @@ func NewApp(chain uint64, name []byte, code []byte) {
 
 	err = cmd.Run()
 	if err != nil {
-		log.Println("fail to build source file:", srcFilePath, err)
-		panic(err)
+		log.Panic("fail to build source file:", srcFilePath, err)
 	}
 
 	//为原始代码添加代码统计，生成目标带统计的代码文件
 	lineNum := counter.Annotate(srcRelFN, dstRelFN)
 	if lineNum != uint64(nInfo.LineNum) {
-		log.Println("error line number:", lineNum, ",hope:", nInfo.LineNum)
-		panic(lineNum)
+		log.Panic("error line number:", lineNum, ",hope:", nInfo.LineNum)
 	}
 
 	//再次编译，确认没有代码冲突
@@ -208,8 +201,7 @@ func NewApp(chain uint64, name []byte, code []byte) {
 	}
 	err = cmd.Run()
 	if err != nil {
-		log.Println("fail to build source file:", srcFilePath, err)
-		panic(err)
+		log.Panic("fail to build source file:", srcFilePath, err)
 	}
 
 	if nInfo.Flag&AppFlagRun != 0 {
@@ -220,11 +212,11 @@ func NewApp(chain uint64, name []byte, code []byte) {
 
 func createSourceFile(chain uint64, packName string, depends []TDependItem, code []byte, w io.Writer) {
 	if bytes.Index(code, []byte("import")) != -1 {
-		panic("code include 'import'")
+		log.Panic("code include 'import'")
 	}
 
 	if bytes.Index(code, []byte("_consume_tip_")) != -1 {
-		panic("code include '_consume_tip_'")
+		log.Panic("code include '_consume_tip_'")
 	}
 
 	w.Write([]byte("package "))
@@ -269,24 +261,20 @@ func makeAppExe(chain uint64, name []byte) {
 	info := TAppInfo{hexToPackageName(name), packPath, corePath, chain}
 	s1, err := template.ParseFiles(path.Join(BuildDir, "run.tmpl"))
 	if err != nil {
-		log.Println("fail to ParseFiles run.tmpl:", err)
-		panic(err)
+		log.Panic("fail to ParseFiles run.tmpl:", err)
 	}
 	realPath := GetFullPathOfApp(chain, name)
 	runFile := path.Join(BuildDir, realPath, "run.go")
 	defer os.Remove(runFile)
 	f, err := os.Create(runFile)
 	if err != nil {
-		log.Println("fail to create run file:", runFile, err)
-		panic(err)
+		log.Panic("fail to create run file:", runFile, err)
 	}
 	err = s1.Execute(f, info)
-	if err != nil {
-		log.Println("fail to execute run file:", runFile, err)
-		f.Close()
-		panic(err)
-	}
 	f.Close()
+	if err != nil {
+		log.Panic("fail to execute run file:", runFile, err)
+	}
 	// log.Println("create fun file:", runFile)
 	fn := path.Join(projectRoot, "app_main", fmt.Sprintf("chain%d_%d", chain, time.Now().UnixNano()), "main.go")
 	relFN := path.Join(BuildDir, fn)
@@ -312,8 +300,7 @@ func makeAppExe(chain uint64, name []byte) {
 	}
 	err = cmd.Run()
 	if err != nil {
-		log.Println("fail to build source file:", exeFile, fn, err)
-		panic(err)
+		log.Panic("fail to build source file:", exeFile, fn, err)
 	}
 	binFile := path.Join(BuildDir, realPath, execName)
 	os.Remove(binFile)
@@ -322,6 +309,7 @@ func makeAppExe(chain uint64, name []byte) {
 
 // RebuildApp rebuild app
 func RebuildApp(chain uint64, dir string) error {
+	log.Println("rebuild app:", chain, dir)
 	err := filepath.Walk(dir, func(fPath string, f os.FileInfo, err error) error {
 		if f == nil {
 			return err

@@ -2,24 +2,19 @@ package runtime
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"encoding/gob"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/govm-net/govm/database"
 	"github.com/govm-net/govm/wallet"
-	"github.com/lengzhao/database/client"
 	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"path"
 	"reflect"
 	"strings"
 	"sync"
-	"time"
 )
 
 // EventFilter event filter, show or drop app event
@@ -27,6 +22,11 @@ type EventFilter struct {
 	sw map[string]string
 	mu sync.Mutex
 }
+
+const (
+	tbOfRunParam  = "app_run"
+	tbOfRunResult = "app_result"
+)
 
 // Module go.mod
 var (
@@ -53,9 +53,7 @@ func Encode(in interface{}) []byte {
 	buf := new(bytes.Buffer)
 	err := binary.Write(buf, binary.BigEndian, in)
 	if err != nil {
-		log.Println("fail to encode interface:", reflect.TypeOf(in).String(), in)
-		panic(err)
-		// return nil
+		log.Panic("fail to encode interface:", reflect.TypeOf(in).String(), in)
 	}
 	return buf.Bytes()
 }
@@ -65,10 +63,8 @@ func Decode(in []byte, out interface{}) int {
 	buf := bytes.NewReader(in)
 	err := binary.Read(buf, binary.BigEndian, out)
 	if err != nil {
-		log.Println("fail to decode interface:", in[:20], len(in))
-		log.Printf("type:%T\n", out)
-		panic(err)
-		//return 0
+		log.Panicf("fail to decode interface,data len:%d,data:%x,type:%T",
+			len(in), in[:20], out)
 	}
 	return len(in) - buf.Len()
 }
@@ -77,8 +73,7 @@ func Decode(in []byte, out interface{}) int {
 func JSONEncode(in interface{}) []byte {
 	d, err := json.Marshal(in)
 	if err != nil {
-		log.Println("fail to encode interface:", reflect.TypeOf(in).String(), err)
-		panic(err)
+		log.Panic("fail to encode interface:", reflect.TypeOf(in).String(), err)
 	}
 	return d
 }
@@ -87,8 +82,7 @@ func JSONEncode(in interface{}) []byte {
 func JSONDecode(in []byte, out interface{}) int {
 	err := json.Unmarshal(in, out)
 	if err != nil {
-		log.Println("fail to decode interface:", reflect.TypeOf(out).String())
-		panic(err)
+		log.Panic("fail to decode interface:", reflect.TypeOf(out).String())
 	}
 	return 0
 }
@@ -99,8 +93,7 @@ func GobEncode(in interface{}) []byte {
 	enc := gob.NewEncoder(&buf)
 	err := enc.Encode(in)
 	if err != nil {
-		log.Println("fail to encode interface:", reflect.TypeOf(in).String(), err)
-		panic(err)
+		log.Panic("fail to encode interface:", reflect.TypeOf(in).String(), err)
 	}
 	return buf.Bytes()
 }
@@ -111,8 +104,7 @@ func GobDecode(in []byte, out interface{}) int {
 	dec := gob.NewDecoder(buf)
 	err := dec.Decode(out)
 	if err != nil {
-		log.Println("fail to decode interface:", reflect.TypeOf(out).String())
-		panic(err)
+		log.Panic("fail to decode interface:", reflect.TypeOf(out).String())
 	}
 	return len(in) - buf.Len()
 }
@@ -141,68 +133,6 @@ type TRunParam struct {
 	Cost      uint64
 	Energy    uint64
 	ErrorInfo string
-}
-
-// RunApp run app
-func RunApp(client *client.Client, flag []byte, chain uint64, mode string, appName, user, data []byte, energy, cost uint64) {
-	args := TRunParam{chain, flag, user, data, cost, energy, ""}
-	var buf bytes.Buffer
-	var err error
-	enc := gob.NewEncoder(&buf)
-	enc.Encode(args)
-	var paramKey []byte
-	if client == nil {
-		client = database.GetClient()
-	}
-	if mode == "" {
-		paramKey = []byte(hexToPackageName(appName))
-	} else {
-		paramKey = []byte("test")
-	}
-	err = client.Set(chain, []byte("app_run"), paramKey, buf.Bytes())
-	if err != nil {
-		log.Println("[db]fail to write data.", err)
-		panic("retry")
-	}
-	appPath := GetFullPathOfApp(chain, appName)
-	appPath = path.Join(AppPath, appPath, execName)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-	defer cancel()
-
-	var cmd *exec.Cmd
-	if mode != "" {
-		cmd = exec.CommandContext(ctx, appPath, "-mode", mode)
-	} else {
-		cmd = exec.CommandContext(ctx, appPath)
-	}
-
-	cmd.Dir = RunDir
-	cmd.Stdout = log.Writer()
-	cmd.Stderr = log.Writer()
-	err = cmd.Run()
-	if err != nil {
-		log.Println("fail to exec app.", err)
-		panic("retry")
-	}
-	var d []byte
-	d = client.Get(chain, []byte("app_run"), paramKey)
-	if len(d) == 0 {
-		log.Println("[db]fail to get data.")
-		panic("retry")
-	}
-
-	rst := bytes.NewBuffer(d)
-	dec := gob.NewDecoder(rst)
-	err = dec.Decode(&args)
-	if err != nil {
-		log.Println("decode error:", err)
-		panic("retry")
-	}
-
-	if args.ErrorInfo != "ok" {
-		panic(args.ErrorInfo)
-	}
 }
 
 func createDir(dirName string) {
