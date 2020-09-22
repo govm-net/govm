@@ -39,6 +39,12 @@ func init() {
 
 // GetHash get data hash
 func GetHash(in []byte) []byte {
+	defer func() {
+		err := recover()
+		if err != nil {
+			log.Println("fail to do hash.", err)
+		}
+	}()
 	sha := sha3.New256()
 	if len(hashPrefix) > 0 {
 		sha.Write(hashPrefix)

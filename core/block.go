@@ -139,20 +139,6 @@ func getTransHash(t1, t2 Hash) Hash {
 	return hashKey
 }
 
-// SetTransList SetTransList
-// func (b *StBlock) SetTransList(list []Hash) {
-// 	if len(list) == 0 {
-// 		return
-// 	}
-// 	hk := GetHashOfTransList(list)
-// 	b.TransListHash = hk
-// 	var data []byte
-// 	for _, it := range list {
-// 		data = append(data, it[:]...)
-// 	}
-// 	runtime.AdminDbSet(dbTransList{}, b.Chain, hk[:], data, 2<<50)
-// }
-
 //GetSignData GetSignData
 func (b *StBlock) GetSignData() []byte {
 	b.Nonce++
@@ -397,7 +383,9 @@ func ProcessBlockOfChain(chain uint64, key []byte) (err error) {
 	}
 	defer client.Cancel(chain, key)
 
-	run(chain, key)
+	at, ad := client.GetAddress()
+
+	run(chain, key, at, ad)
 	client.Commit(chain, key)
 	return err
 }

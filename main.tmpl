@@ -4,13 +4,11 @@ import (
 	app "{{.PackPath}}"
 	"bytes"
 	"encoding/gob"
-	"encoding/json"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"github.com/govm-net/govm/counter"
-	"github.com/govm-net/govm/conf"
 	"github.com/lengzhao/database/client"
-	"io/ioutil"
 	"log"
 	sysr "runtime"
 	"runtime/debug"
@@ -21,81 +19,63 @@ type TAppRPC struct{}
 
 // TRunParam Run接口的入参
 type TRunParam struct {
-	Chain     uint64 `json:"chain,omitempty"`
-	Flag      []byte `json:"flag,omitempty"`
-	User      []byte `json:"user,omitempty"`
-	Data      []byte `json:"data,omitempty"`
-	Cost      uint64 `json:"cost,omitempty"`
-	Energy    uint64 `json:"energy,omitempty"`
-	CheckSum  byte   `json:"check_sum,omitempty"`
-	ErrorInfo string `json:"error_info,omitempty"`
+	Chain    uint64 `json:"chain,omitempty"`
+	Flag     []byte `json:"flag,omitempty"`
+	User     []byte `json:"user,omitempty"`
+	Data     []byte `json:"data,omitempty"`
+	Cost     uint64 `json:"cost,omitempty"`
+	Energy   uint64 `json:"energy,omitempty"`
+	CheckSum byte   `json:"check_sum,omitempty"`
 }
+
+const (
+	tbOfRunParam  = "app_run"
+	tbOfRunResult = "app_result"
+)
 
 func main() {
 	args := TRunParam{}
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
 	log.Println("[app]start. {{.PackPath}}")
-	fn := flag.String("file", "", "data file,if empty,read data from database(json)")
-	mode := flag.String("mode", "", "enable set 'test' mode,it will not write data to database")
+	var addrType, address, tx, mode, dbFlag string
+	flag.StringVar(&addrType, "at", "tcp", "address type of db server")
+	flag.StringVar(&address, "addr", "127.0.0.1:17777", "address of db server")
+	flag.StringVar(&tx, "tx", "", "transaction hash")
+	flag.StringVar(&mode, "m", "", "check mode")
+	flag.StringVar(&dbFlag, "f", "", "db flag(block key)")
 	flag.Parse()
-	var paramKey []byte
-	
-	c := conf.GetConf()
-	dbc := client.New(c.DbAddrType, c.DbServerAddr, 1)
-	if *mode == "" {
-		paramKey = []byte("{{.AppName}}")
-	} else {
-		paramKey = []byte("test")
+	log.Println("params:", addrType, address, tx, mode, dbFlag)
+	paramKey, err := hex.DecodeString(tx)
+	if err != nil || len(paramKey) == 0 {
+		log.Panic("error tx.", tx, err)
 	}
+	dbc := client.New(addrType, address, 1)
+
 	defer func() {
 		e := recover()
+		var rst = "success"
 		if e != nil {
 			log.Println("fail to run app:{{.PackPath}} ", e)
 			log.Println(string(debug.Stack()))
-			args.ErrorInfo = fmt.Sprintf("error message:%s", e)
-			args.Data = nil
+			rst = fmt.Sprintf("error message:%s", e)
 		}
-		if *fn != "" {
-			log.Printf("result:%x\n", args.ErrorInfo)
-			return
-		}
-		var buf bytes.Buffer
-		enc := gob.NewEncoder(&buf)
-		enc.Encode(args)
-		dbc.Set({{.ChainID}}, []byte("app_run"), paramKey, buf.Bytes())
+		dbc.Set({{.ChainID}}, []byte(tbOfRunResult), paramKey, []byte(rst))
 		dbc.Close()
 	}()
 	var d []byte
-	var err error
-	if *fn != "" {
-		d, err = ioutil.ReadFile(*fn)
-		if err != nil {
-			log.Println("fail to read data from", *fn)
-			return
-		}
-		err = json.Unmarshal(d, &args)
-		if err != nil {
-			log.Println("fail to Unmarshal parament from", *fn, err)
-			return
-		}
-	} else {
-		d = dbc.Get({{.ChainID}}, []byte("app_run"), paramKey)
-		if len(d) == 0 {
-			log.Println("[db]fail to get data.")
-			panic("retry")
-		}
-		rst := bytes.NewBuffer(d)
-		dec := gob.NewDecoder(rst)
-		err = dec.Decode(&args)
-		if err != nil {
-			log.Println("decode error:", err)
-			panic("retry")
-		}
+	d = dbc.Get({{.ChainID}}, []byte(tbOfRunParam), paramKey)
+	if len(d) == 0 {
+		log.Panic("[db]fail to get data.")
+	}
+	rst := bytes.NewBuffer(d)
+	dec := gob.NewDecoder(rst)
+	err = dec.Decode(&args)
+	if err != nil {
+		log.Panic("fail to decode param:", err)
 	}
 
 	if len(args.User) == 0 {
-		log.Printf("fail to get parament,%x", d)
-		panic("retry")
+		log.Panic("empty user")
 	}
 	counter.SetEnergy(args.Energy)
 	app.GoVMRun(args.User, args.Data, args.Cost)
@@ -104,11 +84,10 @@ func main() {
 	sysr.ReadMemStats(&mem)
 
 	var memLimit uint64 = 4 * 1024 * 1024 * 1024
-	if *mode != "" {
+	if mode != "" {
 		memLimit = 3 * 1024 * 1024 * 1024
 	}
 	if mem.TotalAlloc > memLimit {
-		panic(fmt.Sprintf("used too much memory:%d, over 4G", mem.TotalAlloc))
+		log.Panicf("used too much memory:%d, over 4G", mem.TotalAlloc)
 	}
-	args.ErrorInfo = "ok"
 }

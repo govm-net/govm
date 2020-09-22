@@ -42,6 +42,7 @@ type WSRoutes []WSRoute
 
 // NewRouter 创建http路由
 func NewRouter() *mux.Router {
+	go initIdentifyingCode()
 	router := mux.NewRouter().StrictSlash(true)
 
 	for _, route := range routes {

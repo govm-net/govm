@@ -3,9 +3,7 @@ package api
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"strconv"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/govm-net/govm/conf"
@@ -49,14 +47,14 @@ func (h *hub) run() {
 			} else {
 				_, ok := h.clients[c.peer]
 				if ok {
-					log.Println("exist peer:", c.peer)
+					// log.Println("exist peer:", c.peer)
 					c.peer = ""
 					close(c.send)
 					break
 				}
 			}
 			stat.Add("ws_connect", 1)
-			log.Println("ws connect number:", len(h.clients), c.peer)
+			// log.Println("ws connect number:", len(h.clients), c.peer)
 			h.clients[c.peer] = c
 			minerNum = len(h.clients)
 			m := messages.MinerInfo{}
@@ -127,7 +125,7 @@ func (h *hub) broadcastMessage() {
 
 var h = hub{
 	broadcast:  make(chan *messages.BlockForMining, 10),
-	register:   make(chan *wsConn),
+	register:   make(chan *wsConn, 10),
 	unregister: make(chan *wsConn),
 	clients:    make(map[string]*wsConn),
 	content:    nil,
@@ -183,12 +181,6 @@ func WSBlockForMining(ws *websocket.Conn) {
 		return
 	}
 	c.peer = fmt.Sprintf("c%d_k%x", chain, info.Address)
-	now := time.Now().Unix()
-	if info.Time > now+120 || now > info.Time+120 {
-		log.Println("error time")
-		ws.Write([]byte("error time"))
-		return
-	}
 
 	go func() {
 		msg := make([]byte, 10)
@@ -201,7 +193,12 @@ func WSBlockForMining(ws *websocket.Conn) {
 		h.unregister <- c
 	}()
 
-	h.register <- c
+	select {
+	case h.register <- c:
+	default:
+		return
+	}
+
 	for {
 		data, ok := <-c.send
 		if !ok {

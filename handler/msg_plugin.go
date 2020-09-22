@@ -10,11 +10,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"time"
 
 	"github.com/govm-net/govm/conf"
 	core "github.com/govm-net/govm/core"
 	"github.com/govm-net/govm/database"
+	"github.com/govm-net/govm/event"
 	"github.com/govm-net/govm/messages"
 	"github.com/govm-net/govm/runtime"
 	"github.com/lengzhao/libp2p"
@@ -165,6 +167,7 @@ func createSystemAPP(chain uint64) {
 	core.CreateBiosTrans(chain)
 	createSystemAPP(2 * chain)
 	createSystemAPP(2*chain + 1)
+	runtime.RebuildApp(chain, path.Dir(runtime.GetFullPathOfApp(chain, nil)))
 }
 
 func processBlock(chain uint64, key, data []byte) (err error) {

@@ -89,14 +89,14 @@ func (f *File) findText(pos token.Pos, text string) int {
 func (f *File) Visit(node ast.Node) ast.Visitor {
 	switch n := node.(type) {
 	case *ast.GoStmt:
-		panic("not support 'go'")
+		log.Panic("not support 'go'")
 	case *ast.SelectStmt:
-		panic("not support 'select'")
+		log.Panic("not support 'select'")
 	case *ast.RangeStmt:
-		panic("not support 'range'")
+		log.Panic("not support 'range'")
 	case *ast.Ident:
 		if n.Name == "cap" || n.Name == "print" || n.Name == "println" || n.Name == "recover" {
-			panic("not support 'cap,print,println,recover'")
+			log.Panic("not support 'cap,print,println,recover'")
 		}
 	case *ast.BlockStmt:
 		// If it's a switch or select, the body is a list of case clauses; don't tag the block itself.
@@ -139,7 +139,7 @@ func (f *File) Visit(node ast.Node) ast.Visitor {
 		//	}
 		elseOffset := f.findText(n.Body.End(), "else")
 		if elseOffset < 0 {
-			panic("lost else")
+			log.Panic("lost else")
 		}
 		f.edit.Insert(elseOffset+4, "{")
 		f.edit.Insert(f.offset(n.Else.End()), "}")
@@ -160,7 +160,7 @@ func (f *File) Visit(node ast.Node) ast.Visitor {
 		case *ast.BlockStmt:
 			stmt.Lbrace = pos
 		default:
-			panic("unexpected node type in if")
+			log.Panic("unexpected node type in if")
 		}
 		ast.Walk(f, n.Else)
 		return nil
@@ -192,8 +192,7 @@ func (f *File) Visit(node ast.Node) ast.Visitor {
 func unquote(s string) string {
 	t, err := strconv.Unquote(s)
 	if err != nil {
-		log.Printf("cover: improperly quoted string %q,err:%s\n", s, err)
-		panic(err)
+		log.Panicf("cover: improperly quoted string %q,err:%s\n", s, err)
 	}
 	return t
 }
@@ -205,13 +204,11 @@ func Annotate(name, output string) uint64 {
 	fset := token.NewFileSet()
 	content, err := ioutil.ReadFile(name)
 	if err != nil {
-		log.Printf("cover: %s: %s\n", name, err)
-		panic(err)
+		log.Panicf("cover: %s: %s\n", name, err)
 	}
 	parsedFile, err := parser.ParseFile(fset, name, content, parser.ParseComments)
 	if err != nil {
-		log.Printf("cover: %s: %s\n", name, err)
-		panic(err)
+		log.Panicf("cover: %s: %s\n", name, err)
 	}
 
 	file := &File{
@@ -239,8 +236,7 @@ func Annotate(name, output string) uint64 {
 	createDir(path.Dir(output))
 	fd, err := os.Create(output)
 	if err != nil {
-		log.Printf("cover: file:%s, error:%s", output, err)
-		panic(err)
+		log.Panicf("cover: file:%s, error:%s", output, err)
 	}
 	defer fd.Close()
 

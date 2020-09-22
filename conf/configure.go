@@ -36,7 +36,6 @@ type TConfig struct {
 	MinerConnLimit  int    `json:"miner_conn_limit,omitempty"`
 	VerifyNetData   bool   `json:"verify_net_data,omitempty"`
 	SafeEnvironment bool   `json:"safe_environment,omitempty"`
-	PProfAddr       string `json:"pprof_addr,omitempty"`
 	RestfulLog      bool   `json:"restful_log,omitempty"`
 }
 
@@ -48,6 +47,8 @@ var (
 	BuildTime string
 	// GitHead git head
 	GitHead string
+
+	loadFinish bool
 )
 
 func init() {
@@ -56,12 +57,6 @@ func init() {
 		log.Println("must be 64 bit system")
 		os.Exit(2)
 	}
-	err := loadConfig()
-	if err != nil {
-		log.Println("fail to read file,conf.json,", err)
-		os.Exit(2)
-	}
-	log.Printf("software version:%s,build time:%s,git head:%s", Version, BuildTime, GitHead)
 }
 
 func loadConfig() error {
@@ -100,12 +95,15 @@ func loadConfig() error {
 	if conf.TrustedServer == "" {
 		conf.TrustedServer = "http://govm.net:9090"
 	}
-
+	loadFinish = true
 	return nil
 }
 
 // GetConf get configure
 func GetConf() TConfig {
+	if !loadFinish {
+		loadConfig()
+	}
 	return conf
 }
 

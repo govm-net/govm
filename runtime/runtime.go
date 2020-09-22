@@ -1,11 +1,18 @@
 package runtime
 
 import (
+	"bytes"
+	"context"
+	"encoding/gob"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
+	"os/exec"
+	"path"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/govm-net/govm/counter"
 	db "github.com/govm-net/govm/database"
@@ -17,10 +24,10 @@ import (
 type TRuntime struct {
 	Chain    uint64
 	Flag     []byte
-	testMode bool
+	addrType string
+	address  string
+	mode     string
 	db       *client.Client
-	dbData   map[string][]byte
-	logData  map[string][]byte
 }
 
 const (
@@ -36,12 +43,13 @@ func assert(cond bool) {
 
 // NewRuntime input address of database
 func NewRuntime(addrType, address string) *TRuntime {
-	out := new(TRuntime)
-	if address != "" {
-		out.db = client.New(addrType, address, 1)
-	} else {
-		out.db = db.GetClient()
+	if address == "" {
+		return nil
 	}
+	out := new(TRuntime)
+	out.db = client.New(addrType, address, 1)
+	out.addrType = addrType
+	out.address = address
 	return out
 }
 
@@ -51,11 +59,9 @@ func (r *TRuntime) SetInfo(chain uint64, flag []byte) {
 	r.Chain = chain
 }
 
-// SetTestMode set test mode,it will not write data to database
-func (r *TRuntime) SetTestMode() {
-	r.testMode = true
-	r.dbData = make(map[string][]byte)
-	r.logData = make(map[string][]byte)
+// SetMode 设置模式，如检查模式
+func (r *TRuntime) SetMode(mode string) {
+	r.mode = mode
 }
 
 // GetHash 计算hash值
@@ -81,7 +87,7 @@ func (r *TRuntime) Encode(typ uint8, in interface{}) []byte {
 	case EncGob:
 		out = GobEncode(in)
 	default:
-		panic("not support encode type")
+		log.Panicf("not support encode type,%d", typ)
 	}
 	return out
 }
@@ -97,7 +103,7 @@ func (r *TRuntime) Decode(typ uint8, in []byte, out interface{}) int {
 	case EncGob:
 		rst = GobDecode(in, out)
 	default:
-		panic("not support decode type")
+		log.Panicf("not support decode type,%d", typ)
 	}
 	return rst
 }
@@ -106,7 +112,7 @@ func (r *TRuntime) Decode(typ uint8, in []byte, out interface{}) int {
 func (r *TRuntime) JSONEncode(in interface{}) []byte {
 	out, err := json.Marshal(in)
 	if err != nil {
-		panic(in)
+		log.Panic("fail to json encode", in, err)
 	}
 	return out
 }
@@ -115,7 +121,7 @@ func (r *TRuntime) JSONEncode(in interface{}) []byte {
 func (r *TRuntime) JSONDecode(in []byte, out interface{}) {
 	err := json.Unmarshal(in, out)
 	if err != nil {
-		panic(in)
+		log.Panic("fail to json decode", string(in), err)
 	}
 }
 
@@ -165,14 +171,9 @@ func (r *TRuntime) DbSet(owner interface{}, key, value []byte, life uint64) {
 		value = append(value, r.Encode(0, life)...)
 	}
 
-	if r.testMode {
-		k := fmt.Sprintf("%s_%x", tbName, key)
-		r.dbData[k] = value
-		return
-	}
 	err := r.db.SetWithFlag(r.Chain, r.Flag, tbName, key, value)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
 
@@ -180,16 +181,9 @@ func (r *TRuntime) DbSet(owner interface{}, key, value []byte, life uint64) {
 func (r *TRuntime) DbGet(owner interface{}, key []byte) ([]byte, uint64) {
 	assert(r.Chain > 0)
 	var data []byte
-	var ok bool
 	tbName := GetStructName(owner)
-	if r.testMode {
-		k := fmt.Sprintf("%s_%x", tbName, key)
-		data, ok = r.dbData[k]
-	}
-	if !ok {
-		data = r.db.Get(r.Chain, tbName, key)
-	}
 
+	data = r.db.Get(r.Chain, tbName, key)
 	if len(data) == 0 {
 		return nil, 0
 	}
@@ -212,14 +206,9 @@ func (r *TRuntime) LogWrite(owner interface{}, key, value []byte, life uint64) {
 	assert(r.Flag != nil)
 	tbName := getNameOfLogDB(owner)
 	value = append(value, r.Encode(0, life)...)
-	if r.testMode {
-		k := fmt.Sprintf("%s_%x", tbName, key)
-		r.logData[k] = value
-		return
-	}
 	err := r.db.SetWithFlag(r.Chain, r.Flag, tbName, key, value)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 	// log.Printf("write log data.chain:%d,tb:%s,key:%x\n", r.Chain, tbName, key)
 }
@@ -244,7 +233,6 @@ func getLogicDist(c1, c2 uint64) uint64 {
 func (r *TRuntime) LogRead(owner interface{}, chain uint64, key []byte) ([]byte, uint64) {
 	assert(r.Chain > 0)
 	var data []byte
-	var ok bool
 	tbName := getNameOfLogDB(owner)
 	if chain == 0 {
 		chain = r.Chain
@@ -258,13 +246,7 @@ func (r *TRuntime) LogRead(owner interface{}, chain uint64, key []byte) ([]byte,
 			assert(r.Chain < chain+3)
 		}
 	}
-	if chain == r.Chain {
-		k := fmt.Sprintf("%s_%x", tbName, key)
-		data, ok = r.logData[k]
-	}
-	if !ok {
-		data = r.db.Get(chain, tbName, key)
-	}
+	data = r.db.Get(chain, tbName, key)
 
 	if len(data) == 0 {
 		// log.Printf("fail to read log data.self:%d,chain:%d,tb:%s,key:%x\n", r.Chain, chain, tbName, key)
@@ -355,16 +337,16 @@ func (r *TRuntime) Recover(address, sign, msg []byte) bool {
 func GetStructName(owner interface{}) []byte {
 	kind := reflect.ValueOf(owner).Kind()
 	if kind != reflect.Struct {
-		panic(owner)
+		log.Panic(owner)
 	}
 	typ := reflect.TypeOf(owner).String()
 	typeSplic := strings.Split(typ, ".")
 	if len(typeSplic) != 2 {
-		panic(typ)
+		log.Panic(typ)
 	}
 	startChar := typeSplic[1][0]
 	if startChar < 'a' || startChar > 'z' {
-		panic(typ)
+		log.Panic(typ)
 	}
 	out := []byte(typ)
 	out[0] = startOfDB
@@ -375,16 +357,16 @@ func GetStructName(owner interface{}) []byte {
 func getNameOfLogDB(owner interface{}) []byte {
 	kind := reflect.ValueOf(owner).Kind()
 	if kind != reflect.Struct {
-		panic(owner)
+		log.Panic(owner)
 	}
 	typ := reflect.TypeOf(owner).String()
 	typeSplic := strings.Split(typ, ".")
 	if len(typeSplic) != 2 {
-		panic(typ)
+		log.Panic(typ)
 	}
 	startChar := typeSplic[1][0]
 	if startChar < 'a' || startChar > 'z' {
-		panic(typ)
+		log.Panic(typ)
 	}
 	out := []byte(typ)
 	out[0] = startOfLog
@@ -402,12 +384,51 @@ func (r *TRuntime) NewApp(name []byte, code []byte) {
 }
 
 // RunApp 执行app，返回执行的指令数量
-func (r *TRuntime) RunApp(name, user, data []byte, energy, cost uint64) {
+func (r *TRuntime) RunApp(appName, user, data []byte, energy, cost uint64) {
 	// log.Println("run app:", "a"+hex.EncodeToString(name))
-	if r.testMode {
-		RunApp(r.db, r.Flag, r.Chain, "test", name, user, data, energy, cost)
-	} else {
-		RunApp(r.db, r.Flag, r.Chain, "", name, user, data, energy, cost)
+	args := TRunParam{r.Chain, r.Flag, user, data, cost, energy, ""}
+	var buf bytes.Buffer
+	var err error
+	enc := gob.NewEncoder(&buf)
+	enc.Encode(args)
+	var paramKey []byte
+
+	paramKey = Encode(time.Now().UnixNano())
+	paramKey = append(paramKey, appName...)
+
+	err = r.db.Set(r.Chain, []byte(tbOfRunParam), paramKey, buf.Bytes())
+	if err != nil {
+		log.Panic("[db]fail to write data.", err)
+	}
+	appPath := GetFullPathOfApp(r.Chain, appName)
+	appPath = path.Join(AppPath, appPath, execName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, appPath)
+	cmd.Args = append(cmd.Args, "-addr", r.address)
+	cmd.Args = append(cmd.Args, "-at", r.addrType)
+	cmd.Args = append(cmd.Args, "-f", hex.EncodeToString(r.Flag))
+	cmd.Args = append(cmd.Args, "-tx", hex.EncodeToString(paramKey))
+	if r.mode != "" {
+		cmd.Args = append(cmd.Args, "-m", r.mode)
+	}
+	cmd.Dir = RunDir
+	cmd.Stdout = log.Writer()
+	cmd.Stderr = log.Writer()
+	err = cmd.Run()
+	if err != nil {
+		log.Panic("fail to exec app.", err)
+	}
+	var d []byte
+	d = r.db.Get(r.Chain, []byte(tbOfRunResult), paramKey)
+	if len(d) == 0 {
+		log.Panic("[db]fail to get result.")
+	}
+
+	if string(d) != "success" {
+		log.Panicf("fail to run app,chain:%d,err:%s", r.Chain, string(d))
 	}
 }
 
@@ -433,5 +454,6 @@ func (r *TRuntime) ConsumeEnergy(energy uint64) {
 
 // OtherOps extesion api
 func (r *TRuntime) OtherOps(user interface{}, ops int, data []byte) []byte {
-	panic("not support")
+	log.Panic("not support")
+	return nil
 }

@@ -1,8 +1,11 @@
 package zff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
+	"log"
 	"os"
 
 	"github.com/govm-net/govm/runtime"
@@ -97,13 +100,13 @@ type BaseInfo struct {
 type processer struct {
 	BaseInfo
 	iRuntime
-	pDbTransInfo       *DB
-	pDbCoin            *DB
-	pDbStat            *DB
-	pDbApp             *DB
-	pDbDepend          *DB
-	pLogSync           *Log
-	pLogBlockInfo      *Log
+	pDbTransInfo  *DB
+	pDbCoin       *DB
+	pDbStat       *DB
+	pDbApp        *DB
+	pDbDepend     *DB
+	pLogSync      *Log
+	pLogBlockInfo *Log
 }
 
 // time
@@ -214,7 +217,7 @@ func (h *Hash) UnmarshalJSON(b []byte) error {
 }
 
 // ToHexString encode to hex string
-func (h Hash) ToHexString() string{
+func (h Hash) ToHexString() string {
 	return hex.EncodeToString(h[:])
 }
 
@@ -250,7 +253,7 @@ func (a *Address) Decode(hexStr string) {
 }
 
 // ToHexString encode to hex string
-func (a Address) ToHexString() string{
+func (a Address) ToHexString() string {
 	return hex.EncodeToString(a[:])
 }
 
@@ -275,20 +278,30 @@ func init() {
 	gBS.pLogBlockInfo = GetLog(logBlockInfo{})
 	gBS.pLogSync = GetLog(logSync{})
 
-	runt := runtime.NewRuntime("", "")
-	for _, arg := range os.Args {
-		if arg == "-mode" {
-			runt.SetTestMode()
-		}
+	var addrType, address, dbFlag string
+	var commandLine = flag.NewFlagSet("core", flag.ContinueOnError)
+	commandLine.StringVar(&addrType, "at", "tcp", "address type of db server")
+	commandLine.StringVar(&address, "addr", "127.0.0.1:17777", "address of db server")
+	commandLine.StringVar(&dbFlag, "f", "", "db flag(block key)")
+
+	commandLine.Parse(os.Args[1:])
+
+	f, err := hex.DecodeString(dbFlag)
+	if err != nil {
+		log.Fatalln("error db flag:", dbFlag, err)
 	}
-	runt.SetInfo({{.ChainID}}, nil)
+	runt := runtime.NewRuntime(addrType, address)
+	runt.SetInfo({{.ChainID}}, f)
 	gBS.iRuntime = runt
-	stream, _ := gBS.DbGet(gBS.pDbStat.owner, []byte{StatBaseInfo})
-	if len(stream) > 0 {
-		Decode(0, stream, &gBS.BaseInfo)
-		runt.SetInfo({{.ChainID}}, gBS.Key[:])
-		gBS.iRuntime = runt
+	stream, _ := gBS.DbGet(dbStat{}, []byte{StatBaseInfo})
+	if len(stream) == 0 {
+		panic("fail to get base info from dbStat")
 	}
+	Decode(0, stream, &gBS.BaseInfo)
+	if bytes.Compare(f, gBS.Key[:]) != 0 {
+		log.Printf("warning. different db flag, cmd:%x, db:%x\n", f, gBS.Key)
+	}
+	gBS.iRuntime = runt
 }
 
 // GetHash get data hash

@@ -15,6 +15,7 @@
         <li><a href="/index.html"  data-localize="navbar.home">Home</a></li>
         <li><a href="/dpos.html"  data-localize="navbar.dpos">DPOS Nodes</a></li>
         <li><a href="/account.html"  data-localize="navbar.account">Account</a></li>
+        <li><a href="/wgovm.html"  data-localize="navbar.wgovm">wGovm</a></li>
         <li><a href="/block.html" data-localize="navbar.block">Block</a></li>
         <li><a href="/transaction.html" data-localize="navbar.transaction">Transaction</a></li>
         <li><a href="/nodes.html" data-localize="navbar.node">Node</a></li>

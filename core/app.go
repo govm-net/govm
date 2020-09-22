@@ -28,13 +28,13 @@ func CreateAppFromSourceCode(fileName string, flag byte) ([]byte, uint64) {
 	var depends []DependItem
 	content, err := ioutil.ReadFile(fileName)
 	if err != nil {
-		log.Fatalf("fail to read file: %s: %s", fileName, err)
+		log.Panicf("fail to read file: %s: %s", fileName, err)
 	}
 
 	fs := token.NewFileSet()
 	f, err := parser.ParseFile(fs, "", content, parser.ParseComments)
 	if err != nil {
-		log.Fatal("fail to parse code:", err)
+		log.Panic("fail to parse code:", err)
 	}
 	for _, s := range f.Imports {
 		item := DependItem{}
@@ -95,10 +95,10 @@ func CreateAppFromSourceCode(fileName string, flag byte) ([]byte, uint64) {
 		zw := gzip.NewWriter(&buf)
 		_, err := zw.Write(code)
 		if err != nil {
-			log.Fatal(err)
+			log.Panic("error zip.", err)
 		}
 		if err := zw.Close(); err != nil {
-			log.Fatal(err)
+			log.Panic("fail to close gzip.", err)
 		}
 		code = buf.Bytes()
 	}
@@ -137,7 +137,7 @@ type visitor struct {
 func (v *visitor) Visit(node ast.Node) ast.Visitor {
 	switch n := node.(type) {
 	case *ast.GoStmt:
-		panic(n)
+		log.Panic(n)
 	case *ast.GenDecl:
 		v.index++
 		if n.Tok != token.IMPORT && n.Tok != token.PACKAGE {

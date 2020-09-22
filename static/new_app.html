@@ -194,20 +194,20 @@
                 $("#chain").html("<b>" + chain + "</b>");
                 $("#key").html("<b>" + key + "</b>");
                 var flag = ""
-                if (data.Flag & 1) {
+                if (data.flag & 1) {
                     flag += "FlagRun . "
                 }
-                if (data.Flag & 4) {
+                if (data.flag & 4) {
                     flag += "FlagPlublc . "
                 }
-                if (data.Flag & 2) {
+                if (data.flag & 2) {
                     flag += "FlagImport"
                 }
 
                 $("#flag").html("<b>" + flag + "</b>");
-                $("#account").html("<b>" + bytes2Str(data.Account) + "</b>");
+                $("#account").html("<b>" + bytes2Str(data.account) + "</b>");
                 var myDate = new Date()
-                myDate.setTime(data.Life)
+                myDate.setTime(data.life)
                 $("#life").html("<b>" + myDate.toString() + "</b>");
             }).fail(function () {
                 $("#result").html("not found");

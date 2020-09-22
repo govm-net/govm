@@ -24,6 +24,8 @@ import (
 func main() {
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
 	c := conf.GetConf()
+	log.Printf("software version:%s,build time:%s,git head:%s",
+		conf.Version, conf.BuildTime, conf.GitHead)
 	if c.SaveLog {
 		log.SetOutput(&lumberjack.Logger{
 			Filename:   "./log/govm.log",
@@ -61,9 +63,6 @@ func main() {
 				os.Exit(2)
 			}
 		}()
-		if c.PProfAddr != "" {
-			go http.ListenAndServe(c.PProfAddr, nil)
-		}
 	}
 	n := network.New()
 	if n == nil {
