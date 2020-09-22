@@ -592,9 +592,9 @@ func getBaseOpsEnergy(chain uint64) uint64 {
 	return out + 1
 }
 
-func run(chain uint64, flag []byte, addrType, address string) {
+func run(chain uint64, flag []byte) {
 	var proc processer
-	proc.initEnv(chain, flag, addrType, address)
+	proc.initEnv(chain, flag, "", "")
 	key := Hash{}
 	n := proc.Decode(0, flag, &key)
 	assert(n == len(flag))

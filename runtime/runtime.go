@@ -43,13 +43,13 @@ func assert(cond bool) {
 
 // NewRuntime input address of database
 func NewRuntime(addrType, address string) *TRuntime {
-	if address == "" {
-		return nil
-	}
 	out := new(TRuntime)
-	out.db = client.New(addrType, address, 1)
-	out.addrType = addrType
-	out.address = address
+	if address != "" {
+		out.db = client.New(addrType, address, 1)
+	} else {
+		out.db = db.GetClient()
+	}
+	out.addrType, out.address = out.db.GetAddress()
 	return out
 }
 
@@ -456,4 +456,9 @@ func (r *TRuntime) ConsumeEnergy(energy uint64) {
 func (r *TRuntime) OtherOps(user interface{}, ops int, data []byte) []byte {
 	log.Panic("not support")
 	return nil
+}
+
+// Close close
+func (r *TRuntime) Close() {
+	r.db.Close()
 }
