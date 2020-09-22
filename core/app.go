@@ -41,7 +41,7 @@ func CreateAppFromSourceCode(fileName string, flag byte) ([]byte, uint64) {
 		data := getDepName(unquote(s.Path.Value))
 		runtime.Decode(data, &item.AppName)
 		if len(s.Name.Name) > 4 {
-			log.Fatalln("the alias of import too long(<=4):", s.Name.Name)
+			log.Panic("the alias of import too long(<=4):", s.Name.Name)
 		}
 		for i, v := range []byte(s.Name.Name) {
 			item.Alias[i] = v
@@ -50,7 +50,7 @@ func CreateAppFromSourceCode(fileName string, flag byte) ([]byte, uint64) {
 		//log.Println("depend:", unquote(s.Path.Value), s.End())
 	}
 	if len(depends) > 254 {
-		log.Fatalf("too many depends: %d", len(depends))
+		log.Panicf("too many depends: %d", len(depends))
 	}
 	info.DependNum = uint8(len(depends))
 
@@ -114,7 +114,7 @@ func getDepName(depend string) []byte {
 	name := split[len(split)-1]
 	appName, _ := hex.DecodeString(name[1:])
 	if len(appName) != HashLen {
-		log.Fatalln("error depend:", depend, name, len(appName))
+		log.Panic("error depend:", depend, name, len(appName))
 	}
 	//log.Println("depend:", depend, name, appName)
 	return appName
@@ -124,7 +124,7 @@ func getDepName(depend string) []byte {
 func unquote(s string) string {
 	t, err := strconv.Unquote(s)
 	if err != nil {
-		log.Fatalf("cover: improperly quoted string %q\n", s)
+		log.Panicf("cover: improperly quoted string %q\n", s)
 	}
 	return t
 }
@@ -137,7 +137,7 @@ type visitor struct {
 func (v *visitor) Visit(node ast.Node) ast.Visitor {
 	switch n := node.(type) {
 	case *ast.GoStmt:
-		log.Panic(n)
+		log.Panic("not support 'go'")
 	case *ast.GenDecl:
 		v.index++
 		if n.Tok != token.IMPORT && n.Tok != token.PACKAGE {

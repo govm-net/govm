@@ -383,9 +383,7 @@ func ProcessBlockOfChain(chain uint64, key []byte) (err error) {
 	}
 	defer client.Cancel(chain, key)
 
-	at, ad := client.GetAddress()
-
-	run(chain, key, at, ad)
+	run(chain, key)
 	client.Commit(chain, key)
 	return err
 }
