@@ -71,7 +71,11 @@ func NewDbProxyMgr(addrType, address string, number int) *DBNWProxyMgr {
 		if err != nil {
 			log.Fatalln("fatal error: ", err)
 		}
-		go http.Serve(lis, hsrv)
+		srv := &http.Server{
+			IdleTimeout: 120 * time.Second,
+			Handler:     hsrv,
+		}
+		go srv.Serve(lis)
 		item := connItem{}
 		item.l = lis
 		item.address = lis.Addr().String()
