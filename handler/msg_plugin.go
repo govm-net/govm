@@ -16,7 +16,6 @@ import (
 	"github.com/govm-net/govm/conf"
 	core "github.com/govm-net/govm/core"
 	"github.com/govm-net/govm/database"
-	"github.com/govm-net/govm/event"
 	"github.com/govm-net/govm/messages"
 	"github.com/govm-net/govm/runtime"
 	"github.com/lengzhao/libp2p"

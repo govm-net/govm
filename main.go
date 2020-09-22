@@ -43,10 +43,12 @@ func main() {
 	if len(val) == 0 {
 		err := client.Set(1, []byte("info"), []byte("net"), []byte(c.NetID))
 		if err != nil {
+			log.Println("fail to set database,make sure the database server running.", err)
 			fmt.Println("fail to set database,make sure the database server running.", err)
 			os.Exit(2)
 		}
 	} else if string(val) != c.NetID {
+		log.Println("different net id,hope:", c.NetID, ", get:", val)
 		fmt.Println("different net id,hope:", c.NetID, ", get:", val)
 		os.Exit(3)
 	}
@@ -57,16 +59,28 @@ func main() {
 		addr := fmt.Sprintf("%s:%d", c.HTTPAddress, c.HTTPPort)
 		router := api.NewRouter()
 		go func() {
+			if c.TLSCertFile != "" && c.TLSKeyFile != "" {
+				if _, err := os.Stat(c.TLSCertFile); !os.IsNotExist(err) {
+					err := http.ListenAndServeTLS(addr, c.TLSCertFile,
+						c.TLSKeyFile, router)
+					if err != nil {
+						log.Println("https error:", err)
+						os.Exit(2)
+					}
+					return
+				}
+			}
 			err := http.ListenAndServe(addr, router)
 			if err != nil {
-				fmt.Println("fail to http Listen:", addr, err)
+				log.Println("fail to http Listen:", addr, err)
 				os.Exit(2)
 			}
+
 		}()
 	}
 	n := network.New()
 	if n == nil {
-		fmt.Println("fail to new network")
+		log.Println("fail to new network")
 		os.Exit(2)
 	}
 

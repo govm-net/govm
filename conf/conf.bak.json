@@ -17,5 +17,7 @@
     "miner_conn_limit":1000,
     "verify_net_data":true,
     "safe_environment":false,
-    "restful_log":false
+    "restful_log":false,
+    "tls_cert_file":"",
+    "tls_key_file":""
 }
