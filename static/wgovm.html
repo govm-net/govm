@@ -72,8 +72,10 @@
                     <span class="input-group-addon" data-localize="signature">Signature:</span>
                     <input type="text" readonly class="form-control" id="mint_signature">
                 </div>
-                <button type="button" class="btn btn-success pull-right" id="relayMint" data-localize="mint">Relay
-                    Mint</button>
+                <button type="button" class="btn btn-success pull-right" id="relayMint" data-localize="relay_mint">
+                    Relay Mint</button>
+                <!-- <button type="button" class="btn btn-success pull-right" id="mint" data-localize="admin_mint">
+                    Admin Mint</button> -->
             </div>
             <div>
                 <h3 id="mint_result">
@@ -108,8 +110,17 @@
                     <input type="text" class="form-control" id="govm_addr">
                     <span class="input-group-addon label-success">*</span>
                 </div>
-                <button type="button" class="btn btn-success pull-right" id="button_burn"
-                    data-localize="button_burn">Burn</button>
+                <div class="input-group">
+                    <span class="input-group-addon" data-localize="allowance">Allowance</span>
+                    <input type="text" readonly class="form-control" id="allowance" value="0">
+                    <span class="input-group-addon">govm</span>
+                </div>
+                <button class="btn btn-success" type="button" id="btn_approve" data-localize="approve">Approve</button>
+                <div class="pull-right">
+                    <button type="button" class="btn btn-success" id="button_burn"
+                        data-localize="button_burn">Burn</button>
+                </div>
+
                 <div>
                     <h3 id="burn_result">
                     </h3>
@@ -124,11 +135,20 @@
             </div>
             <div class="panel-body">
                 <div class="input-group">
-                    <span class="input-group-addon" data-localize="eth_contract">Eth Contract:</span>
+                    <span class="input-group-addon" data-localize="eth_contract">Eth Contract(Token):</span>
                     <span class="form-control">
                         <a target="_blank"
                             href="https://etherscan.io/address/0xac5d7dff150b195c97fca77001f8ad596eda1761#code">
                             0xaC5d7dFF150B195C97Fca77001f8AD596eda1761
+                        </a>
+                    </span>
+                </div>
+                <div class="input-group">
+                    <span class="input-group-addon" data-localize="manager_contract">Manager Contract:</span>
+                    <span class="form-control">
+                        <a target="_blank"
+                            href="https://etherscan.io/address/0xEb12a835C2FD57A912A76590C527fBB8e5E28f91#code">
+                            0xEb12a835C2FD57A912A76590C527fBB8e5E28f91
                         </a>
                     </span>
                 </div>
@@ -154,16 +174,15 @@
     <!-- jQuery (Bootstrap 的 JavaScript 插件需要引入 jQuery) -->
     <script src="js/jquery-3.3.1.min.js"></script>
     <script src="js/web3-0.20.5.js"></script>
-    <script src="js/wgovm_abi.js"></script>
-    <script src="js/wgovm.js?v=3"></script>
+    <script src="js/wgovm_abi.js?v=2"></script>
+    <script src="js/manager_abi.js?v=2"></script>
+    <script src="js/wgovm.js?v=15"></script>
     <!-- 包括所有已编译的插件 -->
     <script src="js/bootstrap.min.js"></script>
     <script type="text/javascript" src="/js/jquery.serializejson.js"></script>
     <script src="js/jquery.localize.min.js"></script>
-    <script>
-        document.write("<s" + "cript type='text/javascript' src='js/load.js?v=" + Math.random() + "'></scr" + "ipt>");
-        document.write("<s" + "cript type='text/javascript' src='js/encode.js?v=" + Math.random() + "'></scr" + "ipt>"); 
-    </script>
+    <script src="js/load.js?v=3"></script>
+    <script src="js/encode.js?v=3"></script>
     <script type="text/javascript">
         $("#base_burn").html(gCostBase);
         $('#next').on('click', function () {
@@ -200,12 +219,15 @@
                     return
                 }
                 var info = dataEncode(data.value, "hex2json")
-                // console.log("trans:", info)
                 $("#mint_key").val("0x" + dataEncode(info.trans, "base2hex"))
                 $("#mint_owner").val(dataEncode(info.who, "base2hex"))
                 $("#mint_eth_addr").val(info.eth_addr)
                 $("#mint_amount").val(getValueWithBase(info.cost, "govm"))
                 $("#mint_amount1").val(info.cost)
+                console.log("key:", "0x" + dataEncode(info.trans, "base2hex"))
+                console.log("owner:", dataEncode(info.who, "base2hex"))
+                console.log("eth_addr:", info.eth_addr)
+                console.log("amount:", info.cost)
                 urlStr2 = "/api/v1/1/data?app_name=a99b97a411b45c91779e1609386fa18484b8e50016379bd98c6822b491247b9b";
                 urlStr2 += "&struct_name=tSign&is_db_data=true&key=" + key;
                 $.get(urlStr2, function (data, status) {
