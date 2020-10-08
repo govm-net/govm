@@ -507,6 +507,6 @@ func createDir(dirName string) {
 	_, err := os.Stat(dirName)
 	if os.IsNotExist(err) {
 		createDir(path.Dir(dirName))
-		os.Mkdir(dirName, 666)
+		os.Mkdir(dirName, 0777)
 	}
 }
