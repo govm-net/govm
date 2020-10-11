@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/govm-net/govm/wallet"
 	"io/ioutil"
 	"log"
 	"os"
@@ -15,6 +14,8 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/govm-net/govm/wallet"
 )
 
 // EventFilter event filter, show or drop app event
@@ -139,7 +140,7 @@ func createDir(dirName string) {
 	_, err := os.Stat(dirName)
 	if os.IsNotExist(err) {
 		createDir(path.Dir(dirName))
-		os.Mkdir(dirName, 666)
+		os.Mkdir(dirName, 0777)
 	}
 }
 

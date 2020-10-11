@@ -31,10 +31,11 @@ const (
 
 // Permission Permission of local database
 var Permission os.FileMode = 0666
+var DirPermission os.FileMode = 0777
 
 // NewLDB new local db
 func NewLDB(name string, cacheCap int) *LDB {
-	os.Mkdir(gDbRoot, Permission)
+	os.Mkdir(gDbRoot, DirPermission)
 	out := LDB{}
 	out.cacheTB = make(map[string]bool)
 	out.memoryTB = make(map[string]*LRUCache)
