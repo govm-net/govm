@@ -143,7 +143,10 @@ func getBestBlock(chain, index uint64) TReliability {
 			chain, index, relia.HashPower, relia.Key)
 	} else if len(ib.Items) > candidateBlocksLimit/2 {
 		key := ib.Items[0].Key[:]
-		relia = ReadBlockReliability(chain, key)
+		rel := ReadBlockReliability(chain, key)
+		if rel.Time <= now {
+			relia = rel
+		}
 	}
 
 	return relia
