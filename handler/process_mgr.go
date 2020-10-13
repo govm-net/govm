@@ -24,15 +24,16 @@ type tProcessMgr struct {
 }
 
 const (
-	tSecond          = 1000
-	tMinute          = 60 * 1000
-	tHour            = 60 * tMinute
-	tDay             = 24 * tHour
-	blockAcceptTime  = tMinute
-	transAcceptTime  = 9 * tDay
-	blockSyncTime    = 4 * tMinute
-	procTimeOut      = 2 * tMinute
-	processTransTime = 5 * tMinute
+	tSecond              = 1000
+	tMinute              = 60 * 1000
+	tHour                = 60 * tMinute
+	tDay                 = 24 * tHour
+	blockAcceptTime      = tMinute
+	transAcceptTime      = 9 * tDay
+	blockSyncTime        = 4 * tMinute
+	procTimeOut          = 2 * tMinute
+	processTransTime     = 5 * tMinute
+	candidateBlocksLimit = 10
 )
 
 var procMgr tProcessMgr
@@ -140,6 +141,9 @@ func getBestBlock(chain, index uint64) TReliability {
 	if !relia.Key.Empty() {
 		log.Printf("getBestBlock rst,num:%d,chain:%d,index:%d,hp:%d,key:%x\n", len(ib.Items),
 			chain, index, relia.HashPower, relia.Key)
+	} else if len(ib.Items) > candidateBlocksLimit/2 {
+		key := ib.Items[0].Key[:]
+		relia = ReadBlockReliability(chain, key)
 	}
 
 	return relia
@@ -172,6 +176,27 @@ func checkAndRollback(chain, index uint64, key []byte) bool {
 			return false
 		}
 	}
+
+	if cInfo.LeftChildID == 1 {
+		lk := core.GetTheBlockKey(chain*2, 1)
+		if bytes.Compare(lk, key) == 0 {
+			// The child-chain may be processing the blocks
+			SaveIDBlocks(chain*2, 1, IDBlocks{})
+			dbRollBack(chain*2, 1, key)
+			dbRollBack(chain*2, 1, key)
+			SaveIDBlocks(chain*2, 1, IDBlocks{})
+		}
+	}
+	if cInfo.RightChildID == 1 {
+		rk := core.GetTheBlockKey(chain*2+1, 1)
+		if bytes.Compare(rk, key) == 0 {
+			// The child-chain may be processing the blocks
+			SaveIDBlocks(chain*2, 1, IDBlocks{})
+			dbRollBack(chain*2+1, 1, key)
+			dbRollBack(chain*2+1, 1, key)
+			SaveIDBlocks(chain*2+1, 1, IDBlocks{})
+		}
+	}
 	dbRollBack(chain, index, key)
 	return true
 }
@@ -179,21 +204,7 @@ func checkAndRollback(chain, index uint64, key []byte) bool {
 func checkOtherChain(chain uint64) error {
 	index := core.GetLastBlockIndex(chain)
 	cInfo := core.GetChainInfo(chain)
-	if chain > 1 && index > 0 && index < 100 {
-		// parent chain rollback,the block(new chain) is not exist
-		pk := core.GetParentBlockOfChain(chain)
-		if !pk.Empty() && !core.BlockOnTheChain(chain/2, pk[:]) {
-			log.Printf("rollback chain:%d,index:%d,hope:%x on parent chain\n", chain, index, pk)
-			var i uint64
-			ib := IDBlocks{}
-			for i = 2; i < index+1; i++ {
-				SaveIDBlocks(chain, i, ib)
-			}
-			lk := core.GetTheBlockKey(chain, 1)
-			dbRollBack(chain, 1, lk)
-			return errors.New("different parent")
-		}
-	}
+
 	if cInfo.LeftChildID == 1 {
 		go writeFirstBlockToChain(chain * 2)
 	} else if cInfo.RightChildID == 1 {
@@ -252,14 +263,6 @@ func beforeProcBlock(chain uint64, rel TReliability) error {
 		core.DeleteBlock(chain, rel.Key[:])
 		SaveBlockReliability(chain, rel.Key[:], TReliability{})
 		return errors.New("error rel.Index")
-	}
-	if !core.IsExistBlock(chain, rel.Previous[:]) {
-		info := &messages.ReqBlock{Chain: chain, Index: rel.Index - 1, Key: rel.Previous[:]}
-		if activeNode != nil {
-			activeNode.Send(info)
-		}
-		setIDBlocks(chain, rel.Index, rel.Key, 0)
-		return errors.New("Previous not found")
 	}
 
 	if checkAndRollback(chain, id, preKey) {
@@ -380,11 +383,21 @@ func processEvent(chain uint64) {
 		log.Printf("fail to process block,chain:%d,index:%d,key:%x,miner:%x,error:%s\n",
 			chain, index+1, relia.Key, relia.Producer, err)
 		SaveBlockRunStat(chain, relia.Key[:], stat)
-		setIDBlocks(chain, relia.Index, relia.Key, 0)
+		n := setIDBlocks(chain, relia.Index, relia.Key, 0)
 		relia.Ready = false
 		SaveBlockReliability(chain, relia.Key[:], relia)
 		core.DeleteBlock(chain, relia.Key[:])
+		if n < candidateBlocksLimit*2/3 && relia.Time+2*tMinute > now {
+			doMining(chain)
+			go newBlockForMining(chain)
+		}
 		return
+	}
+	cInfo := core.GetChainInfo(chain)
+	if cInfo.LeftChildID == 1 {
+		writeFirstBlockToChain(chain * 2)
+	} else if cInfo.RightChildID == 1 {
+		writeFirstBlockToChain(chain*2 + 1)
 	}
 	setBlockProducer(chain, relia.Index, relia.Producer)
 
@@ -441,9 +454,9 @@ func getHashPower(in []byte) uint64 {
 }
 
 // hp=0,delete;hp > 0,add and update
-func setIDBlocks(chain, index uint64, key core.Hash, hp uint64) {
+func setIDBlocks(chain, index uint64, key core.Hash, hp uint64) int {
 	if key.Empty() {
-		return
+		return -1
 	}
 	if hp > 0 {
 		lhp := getBlockLock(chain, key[:])
@@ -479,9 +492,10 @@ func setIDBlocks(chain, index uint64, key core.Hash, hp uint64) {
 		nit := ItemBlock{Key: key, HashPower: hp}
 		newIB.Items = append(newIB.Items, nit)
 	}
-	if len(newIB.Items) > 10 {
-		newIB.Items = newIB.Items[:10]
+	if len(newIB.Items) > candidateBlocksLimit {
+		newIB.Items = newIB.Items[:candidateBlocksLimit]
 	}
 
 	SaveIDBlocks(chain, index, newIB)
+	return len(newIB.Items)
 }

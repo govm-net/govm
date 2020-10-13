@@ -394,7 +394,7 @@ func GetHashPowerOfBlocks(chain uint64) uint64 {
 
 func startCheckBlock() {
 	var rid uint64
-	id := core.GetLastBlockIndex(1) - 30
+	id := core.GetLastBlockIndex(1) - 3
 	rid = id
 	for {
 		key := getKeyFromServer(1, rid)
@@ -405,15 +405,19 @@ func startCheckBlock() {
 		if ok {
 			break
 		}
-		rid -= 100
+		rid -= 50
 		if id > rid+5000 {
-			fmt.Println("The local block is different from the server.")
+			fmt.Println("Too many blocks are different.")
+			log.Println("Too many blocks are different.")
 			os.Exit(5)
 		}
 	}
 	if id > rid {
 		if !conf.GetConf().AutoRollback {
 			fmt.Println("The local block is different from the server.")
+			log.Println("The local block is different from the server. " +
+				"You can set the configuration 'auto_rollback' in conf/conf.json to true, " +
+				"then restart govm. It will auto rollback blocks to fix that.")
 			os.Exit(5)
 		}
 		autoRollback(1, rid, nil)

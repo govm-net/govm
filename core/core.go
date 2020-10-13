@@ -428,6 +428,8 @@ func (l *Log) Write(key, value []byte) bool {
 
 	life := l.p.LogReadLife(l.owner, key)
 	if life+logLockTime >= l.p.Time {
+		log.Printf("try to write log again,owner:%t,key:%x,life:%d,now:%d\n",
+			l.owner, key, life, l.p.Time)
 		return false
 	}
 	life = TimeYear
@@ -1333,11 +1335,10 @@ func (p *processer) pNewChain(producer Address, t Transaction) {
 		p.LeftChildID = 1
 	} else { //right child chain
 		assert(p.RightChildID == 0)
-		// assert(p.LeftChildID > depositCycle)
 		p.RightChildID = 1
 	}
 
-	if newChain > 3 {
+	if newChain > 2 {
 		avgSize := p.pDbStat.GetInt([]byte{StatAvgBlockSize})
 		scale := avgSize * 10 / blockSizeLimit
 		assert(scale > 1)

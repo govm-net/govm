@@ -275,15 +275,15 @@ func updateBLN(chain uint64, key []byte) {
 	setIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
 	for rel.Index >= index && rel.Index > 0 {
 		// log.Printf("updateBLN,chain:%d,index:%d,next:%x\n", chain, rel.Index, rel.Previous)
-		if rel.Previous.Empty() {
+		rel = ReadBlockReliability(chain, rel.Previous[:])
+		if rel.Index < 1 {
 			break
 		}
-		rst := setBlockLock(chain, rel.Previous[:], hp)
-		setIDBlocks(chain, rel.Index-1, rel.Previous, 1)
+		setIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
+		rst := setBlockLock(chain, rel.Key[:], hp)
 		if !rst {
 			// log.Println("fail to setBlockLock,", rst)
 			break
 		}
-		rel = ReadBlockReliability(chain, rel.Previous[:])
 	}
 }

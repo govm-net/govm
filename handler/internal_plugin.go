@@ -226,7 +226,8 @@ func (p *InternalPlugin) event(m event.Message) error {
 		}
 
 		if !core.IsMiner(msg.Chain, rel.Producer[:]) {
-			log.Printf("not miner,index:%d block:%x\n", rel.Index, rel.Key)
+			log.Printf("not miner,chain:%d,index:%d,block:%x,miner:%x\n",
+				msg.Chain, rel.Index, rel.Key, rel.Producer)
 			return fmt.Errorf("not miner")
 		}
 
@@ -236,14 +237,16 @@ func (p *InternalPlugin) event(m event.Message) error {
 				return fmt.Errorf("transList not exist")
 			}
 		}
-		setIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
-		if rel.Time+2*tMinute < getCoreTimeNow() {
-			return nil
-		}
 
 		preRel := ReadBlockReliability(msg.Chain, rel.Previous[:])
 		if rel.Producer == preRel.Producer {
-			log.Printf("same previous,index:%d block:%x\n", rel.Index, rel.Key)
+			log.Printf("same previous,index:%d block:%x,Previous:%x\n",
+				rel.Index, rel.Key, rel.Previous)
+			return nil
+		}
+
+		setIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
+		if rel.Time+2*tMinute < getCoreTimeNow() {
 			return nil
 		}
 

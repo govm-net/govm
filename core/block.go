@@ -41,6 +41,11 @@ func NewBlock(chain uint64, producer Address) *StBlock {
 	getDataFormDB(chain, dbStat{}, []byte{StatHashPower}, &hashPowerLimit)
 	getDataFormDB(chain, dbStat{}, []byte{StatBlockInterval}, &blockInterval)
 
+	if pStat.ID == 0 {
+		log.Println("fail to get the last block. chain:", chain)
+		return nil
+	}
+
 	hashPowerLimit = hashPowerLimit / 1000
 	if hashPowerLimit < minHPLimit {
 		hashPowerLimit = minHPLimit
@@ -236,7 +241,7 @@ func DecodeBlock(data []byte) *StBlock {
 
 	rst := wallet.Recover(out.Producer[:], out.sign, bData)
 	if !rst {
-		log.Println("fail to recover block")
+		log.Printf("fail to recover block,producer:%x\n", out.Producer)
 		return nil
 	}
 	h := runtime.GetHash(data)

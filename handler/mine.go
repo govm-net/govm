@@ -29,6 +29,9 @@ func newBlockForMining(chain uint64) {
 	t := core.GetBlockInterval(chain)
 	start := time.Now().Unix()
 	block := core.NewBlock(chain, core.Address{})
+	if block == nil {
+		return
+	}
 	if conf.GetConf().OneConnPerMiner {
 		block.HashpowerLimit -= 2
 	}
@@ -104,8 +107,7 @@ func doMining(chain uint64) {
 	}
 
 	block := core.NewBlock(chain, myAddr)
-	if block.Index > 2 && old != nil &&
-		old.Previous == block.Previous && old.Parent == block.Parent {
+	if block == nil {
 		return
 	}
 
@@ -148,7 +150,7 @@ func doMining(chain uint64) {
 		rel := getReliability(block)
 
 		core.WriteBlock(chain, data)
-		SaveBlockReliability(chain, block.Key[:], rel)
+		SaveBlockReliability(chain, rel.Key[:], rel)
 		setIDBlocks(chain, rel.Index, rel.Key, rel.HashPower)
 		needBroadcastBlock(chain, rel)
 
