@@ -81,7 +81,7 @@ Token.prototype.approve = function (address) {
             from: window.web3.eth.accounts[0],
             gas: 1000000,
             gasPrice: 1e11,
-            gasLimit: 1000000
+            gasLimit: 100000
         },
         function (error, txHash) {
             if (error) {
