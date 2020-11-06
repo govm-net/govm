@@ -256,6 +256,11 @@ func processBlock(chain uint64, key, data []byte) (err error) {
 		return
 	}
 
+	preRel := ReadBlockReliability(chain, rel.Previous[:])
+	if rel.Producer == preRel.Producer {
+		return
+	}
+
 	if rel.Time+tMinute > getCoreTimeNow() && needBroadcastBlock(chain, rel) {
 		log.Printf("BroadcastBlock,chain:%d,index:%d,key:%x\n", chain, rel.Index, rel.Key)
 		info := messages.BlockInfo{}
