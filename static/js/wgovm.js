@@ -269,7 +269,7 @@ Token.prototype.burnTokens = function (balance) {
         address,
         {
             from: window.web3.eth.accounts[0],
-            gas: 1000000,
+            gas: 100000,
             gasPrice: 1e11,
             gasLimit: 1000000
         },
