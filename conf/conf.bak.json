@@ -1,6 +1,6 @@
 {
     "server_host":"s2s://0.0.0.0:9090,tcp://0.0.0.0:17778",
-    "http_address":"0.0.0.0",
+    "private_address":"",
     "http_port":9090,
     "db_addr_type":"tcp",
     "db_server_addr": "127.0.0.1:17777",
