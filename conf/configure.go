@@ -130,7 +130,7 @@ func LoadWallet(fileName, password string) {
 		w, err = wallet.LoadWallet("./conf/base.dat", password)
 		if err != nil {
 			w.Key = wallet.NewPrivateKey()
-			pubKey := wallet.GetPublicKey(w.Key)
+			pubKey := wallet.GetPublicKey(w.Key, wallet.EAddrTypeDefault)
 			w.Address = wallet.PublicKeyToAddress(pubKey, wallet.EAddrTypeDefault)
 		} else {
 			now := time.Now().Unix() * 1000

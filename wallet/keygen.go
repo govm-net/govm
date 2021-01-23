@@ -29,6 +29,6 @@ func (k *EcdsaKey) Sign(data, privKey []byte) []byte {
 
 // GetPublic get public key
 func (k *EcdsaKey) GetPublic(privKey []byte) []byte {
-	pubKey := GetPublicKey(privKey)
+	pubKey := GetPublicKey(privKey, EAddrTypeDefault)
 	return PublicKeyToAddress(pubKey, EAddrTypeDefault)
 }

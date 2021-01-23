@@ -15,7 +15,7 @@ func TestSaveWallet(t *testing.T) {
 	// defer os.Remove(fn1)
 	defer os.Remove(fn2)
 	parentPriv := NewPrivateKey()
-	parentPubK := GetPublicKey(parentPriv)
+	parentPubK := GetPublicKey(parentPriv, EAddrTypeIBS)
 	address := PublicKeyToAddress(parentPubK, EAddrTypeIBS)
 
 	tm := uint64(time.Now().Unix() * 1000)

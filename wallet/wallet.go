@@ -3,18 +3,19 @@ package wallet
 import (
 	"bytes"
 	"crypto/rand"
-	// "crypto/sha256"
 	"encoding/binary"
-	// "encoding/hex"
-	"github.com/btcsuite/btcd/btcec"
-	"golang.org/x/crypto/sha3"
 	"log"
 	"time"
+
+	"github.com/btcsuite/btcd/btcec"
+	"golang.org/x/crypto/sha3"
 )
 
 const (
+	// EAddrEthereum wrapped ethereum address
+	EAddrEthereum = byte(iota)
 	// EAddrTypeDefault the type of default public address
-	EAddrTypeDefault = byte(iota + 1)
+	EAddrTypeDefault
 	// EAddrTypeIBS identity-based signature 基于身份的签名，不同时间，使用不同私钥签名(签名时间是消息的前8个字节)
 	EAddrTypeIBS
 )
@@ -23,9 +24,10 @@ const (
 	// AddressLength address length
 	AddressLength = 24
 	// SignLen default length of sign
-	SignLen       = 65
-	publicKeyLen  = 33
-	privateKeyLen = 32
+	SignLen         = 65
+	publicKeyLen    = 33
+	ethPublicKeyLen = 65
+	privateKeyLen   = 32
 	// TimeDuration EAddrTypeIBS的子私钥有效时间,一个月
 	TimeDuration = 31558150000 / 12
 )
@@ -61,9 +63,9 @@ func NewPrivateKey() []byte {
 
 // NewChildPrivateKeyOfIBS create child key of the address,time(ms)
 func NewChildPrivateKeyOfIBS(privK []byte, t uint64) (cPriKey []byte, signPre []byte) {
-	address := PublicKeyToAddress(GetPublicKey(privK), EAddrTypeIBS)
+	address := PublicKeyToAddress(GetPublicKey(privK, EAddrTypeIBS), EAddrTypeIBS)
 	cPriKey = NewPrivateKey()
-	cPub := GetPublicKey(cPriKey)
+	cPub := GetPublicKey(cPriKey, EAddrTypeIBS)
 
 	msgT := t + bytesToUint64(address)
 	msgT /= TimeDuration
@@ -86,16 +88,15 @@ func GetDeadlineOfIBS(addr []byte) uint64 {
 }
 
 // GetPublicKey 通过私钥获得公钥
-func GetPublicKey(in []byte) []byte {
-	out := []byte{}
-	for i := 0; i < len(in)/privateKeyLen; i++ {
-		st := i * privateKeyLen
-		end := (i + 1) * privateKeyLen
-		_, pubKey := btcec.PrivKeyFromBytes(btcec.S256(), in[st:end])
-		out = append(out, pubKey.SerializeCompressed()...)
+func GetPublicKey(in []byte, addrType uint8) []byte {
+	if len(in)/privateKeyLen != 1 {
+		return nil
 	}
-
-	return out
+	_, pubKey := btcec.PrivKeyFromBytes(btcec.S256(), in)
+	if addrType == EAddrEthereum {
+		return pubKey.SerializeUncompressed()
+	}
+	return pubKey.SerializeCompressed()
 }
 
 // PublicKeyToAddress 将公钥转成钱包地址
@@ -112,6 +113,19 @@ func PublicKeyToAddress(in []byte, addrType uint8) []byte {
 			log.Println("error public key length")
 			return nil
 		}
+	case EAddrEthereum:
+		if len(in) != ethPublicKeyLen {
+			log.Println("error public key length")
+			return nil
+		}
+		keccak := sha3.NewLegacyKeccak256()
+		keccak.Write(in[1:])
+		h := keccak.Sum(nil)
+
+		buf := bytes.NewReader(h[12:])
+		binary.Read(buf, binary.BigEndian, out[4:])
+		out[0] = addrType
+		return out[:]
 	default:
 		log.Println("unsupport:", addrType)
 		return nil
