@@ -330,7 +330,7 @@ func (r *TReliability) Recalculation(chain uint64) {
 			if id < uint64(i) {
 				id += core.AdminNum
 			}
-			hp = id - uint64(i) + 50 + getHashPower(r.Key[:])
+			hp = id - uint64(i) + 50
 			r.Admin = true
 			break
 		}
