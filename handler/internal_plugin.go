@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/govm-net/govm/conf"
 	core "github.com/govm-net/govm/core"
 	"github.com/govm-net/govm/event"
 	"github.com/govm-net/govm/messages"
@@ -19,9 +20,10 @@ import (
 // InternalPlugin process p2p message
 type InternalPlugin struct {
 	libp2p.Plugin
-	network libp2p.Network
-	mu      sync.Mutex
-	reconn  map[string]string
+	network   libp2p.Network
+	mu        sync.Mutex
+	reconn    map[string]string
+	blackList map[core.Address]bool
 }
 
 const (
@@ -36,6 +38,14 @@ func (p *InternalPlugin) Startup(n libp2p.Network) {
 	Init()
 	p.network = n
 	p.reconn = make(map[string]string)
+	p.blackList = make(map[core.Address]bool)
+	c := conf.GetConf()
+	for _, v := range c.BlackList {
+		log.Println("black:", v)
+		var addr core.Address
+		addr.Decode(v)
+		p.blackList[addr] = true
+	}
 	event.RegisterConsumer(p.event)
 	time.AfterFunc(time.Minute*2, p.timeout)
 }
@@ -177,91 +187,38 @@ func (p *InternalPlugin) event(m event.Message) error {
 		}
 		return session.Send(plugins.Ping{IsServer: session.GetSelfAddr().IsServer()})
 	case *messages.RawData:
-		if msg.IsTrans {
-			if core.IsExistTransaction(msg.Chain, msg.Key) {
-				return nil
-			}
+		if !msg.IsTrans {
+			return fmt.Errorf("not support")
+		}
 
-			err := processTransaction(msg.Chain, msg.Key, msg.Data)
-			if err != nil {
-				return err
-			}
-
-			err = core.CheckTransaction(msg.Chain, msg.Key)
-			if err != nil {
-				return err
-			}
-
-			stream := ldb.LGet(msg.Chain, ldbBroadcastTrans, msg.Key)
-			if len(stream) > 0 {
-				return nil
-			}
-			ldb.LSet(msg.Chain, ldbBroadcastTrans, msg.Key, []byte{1})
-
-			trans := core.DecodeTrans(msg.Data)
-			m := &messages.TransactionInfo{}
-			m.Chain = msg.Chain
-			m.Key = msg.Key
-			m.Time = trans.Time
-			m.User = trans.User[:]
-			p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: m})
+		if core.IsExistTransaction(msg.Chain, msg.Key) {
 			return nil
 		}
-		rel := ReadBlockReliability(msg.Chain, msg.Key)
-		if rel.Index != 0 {
-			// exist
-			log.Printf("exist the block:%x\n", msg.Key)
-			return nil
-		}
-		err := processBlock(msg.Chain, msg.Key, msg.Data)
+
+		err := processTransaction(msg.Chain, msg.Key, msg.Data)
 		if err != nil {
-			log.Printf("error block,chain:%d,key:%x,err:%s\n",
-				msg.Chain, msg.Key, err)
 			return err
 		}
-		rel = ReadBlockReliability(msg.Chain, msg.Key)
-		if rel.Index == 0 || rel.Key.Empty() {
-			log.Printf("err rel,index:%d block:%x\n", rel.Index, rel.Key)
+
+		err = core.CheckTransaction(msg.Chain, msg.Key)
+		if err != nil {
+			return err
+		}
+
+		stream := ldb.LGet(msg.Chain, ldbBroadcastTrans, msg.Key)
+		if len(stream) > 0 {
 			return nil
 		}
+		ldb.LSet(msg.Chain, ldbBroadcastTrans, msg.Key, []byte{1})
 
-		if !core.IsMiner(msg.Chain, rel.Producer[:]) {
-			log.Printf("not miner,chain:%d,index:%d,block:%x,miner:%x\n",
-				msg.Chain, rel.Index, rel.Key, rel.Producer)
-			return fmt.Errorf("not miner")
-		}
-
-		if !rel.TransListHash.Empty() {
-			tl := GetTransList(msg.Chain, rel.TransListHash[:])
-			if len(tl) == 0 && !core.TransListExist(msg.Chain, rel.TransListHash[:]) {
-				return fmt.Errorf("transList not exist")
-			}
-		}
-
-		preRel := ReadBlockReliability(msg.Chain, rel.Previous[:])
-		if rel.Producer == preRel.Producer {
-			log.Printf("same previous,index:%d block:%x,Previous:%x\n",
-				rel.Index, rel.Key, rel.Previous)
-			return nil
-		}
-
-		setIDBlocks(msg.Chain, rel.Index, rel.Key, rel.HashPower)
-		if rel.Time+2*tMinute < getCoreTimeNow() {
-			return nil
-		}
-
-		if !needBroadcastBlock(msg.Chain, rel) {
-			// log.Printf("not Broadcast2,index:%d block:%x\n", rel.Index, rel.Key)
-			return nil
-		}
-
-		info := messages.BlockInfo{}
-		info.Chain = msg.Chain
-		info.Index = rel.Index
-		info.Key = rel.Key[:]
-		info.HashPower = rel.HashPower
-		info.PreKey = rel.Previous[:]
-		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: &info})
+		trans := core.DecodeTrans(msg.Data)
+		m := &messages.TransactionInfo{}
+		m.Chain = msg.Chain
+		m.Key = msg.Key
+		m.Time = trans.Time
+		m.User = trans.User[:]
+		p.network.SendInternalMsg(&messages.BaseMsg{Type: messages.BroadcastMsg, Msg: m})
+		return nil
 	}
 	return nil
 }

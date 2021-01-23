@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"time"
@@ -27,67 +26,6 @@ import (
 	"github.com/govm-net/govm/runtime"
 	"github.com/govm-net/govm/wallet"
 )
-
-var inputString chan string
-
-func initIdentifyingCode() {
-	rand.Seed(time.Now().UnixNano())
-	inputString = make(chan string, 1)
-	if !conf.GetConf().IdentifyingCode {
-		return
-	}
-	go func() {
-		for {
-			var in string
-			fmt.Scanln(&in)
-			if in == "" {
-				continue
-			}
-			select {
-			case <-inputString:
-				inputString <- in
-			case inputString <- in:
-			}
-		}
-	}()
-}
-
-// identifying code,before new transaction,user need input it.
-func identifyBeforeTransaction(msg ...interface{}) error {
-	c := conf.GetConf()
-	if c.SafeEnvironment {
-		return nil
-	}
-	if !c.IdentifyingCode {
-		return fmt.Errorf("not support, IdentifyingCode closed")
-	}
-	//clean inputString if exist
-	select {
-	case <-inputString:
-		log.Println("clean old inputString")
-	default:
-	}
-	r := rand.Int63()
-	str := fmt.Sprintf("%06d", r%1000000)
-	if len(msg) > 0 {
-		fmt.Println("Identify:", msg)
-	}
-	fmt.Println("Input Identifying Code:")
-	fmt.Println(str)
-	var in string
-	timeout := time.After(time.Second * 30)
-	select {
-	case <-timeout:
-		fmt.Println("identify:input timeout(30second)")
-		return fmt.Errorf("identify:timeout")
-	case in = <-inputString:
-	}
-	if in != str {
-		fmt.Printf("error identifying code,hope:%s,get:%s\n", str, in)
-		return fmt.Errorf("error indentifying code")
-	}
-	return nil
-}
 
 // Account account
 type Account struct {
@@ -198,12 +136,7 @@ func TransactionMovePost(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "not enough cost.have:%d,hope:%d\n", coin, info.Cost)
 		return
 	}
-	err = identifyBeforeTransaction("Move:", chain, string(data))
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "identifying code error,%s", err)
-		return
-	}
+
 	cAddr := core.Address{}
 	runtime.Decode(c.WalletAddr, &cAddr)
 	trans := core.NewTransaction(chain, cAddr)
@@ -296,12 +229,7 @@ func TransactionTransferPost(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "not enough cost.have:%d,hope:%d\n", coin, info.Cost)
 		return
 	}
-	err = identifyBeforeTransaction("Transfer:", chain, string(data))
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "identifying code error,%s", err)
-		return
-	}
+
 	cAddr := core.Address{}
 	dstAddr := core.Address{}
 	runtime.Decode(c.WalletAddr, &cAddr)
@@ -382,12 +310,7 @@ func TransactionMinerPost(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "not enough cost.have:%d,hope:%d\n", coin, info.Cost)
 		return
 	}
-	err = identifyBeforeTransaction("Register miner:", chain, string(data))
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "identifying code error,%s", err)
-		return
-	}
+
 	cAddr := core.Address{}
 	runtime.Decode(c.WalletAddr, &cAddr)
 	trans := core.NewTransaction(chain, cAddr)
@@ -478,12 +401,7 @@ func TransactionNewAppPost(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "not enough cost.have:%d,hope:%d\n", coin, info.Cost)
 		return
 	}
-	err = identifyBeforeTransaction("New APP:", chain, string(data))
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "identifying code error,%s", err)
-		return
-	}
+
 	var flag uint8
 	if !info.IsPrivate {
 		flag |= core.AppFlagPlublc
@@ -630,13 +548,6 @@ func TransactionRunAppPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = identifyBeforeTransaction("Run APP:", chain, string(data))
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "identifying code error,%s", err)
-		return
-	}
-
 	cAddr := core.Address{}
 	runtime.Decode(c.WalletAddr, &cAddr)
 	trans := core.NewTransaction(chain, cAddr)
@@ -718,12 +629,6 @@ func TransactionAppLifePost(w http.ResponseWriter, r *http.Request) {
 	if coin < info.Energy {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "not enough cost.have:%d,hope:%d\n", coin, info.Energy)
-		return
-	}
-	err = identifyBeforeTransaction("Update APP Life:", chain, string(data))
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "identifying code error,%s", err)
 		return
 	}
 
@@ -867,12 +772,7 @@ func BlockMinePost(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("error chain"))
 		return
 	}
-	err = identifyBeforeTransaction("Force mine:", chain)
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "identifying code error,%s", err)
-		return
-	}
+
 	msg := new(messages.Mine)
 	msg.Chain = chain
 	err = event.Send(msg)
@@ -1012,12 +912,7 @@ func ChainNew(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "not enough cost.have:%d,hope:%d\n", coin, info.Cost)
 		return
 	}
-	err = identifyBeforeTransaction("New chain:", chain, string(data))
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "identifying code error,%s", err)
-		return
-	}
+
 	cAddr := core.Address{}
 	runtime.Decode(c.WalletAddr, &cAddr)
 	trans := core.NewTransaction(chain, cAddr)
@@ -1394,12 +1289,7 @@ func CryptoSign(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	err = identifyBeforeTransaction("Sign:", string(data))
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "identifying code error,%s", err)
-		return
-	}
+
 	c := conf.GetConf()
 	sign := wallet.Sign(c.PrivateKey, msg)
 	info.Owner = hex.EncodeToString(c.WalletAddr)
@@ -1587,12 +1477,7 @@ func TransactionAdminPost(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "not enough cost.have:%d,hope:%d\n", coin, info.Cost)
 		return
 	}
-	err = identifyBeforeTransaction("Register miner:", chain, string(data))
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		fmt.Fprintf(w, "identifying code error,%s", err)
-		return
-	}
+
 	cAddr := core.Address{}
 	runtime.Decode(c.WalletAddr, &cAddr)
 	trans := core.NewTransaction(chain, cAddr)

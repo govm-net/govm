@@ -135,7 +135,10 @@ func init() {
 	event.RegisterConsumer(func(m event.Message) error {
 		switch msg := m.(type) {
 		case *messages.BlockForMining:
-			h.broadcast <- msg
+			select {
+			case h.broadcast <- msg:
+			default:
+			}
 		}
 		return nil
 	})

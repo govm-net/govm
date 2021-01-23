@@ -56,7 +56,7 @@ func main() {
 	conf.LoadWallet(c.WalletFile, c.Password)
 	// startHTTPServer
 	{
-		addr := fmt.Sprintf("%s:%d", c.HTTPAddress, c.HTTPPort)
+		addr := fmt.Sprintf(":%d", c.HTTPPort)
 		router := api.NewRouter()
 		go func() {
 			if c.TLSCertFile != "" && c.TLSKeyFile != "" {
@@ -75,8 +75,16 @@ func main() {
 				log.Println("fail to http Listen:", addr, err)
 				os.Exit(2)
 			}
-
 		}()
+		if c.PrivateAddress != "" {
+			go func() {
+				err := http.ListenAndServe(c.PrivateAddress, api.NewPrivateRouter())
+				if err != nil {
+					log.Println("fail to http Listen:", addr, err)
+					os.Exit(2)
+				}
+			}()
+		}
 	}
 	n := network.New()
 	if n == nil {
@@ -130,7 +138,7 @@ func loadNodeKey() []byte {
 	w, err := wallet.LoadWallet(nodeKeyFile, passwd)
 	if err != nil {
 		w.Key = wallet.NewPrivateKey()
-		pubKey := wallet.GetPublicKey(w.Key)
+		pubKey := wallet.GetPublicKey(w.Key, wallet.EAddrTypeDefault)
 		addr := wallet.PublicKeyToAddress(pubKey, wallet.EAddrTypeDefault)
 		wallet.SaveWallet(nodeKeyFile, passwd, addr, w.Key, nil)
 	}
