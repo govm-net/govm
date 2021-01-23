@@ -42,7 +42,6 @@ type WSRoutes []WSRoute
 
 // NewRouter 创建http路由
 func NewRouter() *mux.Router {
-	go initIdentifyingCode()
 	router := mux.NewRouter().StrictSlash(true)
 
 	for _, route := range routes {
@@ -68,6 +67,31 @@ func NewRouter() *mux.Router {
 	return router
 }
 
+// NewPrivateRouter private router
+func NewPrivateRouter() *mux.Router {
+	router := mux.NewRouter().StrictSlash(true)
+
+	for _, route := range privateRoutes {
+		var handler http.Handler
+		handler = route.HandlerFunc
+		handler = Logger(handler, route.Name)
+
+		router.
+			Methods(route.Method).
+			Path(route.Pattern).
+			Name(route.Name).
+			Handler(handler)
+	}
+	for _, route := range wsRoutes {
+		router.Handle(route.Pattern, websocket.Handler(route.HandlerFunc))
+	}
+
+	router.Methods("GET").Path("/api/v1/").Name("Index").HandlerFunc(Index)
+	router.Methods("GET").Name("static").Handler(http.FileServer(http.Dir("./static/")))
+
+	return router
+}
+
 // Index api for test
 func Index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello World!\n")
@@ -77,6 +101,146 @@ func Index(w http.ResponseWriter, r *http.Request) {
 }
 
 var routes = Routes{
+	Route{
+		"AccountGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/account",
+		AccountGet,
+	},
+
+	Route{
+		"TransactionAppInfoGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/transaction/app/info",
+		TransactionAppInfoGet,
+	},
+
+	Route{
+		"TransactionInfoGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/transaction/info",
+		TransactionInfoGet,
+	},
+
+	Route{
+		"BlockInfoGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/block/info",
+		BlockInfoGet,
+	},
+
+	Route{
+		"TrustedBlockGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/block/trusted",
+		TrustedBlockGet,
+	},
+
+	Route{
+		"MiningBlockGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/block/mining",
+		MiningBlockGet,
+	},
+
+	Route{
+		"DataRead",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/data",
+		DataGet,
+	},
+
+	Route{
+		"DataNextKeyGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/data/visit",
+		DataNextKeyGet,
+	},
+
+	Route{
+		"DataExist",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/data/exist",
+		DataExist,
+	},
+
+	Route{
+		"HashPowerGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/hashpower",
+		HashPowerGet,
+	},
+
+	Route{
+		"AdminsGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/admins",
+		AdminsGet,
+	},
+
+	Route{
+		"AdminInfoGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/admin",
+		AdminInfoGet,
+	},
+
+	Route{
+		"VoteInfoGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/vote",
+		VoteInfoGet,
+	},
+
+	Route{
+		"VoteRewardGet",
+		strings.ToUpper("Get"),
+		"/api/v1/{chain}/vote_reward",
+		VoteRewardGet,
+	},
+
+	Route{
+		"NodesGet",
+		strings.ToUpper("Get"),
+		"/api/v1/nodes",
+		NodesGet,
+	},
+	Route{
+		"NodeAddressGet",
+		strings.ToUpper("Get"),
+		"/api/v1/node_addr",
+		NodeAddressGet,
+	},
+	Route{
+		"VersionGet",
+		strings.ToUpper("Get"),
+		"/api/v1/version",
+		VersionGet,
+	},
+
+	Route{
+		"TimeGet",
+		strings.ToUpper("Get"),
+		"/api/v1/time",
+		TimeGet,
+	},
+	Route{
+		"ChainsGet",
+		strings.ToUpper("Get"),
+		"/api/v1/chains",
+		ChainsGet,
+	},
+}
+
+var wsRoutes = WSRoutes{
+	WSRoute{
+		"blockForMining",
+		"/api/v1/{chain}/ws/mining",
+		WSBlockForMining,
+	},
+}
+
+var privateRoutes = Routes{
 	Route{
 		"AccountGet",
 		strings.ToUpper("Get"),
@@ -305,13 +469,5 @@ var routes = Routes{
 		strings.ToUpper("Get"),
 		"/api/v1/chains",
 		ChainsGet,
-	},
-}
-
-var wsRoutes = WSRoutes{
-	WSRoute{
-		"blockForMining",
-		"/api/v1/{chain}/ws/mining",
-		WSBlockForMining,
 	},
 }

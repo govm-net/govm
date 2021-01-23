@@ -30,6 +30,7 @@ type statTransList struct{}
 type statMove struct{}
 type statAPPRun struct{}
 type statVoteReward struct{}
+type statVote struct{}
 
 // Hash The KEY of the block of transaction
 type Hash [HashLen]byte
@@ -200,6 +201,7 @@ const (
 	StatTotalVotes
 	StatLastRewarID
 	StatTotalCoins
+	StatVersion
 )
 
 const (
@@ -227,6 +229,12 @@ const (
 	OpsReportError
 	// OpsConfig config
 	OpsConfig
+)
+
+// version switch
+const (
+	VSwitch = iota + 1
+	VClosePOW
 )
 
 var (
@@ -819,13 +827,20 @@ func (p *processer) processBlock(chain uint64, key Hash) {
 	avgSize = (avgSize*(depositCycle-1) + size) / depositCycle
 	p.pDbStat.SetValue([]byte{StatAvgBlockSize}, avgSize, maxDbLife)
 
+	version := p.pDbStat.GetInt([]byte{StatVersion})
 	//Mining guerdon
 	guerdon := p.pDbStat.GetInt([]byte{StatGuerdon})
-	if p.isAdmin {
-		p.adminTransfer(Address{}, gPublicAddr, guerdon)
-	} else {
+	if version >= VClosePOW {
+		assertMsg(p.isAdmin, "request admin")
 		p.adminTransfer(Address{}, block.Producer, guerdon)
+	} else {
+		if p.isAdmin {
+			p.adminTransfer(Address{}, gPublicAddr, guerdon)
+		} else {
+			p.adminTransfer(Address{}, block.Producer, guerdon)
+		}
 	}
+
 	p.adminTransfer(Address{}, gPublicAddr, guerdon*4/5)
 	p.adminTransfer(Address{}, team, guerdon/5)
 
@@ -1337,6 +1352,10 @@ func (p *processer) pNewChain(producer Address, t Transaction) {
 		assert(p.RightChildID == 0)
 		p.RightChildID = 1
 	}
+	version := p.pDbStat.GetInt([]byte{StatVersion})
+	if version > 0 {
+		p.addSyncInfo(newChain, SyncOpsVersion, p.Encode(0, version))
+	}
 
 	if newChain > 2 {
 		avgSize := p.pDbStat.GetInt([]byte{StatAvgBlockSize})
@@ -1457,7 +1476,10 @@ func (p *processer) pNewApp(t Transaction) {
 
 func (p *processer) pRunApp(t Transaction) {
 	var name Hash
-	assertMsg(!p.isAdmin, "runApp:the Producer is admin")
+	version := p.pDbStat.GetInt([]byte{StatVersion})
+	if version < VClosePOW {
+		assertMsg(!p.isAdmin, "runApp:the Producer is admin")
+	}
 	n := p.Decode(0, t.data, &name)
 	info := p.GetAppInfo(name)
 	assertMsg(info != nil, "app not exist")
@@ -1557,6 +1579,9 @@ func (p *processer) registerMiner(user Address) {
 
 // dstChain, miner
 func (p *processer) pRegisterMiner(t Transaction) {
+	version := p.pDbStat.GetInt([]byte{StatVersion})
+	assertMsg(version < VClosePOW, "DPOS mode")
+
 	miner := t.User
 	guerdon := p.pDbStat.GetInt([]byte{StatGuerdon})
 	assertMsg(t.Cost >= guerdon, "not enough cost")
@@ -1674,6 +1699,10 @@ func (p *processer) pVote(trans Transaction) {
 	if admin.Votes < totalVotes/1000 {
 		return
 	}
+
+	db := p.GetDB(statVote{})
+	key := append(user[:], addr[:]...)
+	db.SetValue(key, vote.Cost, TimeMonth)
 
 	var adminList [AdminNum]Address
 	p.pDbStat.GetValue([]byte{StatAdmin}, &adminList)
@@ -1861,6 +1890,7 @@ func (p *processer) pErrorBlock(user Address, data []byte) {
 // admin change the config
 func (p *processer) pConfig(user Address, cost uint64, data []byte) {
 	assertMsg(cost >= 100*maxGuerdon, "not enough cost")
+	p.adminTransfer(user, gPublicAddr, cost)
 	var ops uint8
 	var newSize uint64
 	ops = data[0]
@@ -1885,6 +1915,19 @@ func (p *processer) pConfig(user Address, cost uint64, data []byte) {
 	case StatBlockInterval:
 		min = minBlockInterval
 		max = maxBlockInterval
+	case StatVersion:
+		assert(p.Chain == 1)
+		old := p.pDbStat.GetInt([]byte{ops})
+		assert(newSize == old+1)
+		p.pDbStat.SetValue([]byte{ops}, newSize, maxDbLife)
+		p.Event(dbStat{}, "config", []byte{ops}, data[1:])
+		if p.LeftChildID > 0 {
+			p.addSyncInfo(2, SyncOpsVersion, p.Encode(0, newSize))
+		}
+		if p.RightChildID > 0 {
+			p.addSyncInfo(3, SyncOpsVersion, p.Encode(0, newSize))
+		}
+		return
 	default:
 		assert(false)
 	}
@@ -1899,8 +1942,7 @@ func (p *processer) pConfig(user Address, cost uint64, data []byte) {
 	assert(v >= min)
 	assert(v <= max)
 	p.pDbStat.SetValue([]byte{ops}, v, maxDbLife)
-	p.adminTransfer(user, gPublicAddr, cost)
-	p.Event(dbStat{}, "config", []byte{ops}, p.Encode(0, v))
+	p.Event(dbStat{}, "config", []byte{ops}, data[1:])
 }
 
 // ops of sync
@@ -1910,6 +1952,7 @@ const (
 	SyncOpsMiner
 	SyncOpsBroadcast
 	SyncOpsBroadcastAck
+	SyncOpsVersion
 )
 
 type syncHead struct {
@@ -1940,6 +1983,7 @@ func (p *processer) addSyncInfo(chain uint64, ops uint8, data []byte) {
 	if len(stream) > 0 {
 		p.Decode(0, stream, &p.sInfo)
 	}
+	assert(chain > 0)
 	var key []byte
 	switch chain {
 	case p.Chain / 2:
@@ -1948,9 +1992,15 @@ func (p *processer) addSyncInfo(chain uint64, ops uint8, data []byte) {
 	case 2 * p.Chain:
 		key = p.getSyncKey('l', p.sInfo.ToLeftChildID)
 		p.sInfo.ToLeftChildID++
+		if ops != SyncOpsNewChain {
+			assertMsg(p.LeftChildID > 0, ops)
+		}
 	case 2*p.Chain + 1:
 		key = p.getSyncKey('r', p.sInfo.ToRightChildID)
 		p.sInfo.ToRightChildID++
+		if ops != SyncOpsNewChain {
+			assertMsg(p.RightChildID > 0, ops)
+		}
 	default:
 		assert(false)
 	}
@@ -2133,5 +2183,16 @@ func (p *processer) syncInfo(from uint64, ops uint8, data []byte) {
 			}
 			p.Event(logSync{}, "SyncOpsBroadcastAck", d)
 		}
+	case SyncOpsVersion:
+		var version uint64
+		p.Decode(0, data, &version)
+		p.pDbStat.SetValue([]byte{ops}, version, maxDbLife)
+		if p.LeftChildID > 0 {
+			p.addSyncInfo(p.Chain*2, SyncOpsVersion, data)
+		}
+		if p.RightChildID > 0 {
+			p.addSyncInfo(p.Chain*2+1, SyncOpsVersion, data)
+		}
+		p.Event(dbStat{}, "config", []byte{StatVersion}, data)
 	}
 }
