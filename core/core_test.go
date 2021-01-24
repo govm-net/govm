@@ -58,17 +58,17 @@ func TestMain(m *testing.M) {
 
 	// miner.Key = wallet.NewPrivateKey()
 	miner.Key = wallet.GetHash([]byte("miner"))
-	pubK := wallet.GetPublicKey(miner.Key)
+	pubK := wallet.GetPublicKey(miner.Key, wallet.EAddrTypeDefault)
 	miner.Address = wallet.PublicKeyToAddress(pubK, wallet.EAddrTypeDefault)
 
 	// admin.Key = wallet.NewPrivateKey()
 	admin.Key = wallet.GetHash([]byte("admin"))
-	pubK1 := wallet.GetPublicKey(admin.Key)
+	pubK1 := wallet.GetPublicKey(admin.Key, wallet.EAddrTypeDefault)
 	admin.Address = wallet.PublicKeyToAddress(pubK1, wallet.EAddrTypeDefault)
 
 	// admin.Key = wallet.NewPrivateKey()
 	admin2.Key = wallet.GetHash([]byte("admin2"))
-	pubK2 := wallet.GetPublicKey(admin2.Key)
+	pubK2 := wallet.GetPublicKey(admin2.Key, wallet.EAddrTypeDefault)
 	admin2.Address = wallet.PublicKeyToAddress(pubK2, wallet.EAddrTypeDefault)
 	firstAdmins = append(firstAdmins, hex.EncodeToString(admin2.Address))
 
@@ -174,7 +174,7 @@ func transfer(src, cost uint64, peer []byte) []byte {
 }
 
 func move(src, dst, cost uint64, privK []byte) []byte {
-	pubK := wallet.GetPublicKey(privK)
+	pubK := wallet.GetPublicKey(privK, wallet.EAddrTypeDefault)
 	addr := wallet.PublicKeyToAddress(pubK, wallet.EAddrTypeDefault)
 	cAddr := Address{}
 	runtime.Decode(addr, &cAddr)
@@ -195,7 +195,7 @@ func firstBlock(chain uint64) error {
 	t := time.Date(2019, 1, 1, 22, 30, 1, 1, time.UTC)
 
 	privKey := wallet.NewPrivateKey()
-	pubK := wallet.GetPublicKey(privKey)
+	pubK := wallet.GetPublicKey(privKey, wallet.EAddrTypeDefault)
 	address := wallet.PublicKeyToAddress(pubK, wallet.EAddrTypeDefault)
 
 	cAddr := Address{}
@@ -256,7 +256,7 @@ func TestFirstBlock(t *testing.T) {
 func TestTransfer(t *testing.T) {
 	log.Println("testing start", t.Name())
 	privK := wallet.NewPrivateKey()
-	pubK := wallet.GetPublicKey(privK)
+	pubK := wallet.GetPublicKey(privK, wallet.EAddrTypeDefault)
 	addr := wallet.PublicKeyToAddress(pubK, wallet.EAddrTypeDefault)
 
 	var cost uint64
@@ -300,7 +300,7 @@ func TestNewChain(t *testing.T) {
 func TestMove(t *testing.T) {
 	log.Println("testing start", t.Name())
 	privK := wallet.NewPrivateKey()
-	pubK := wallet.GetPublicKey(privK)
+	pubK := wallet.GetPublicKey(privK, wallet.EAddrTypeDefault)
 	addr := wallet.PublicKeyToAddress(pubK, wallet.EAddrTypeDefault)
 
 	var cost uint64
@@ -382,7 +382,7 @@ func TestNewApp1(t *testing.T) {
 	// run app
 	{
 		privK := wallet.NewPrivateKey()
-		pubK := wallet.GetPublicKey(privK)
+		pubK := wallet.GetPublicKey(privK, wallet.EAddrTypeDefault)
 		addr := wallet.PublicKeyToAddress(pubK, wallet.EAddrTypeDefault)
 
 		list := make([]byte, 0)
@@ -499,7 +499,7 @@ func TestNewApp2(t *testing.T) {
 	// run app: write
 	for i = 1; i <= 2; i++ {
 		privK := wallet.NewPrivateKey()
-		pubK := wallet.GetPublicKey(privK)
+		pubK := wallet.GetPublicKey(privK, wallet.EAddrTypeDefault)
 		addr := wallet.PublicKeyToAddress(pubK, wallet.EAddrTypeDefault)
 
 		runtime.AdminDbSet(dbCoin{}, i, cAddr[:], runtime.Encode(cost), maxDbLife)
@@ -535,7 +535,7 @@ func TestNewApp2(t *testing.T) {
 			dInfo.Other = 2
 		}
 		privK := wallet.NewPrivateKey()
-		pubK := wallet.GetPublicKey(privK)
+		pubK := wallet.GetPublicKey(privK, wallet.EAddrTypeDefault)
 		addr := wallet.PublicKeyToAddress(pubK, wallet.EAddrTypeDefault)
 
 		runtime.AdminDbSet(dbCoin{}, i, cAddr[:], runtime.Encode(cost), maxDbLife)
@@ -596,7 +596,7 @@ func TestNewApp2(t *testing.T) {
 			dInfo.Other = 2
 		}
 		privK := wallet.NewPrivateKey()
-		pubK := wallet.GetPublicKey(privK)
+		pubK := wallet.GetPublicKey(privK, wallet.EAddrTypeDefault)
 		addr := wallet.PublicKeyToAddress(pubK, wallet.EAddrTypeDefault)
 
 		runtime.AdminDbSet(dbCoin{}, i, cAddr[:], runtime.Encode(cost), maxDbLife)
@@ -863,4 +863,11 @@ func TestGetHashOfTransList(t *testing.T) {
 	if h6.Empty() {
 		t.Error("get empty hash")
 	}
+}
+
+func TestBlockInfo(t *testing.T) {
+	// addr := Address{}
+	block := new(StBlock)
+	signData := block.GetSignData()
+	t.Error("block sign data len:", len(signData))
 }

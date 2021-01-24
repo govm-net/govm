@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/govm-net/govm/conf"
 	core "github.com/govm-net/govm/core"
 	"github.com/govm-net/govm/event"
 	"github.com/govm-net/govm/messages"
@@ -20,10 +19,9 @@ import (
 // InternalPlugin process p2p message
 type InternalPlugin struct {
 	libp2p.Plugin
-	network   libp2p.Network
-	mu        sync.Mutex
-	reconn    map[string]string
-	blackList map[core.Address]bool
+	network libp2p.Network
+	mu      sync.Mutex
+	reconn  map[string]string
 }
 
 const (
@@ -38,14 +36,6 @@ func (p *InternalPlugin) Startup(n libp2p.Network) {
 	Init()
 	p.network = n
 	p.reconn = make(map[string]string)
-	p.blackList = make(map[core.Address]bool)
-	c := conf.GetConf()
-	for _, v := range c.BlackList {
-		log.Println("black:", v)
-		var addr core.Address
-		addr.Decode(v)
-		p.blackList[addr] = true
-	}
 	event.RegisterConsumer(p.event)
 	time.AfterFunc(time.Minute*2, p.timeout)
 }

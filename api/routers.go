@@ -55,10 +55,6 @@ func NewRouter() *mux.Router {
 			Name(route.Name).
 			Handler(handler)
 	}
-	for _, route := range wsRoutes {
-		router.Handle(route.Pattern, websocket.Handler(route.HandlerFunc))
-	}
-	// http.Handle("/readWrite", websocket.Handler(WSBlockForMining))
 
 	router.Methods("GET").Path("/api/v1/").Name("Index").HandlerFunc(Index)
 	router.Handle("/debug/vars", Logger(expvar.Handler(), "expvar"))
@@ -82,10 +78,6 @@ func NewPrivateRouter() *mux.Router {
 			Name(route.Name).
 			Handler(handler)
 	}
-	for _, route := range wsRoutes {
-		router.Handle(route.Pattern, websocket.Handler(route.HandlerFunc))
-	}
-
 	router.Methods("GET").Path("/api/v1/").Name("Index").HandlerFunc(Index)
 	router.Methods("GET").Name("static").Handler(http.FileServer(http.Dir("./static/")))
 
@@ -165,6 +157,13 @@ var routes = Routes{
 	},
 
 	Route{
+		"DataPost",
+		strings.ToUpper("Post"),
+		"/api/v1/{chain}/data",
+		DataPost,
+	},
+
+	Route{
 		"HashPowerGet",
 		strings.ToUpper("Get"),
 		"/api/v1/{chain}/hashpower",
@@ -200,6 +199,13 @@ var routes = Routes{
 	},
 
 	Route{
+		"TransactionNew",
+		strings.ToUpper("Post"),
+		"/api/v1/{chain}/transaction/new",
+		TransactionNew,
+	},
+
+	Route{
 		"NodesGet",
 		strings.ToUpper("Get"),
 		"/api/v1/nodes",
@@ -229,14 +235,6 @@ var routes = Routes{
 		strings.ToUpper("Get"),
 		"/api/v1/chains",
 		ChainsGet,
-	},
-}
-
-var wsRoutes = WSRoutes{
-	WSRoute{
-		"blockForMining",
-		"/api/v1/{chain}/ws/mining",
-		WSBlockForMining,
 	},
 }
 
