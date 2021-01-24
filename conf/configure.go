@@ -14,32 +14,27 @@ import (
 
 // TConfig config of app
 type TConfig struct {
-	ServerHost      string   `json:"server_host,omitempty"`
-	HTTPPort        int      `json:"http_port,omitempty"`
-	PrivateAddress  string   `json:"private_address,omitempty"`
-	DbAddrType      string   `json:"db_addr_type,omitempty"`
-	DbServerAddr    string   `json:"db_server_addr,omitempty"`
-	CorePackName    []byte   `json:"core_pack_name,omitempty"`
-	WalletAddr      []byte   `json:"wallet_addr,omitempty"`
-	SignPrefix      []byte   `json:"sign_prefix,omitempty"`
-	PrivateKey      []byte   `json:"private_key,omitempty"`
-	Password        string   `json:"password,omitempty"`
-	WalletFile      string   `json:"wallet_file,omitempty"`
-	SaveLog         bool     `json:"save_log,omitempty"`
-	IdentifyingCode bool     `json:"identifying_code,omitempty"`
-	TrustedServer   string   `json:"trusted_server,omitempty"`
-	CheckBlock      bool     `json:"check_block,omitempty"`
-	AutoRollback    bool     `json:"auto_rollback,omitempty"`
-	SaveNodeInfo    bool     `json:"save_node_info,omitempty"`
-	NetID           string   `json:"net_id,omitempty"`
-	OneConnPerMiner bool     `json:"one_conn_per_miner,omitempty"`
-	MinerConnLimit  int      `json:"miner_conn_limit,omitempty"`
-	VerifyNetData   bool     `json:"verify_net_data,omitempty"`
-	SafeEnvironment bool     `json:"safe_environment,omitempty"`
-	RestfulLog      bool     `json:"restful_log,omitempty"`
-	TLSCertFile     string   `json:"tls_cert_file,omitempty"`
-	TLSKeyFile      string   `json:"tls_key_file,omitempty"`
-	BlackList       []string `json:"black_list,omitempty"`
+	ServerHost     string `json:"server_host,omitempty"`
+	HTTPPort       int    `json:"http_port,omitempty"`
+	PrivateAddress string `json:"private_address,omitempty"`
+	DbAddrType     string `json:"db_addr_type,omitempty"`
+	DbServerAddr   string `json:"db_server_addr,omitempty"`
+	CorePackName   []byte `json:"core_pack_name,omitempty"`
+	WalletAddr     []byte `json:"wallet_addr,omitempty"`
+	SignPrefix     []byte `json:"sign_prefix,omitempty"`
+	PrivateKey     []byte `json:"private_key,omitempty"`
+	Password       string `json:"password,omitempty"`
+	WalletFile     string `json:"wallet_file,omitempty"`
+	SaveLog        bool   `json:"save_log,omitempty"`
+	TrustedServer  string `json:"trusted_server,omitempty"`
+	CheckBlock     bool   `json:"check_block,omitempty"`
+	AutoRollback   bool   `json:"auto_rollback,omitempty"`
+	SaveNodeInfo   bool   `json:"save_node_info,omitempty"`
+	NetID          string `json:"net_id,omitempty"`
+	VerifyNetData  bool   `json:"verify_net_data,omitempty"`
+	RestfulLog     bool   `json:"restful_log,omitempty"`
+	TLSCertFile    string `json:"tls_cert_file,omitempty"`
+	TLSKeyFile     string `json:"tls_key_file,omitempty"`
 }
 
 var (

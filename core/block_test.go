@@ -1,11 +1,12 @@
 package zff0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
 
 import (
-	"github.com/govm-net/govm/runtime"
-	"github.com/govm-net/govm/wallet"
 	"log"
 	"testing"
 	"time"
+
+	"github.com/govm-net/govm/runtime"
+	"github.com/govm-net/govm/wallet"
 )
 
 func TestDecodeBlock(t *testing.T) {
@@ -13,7 +14,7 @@ func TestDecodeBlock(t *testing.T) {
 	transList[0] = Hash{1, 2, 1, 2, 1, 2, 1, 2}
 	transList[1] = Hash{2, 1, 2, 1, 2, 1, 2, 1, 2}
 	privateKey := runtime.GetHash([]byte("123456"))
-	pubKey := wallet.GetPublicKey(privateKey)
+	pubKey := wallet.GetPublicKey(privateKey, 1)
 	stream := wallet.PublicKeyToAddress(pubKey, 1)
 	address := Address{}
 	runtime.Decode(stream, &address)
@@ -37,7 +38,7 @@ func TestMineBlock(t *testing.T) {
 
 	tm := uint64(time.Now().Unix() * 1000)
 	parentPriv := wallet.NewPrivateKey()
-	parentPubK := wallet.GetPublicKey(parentPriv)
+	parentPubK := wallet.GetPublicKey(parentPriv, wallet.EAddrTypeIBS)
 	address := wallet.PublicKeyToAddress(parentPubK, wallet.EAddrTypeIBS)
 	childPriv, signPri := wallet.NewChildPrivateKeyOfIBS(parentPriv, tm)
 

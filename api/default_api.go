@@ -1231,7 +1231,7 @@ type NodeInfo struct {
 func NodeAddressGet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
-	info := NodeInfo{handler.SelfAddress, minerNum, handler.NodesCount}
+	info := NodeInfo{handler.SelfAddress, 0, handler.NodesCount}
 	enc := json.NewEncoder(w)
 	enc.Encode(info)
 }
