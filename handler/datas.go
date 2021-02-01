@@ -477,6 +477,7 @@ func setBlockForMining(chain uint64, block core.StBlock) {
 	msg.Chain = chain
 	msg.Data = data
 	event.Send(msg)
+	doMining(chain)
 }
 
 func setBlockProducer(chain, index uint64, producer core.Address) {

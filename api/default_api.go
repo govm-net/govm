@@ -95,7 +95,15 @@ func TransactionNew(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "error:%s", err)
 		return
 	}
+	// w.WriteHeader(http.StatusOK)
+	info := RespOfNewTrans{}
+	info.TransKey = hex.EncodeToString(key)
+	info.Chain = chain
+
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
+	enc := json.NewEncoder(w)
+	enc.Encode(info)
 }
 
 // TransMoveInfo move info
@@ -1254,10 +1262,10 @@ func VersionGet(w http.ResponseWriter, r *http.Request) {
 
 // CryptoInfo crypto info
 type CryptoInfo struct {
-	Owner   string
-	Sign    string
-	Message string
-	HexMsg  bool
+	Owner   string `json:"owner,omitempty"`
+	Sign    string `json:"sign,omitempty"`
+	Message string `json:"message,omitempty"`
+	HexMsg  bool   `json:"hex_msg,omitempty"`
 }
 
 // CryptoSign crypto:sign message
@@ -1347,7 +1355,14 @@ func CryptoCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rst := wallet.Recover([]byte(info.Owner), sign, msg)
+	addr, err := hex.DecodeString(info.Owner)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintln(w, "fail to DecodeString sign,", err)
+		return
+	}
+
+	rst := wallet.Recover(addr, sign, msg)
 	if !rst {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
