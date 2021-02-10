@@ -97,34 +97,18 @@ func doMining(chain uint64) {
 		return
 	}
 
-	old := GetBlockForMining(chain)
-	if old != nil {
-		if old.Index > 2 && old.Time > getCoreTimeNow() {
+	block := GetBlockForMining(chain)
+	if block == nil {
+		block = core.NewBlock(chain, myAddr)
+		if block == nil {
 			return
 		}
 	}
-
-	block := core.NewBlock(chain, myAddr)
-	if block == nil {
-		return
-	}
+	block.Producer = myAddr
 
 	var count = getCountOfLast10Blocks(chain, block.Index, block.Producer)
 	if count > 2 {
 		return
-	}
-
-	info := popTransInfo(chain)
-	if info != nil {
-		pushTransInfo(chain, info)
-		if info.Ops != core.OpsRunApp {
-			err := core.CheckTransaction(chain, info.Key[:])
-			if err == nil {
-				core.WriteTransList(1, []core.Hash{info.Key})
-				SaveTransList(chain, info.Key[:], []core.Hash{info.Key})
-				block.TransListHash = info.Key
-			}
-		}
 	}
 
 	for {
@@ -163,7 +147,6 @@ func doMining(chain uint64) {
 			chain, rel.Index, rel.HashPower, block.HashpowerLimit, rel.Key)
 		break
 	}
-
 }
 
 // GetMyHashPower get my average hashpower

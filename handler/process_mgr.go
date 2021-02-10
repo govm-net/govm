@@ -391,7 +391,7 @@ func processEvent(chain uint64) {
 		SaveBlockReliability(chain, relia.Key[:], relia)
 		core.DeleteBlock(chain, relia.Key[:])
 		if n < candidateBlocksLimit*2/3 && relia.Time+2*tMinute > now {
-			doMining(chain)
+			// doMining(chain)
 			go newBlockForMining(chain)
 		}
 		return
@@ -416,7 +416,7 @@ func processEvent(chain uint64) {
 	}
 
 	if relia.Time+2*tMinute > now {
-		doMining(chain)
+		// doMining(chain)
 		go newBlockForMining(chain)
 	}
 

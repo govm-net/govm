@@ -148,5 +148,8 @@ function getBaseByName(name) {
 }
 
 function getValueWithBase(v, name) {
+    if (v === undefined){
+        return 0
+    }
     return Math.floor((v / getBaseByName(name)) * 1000) / 1000
 }

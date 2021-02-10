@@ -164,8 +164,7 @@ func getPublicByRecover(sign, msgH []byte) []byte {
 		return nil
 	}
 	if !wasCompressed {
-		log.Println(wasCompressed)
-		return nil
+		return pk.SerializeUncompressed()
 	}
 	return pk.SerializeCompressed()
 }
@@ -180,27 +179,50 @@ func bytesToUint64(data []byte) uint64 {
 	return t
 }
 
+func keccak256(data []byte) []byte {
+	d := sha3.NewLegacyKeccak256()
+	d.Write(data)
+	return d.Sum(nil)
+}
+
 // Recover 通过签名信息，提取钱包地址
 func Recover(address, sign, msg []byte) bool {
-	msgH := GetHash(msg)
 	//log.Printf("recover length:%d,hash:%x\n", len(msg), msgH)
 	publicKey := []byte{}
 	switch address[0] {
-	case EAddrTypeDefault:
+	case EAddrEthereum:
 		if len(sign) != SignLen {
+			log.Println("error sign len:", len(sign))
 			return false
 		}
+		s := make([]byte, len(sign))
+		s[0] = sign[SignLen-1]
+		copy(s[1:], sign)
+		h1 := keccak256(msg)
+		signData := append([]byte("\x19Ethereum Signed Message:\n32"), h1...)
+		msgH := keccak256(signData)
+		publicKey = getPublicByRecover(s, msgH)
+	case EAddrTypeDefault:
+		if len(sign) != SignLen {
+			log.Println("error sign len:", len(sign))
+			return false
+		}
+		msgH := GetHash(msg)
 		publicKey = getPublicByRecover(sign, msgH)
 	case EAddrTypeIBS:
 		if len(sign)%SignLen != 0 {
+			log.Println("error sign len:", len(sign))
 			return false
 		}
 		if len(sign)/SignLen != 2 {
+			log.Println("error sign len:", len(sign))
 			return false
 		}
 		if len(msg) <= 8 {
+			log.Println("error msg len:", len(msg))
 			return false
 		}
+		msgH := GetHash(msg)
 		s1 := sign[0:SignLen]
 		s2 := sign[SignLen:]
 		// log.Println("Recover signPri:", hex.EncodeToString(s1))
