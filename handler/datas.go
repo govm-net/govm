@@ -326,11 +326,8 @@ func (r *TReliability) Recalculation(chain uint64) {
 	hp := getHashPower(r.Key[:]) * 10
 	for i, it := range admins {
 		if it == r.Producer {
-			id := r.Index % core.AdminNum
-			if id < uint64(i) {
-				id += core.AdminNum
-			}
-			hp = id - uint64(i) + 50
+			id := (r.Index - uint64(i)) % core.AdminNum
+			hp = 3*id + 100
 			r.Admin = true
 			break
 		}
